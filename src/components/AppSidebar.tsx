@@ -13,6 +13,7 @@ import { currentUser } from '@/lib/mock-data';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
 import { PatenteBadge } from './PatenteBadge';
 import { useState } from 'react';
+import logoWhite from '@/assets/logo-grupo-new-white.png';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
@@ -35,6 +36,11 @@ export function AppSidebar() {
         collapsed ? 'w-[72px]' : 'w-64'
       }`}
     >
+      {/* Logo */}
+      <div className={`flex items-center justify-center py-4 border-b border-sidebar-border ${collapsed ? 'px-2' : 'px-4'}`}>
+        <img src={logoWhite} alt="Grupo New" className={`transition-all duration-300 ${collapsed ? 'h-8' : 'h-10'} opacity-90`} />
+      </div>
+
       {/* Profile Widget */}
       <div className={`p-4 border-b border-sidebar-border ${collapsed ? 'px-3' : ''}`}>
         <div className="flex items-center gap-3">
