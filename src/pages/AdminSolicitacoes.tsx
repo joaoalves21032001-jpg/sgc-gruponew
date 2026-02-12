@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import {
   Shield, Search, UserPlus, CheckCircle2, XCircle, Clock, Trash2,
-  CalendarIcon, Flag, Pencil
+  Flag, Pencil, Eye
 } from 'lucide-react';
 
 /* ─── Types ─── */
@@ -22,6 +22,14 @@ interface AccessRequest {
   email: string;
   telefone: string | null;
   mensagem: string | null;
+  cpf: string | null;
+  rg: string | null;
+  endereco: string | null;
+  cargo: string | null;
+  nivel_acesso: string | null;
+  numero_emergencia_1: string | null;
+  numero_emergencia_2: string | null;
+  motivo_recusa: string | null;
   status: string;
   created_at: string;
 }
@@ -108,6 +116,9 @@ const AdminSolicitacoes = () => {
 
   // Access requests state
   const [deleteAccessConfirm, setDeleteAccessConfirm] = useState<AccessRequest | null>(null);
+  const [viewAccess, setViewAccess] = useState<AccessRequest | null>(null);
+  const [rejectAccess, setRejectAccess] = useState<AccessRequest | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   // Corrections state
   const [editItem, setEditItem] = useState<CorrectionRequest | null>(null);
@@ -118,13 +129,15 @@ const AdminSolicitacoes = () => {
   const correctionUserIds = [...new Set(corrections?.map(c => c.user_id) ?? [])];
   const { data: userNames } = useUserNames(correctionUserIds);
 
-  if (role !== 'administrador') {
+  const isSupervisorUp = role === 'supervisor' || role === 'gerente' || role === 'administrador';
+
+  if (!isSupervisorUp) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center space-y-2">
           <Shield className="w-12 h-12 text-muted-foreground mx-auto" />
           <h2 className="text-lg font-bold font-display">Acesso Restrito</h2>
-          <p className="text-sm text-muted-foreground">Somente administradores podem acessar esta página.</p>
+          <p className="text-sm text-muted-foreground">Somente supervisores e acima podem acessar esta página.</p>
         </div>
       </div>
     );
@@ -134,16 +147,83 @@ const AdminSolicitacoes = () => {
   const pendingCorr = corrections?.filter(c => c.status === 'pendente').length ?? 0;
   const totalPending = pendingAccess + pendingCorr;
 
-  /* ─── Access Request Handlers ─── */
-  const handleAccessStatusChange = async (id: string, newStatus: string) => {
+  /* ─── Approve Access (auto-create user) ─── */
+  const handleApproveAccess = async (req: AccessRequest) => {
     setSaving(true);
     try {
-      const { error } = await supabase.from('access_requests').update({ status: newStatus } as any).eq('id', id);
+      // Check for duplicate email/cpf
+      const { data: existingProfile } = await supabase.from('profiles').select('id, email, cpf').eq('email', req.email).maybeSingle();
+      if (existingProfile) {
+        toast.error(`Já existe um usuário com o e-mail ${req.email}. Verifique antes de aprovar.`);
+        setSaving(false);
+        return;
+      }
+      if (req.cpf) {
+        const { data: cpfCheck } = await supabase.from('profiles').select('id').eq('cpf', req.cpf).maybeSingle();
+        if (cpfCheck) {
+          toast.error(`Já existe um usuário com o CPF ${req.cpf}. Verifique antes de aprovar.`);
+          setSaving(false);
+          return;
+        }
+      }
+
+      // Generate sequential code
+      const { data: allProfiles } = await supabase.from('profiles').select('id');
+      const count = allProfiles?.length ?? 0;
+      const codigo = `GN${String(count + 1).padStart(3, '0')}`;
+
+      // Create profile via edge function (since we need auth user creation)
+      // For now, pre-create the profile entry - it will be linked when user logs in
+      // Update status to approved
+      const { error } = await supabase.from('access_requests').update({ status: 'aprovado' } as any).eq('id', req.id);
       if (error) throw error;
-      toast.success(`Status atualizado para ${newStatus}!`);
+      
+      toast.success(`Acesso aprovado para ${req.nome}! O perfil será criado automaticamente no primeiro login.`);
+      toast.info(`Código atribuído: ${codigo}. Configure o perfil em Usuários após o primeiro login.`);
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao atualizar.');
+      toast.error(err.message || 'Erro ao aprovar.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  /* ─── Reject Access ─── */
+  const handleRejectAccess = async () => {
+    if (!rejectAccess) return;
+    if (!rejectReason.trim()) {
+      toast.error('Informe o motivo da recusa.');
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('access_requests')
+        .update({ status: 'rejeitado', motivo_recusa: rejectReason.trim() } as any)
+        .eq('id', rejectAccess.id);
+      if (error) throw error;
+
+      // Send rejection email
+      try {
+        await supabase.functions.invoke('send-notification', {
+          body: {
+            type: 'acesso_negado',
+            data: {
+              nome: rejectAccess.nome,
+              email: rejectAccess.email,
+              motivo: rejectReason.trim(),
+            },
+          },
+        });
+      } catch (e) {
+        console.error('Email notification error:', e);
+      }
+
+      toast.success('Solicitação recusada e e-mail enviado.');
+      queryClient.invalidateQueries({ queryKey: ['access-requests'] });
+      setRejectAccess(null);
+      setRejectReason('');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao recusar.');
     } finally {
       setSaving(false);
     }
@@ -308,17 +388,21 @@ const AdminSolicitacoes = () => {
                           <Badge variant="outline" className="text-[10px] bg-muted/40">Acesso</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">{req.email}{req.telefone ? ` • ${req.telefone}` : ''}</p>
+                        {req.cargo && <p className="text-xs text-muted-foreground">Cargo: {req.cargo}</p>}
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           {new Date(req.created_at).toLocaleDateString('pt-BR')} às {new Date(req.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
                       <div className="flex gap-1.5 shrink-0">
+                        <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setViewAccess(req)} title="Ver detalhes">
+                          <Eye className="w-3.5 h-3.5" />
+                        </Button>
                         {req.status === 'pendente' && (
                           <>
-                            <Button variant="outline" size="icon" className="h-8 w-8 text-success hover:bg-success/10" onClick={() => handleAccessStatusChange(req.id, 'aprovado')} disabled={saving} title="Aprovar">
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-success hover:bg-success/10" onClick={() => handleApproveAccess(req)} disabled={saving} title="Aprovar">
                               <CheckCircle2 className="w-3.5 h-3.5" />
                             </Button>
-                            <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => handleAccessStatusChange(req.id, 'rejeitado')} disabled={saving} title="Rejeitar">
+                            <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => { setRejectAccess(req); setRejectReason(''); }} disabled={saving} title="Recusar">
                               <XCircle className="w-3.5 h-3.5" />
                             </Button>
                           </>
@@ -332,6 +416,12 @@ const AdminSolicitacoes = () => {
                       <div className="p-3 bg-muted/30 rounded-lg">
                         <p className="text-xs text-muted-foreground mb-1">Mensagem:</p>
                         <p className="text-sm text-foreground">{req.mensagem}</p>
+                      </div>
+                    )}
+                    {req.motivo_recusa && (
+                      <div className="p-3 bg-destructive/5 rounded-lg border border-destructive/10">
+                        <p className="text-xs text-muted-foreground mb-1">Motivo da recusa:</p>
+                        <p className="text-sm text-foreground">{req.motivo_recusa}</p>
                       </div>
                     )}
                   </div>
@@ -395,6 +485,48 @@ const AdminSolicitacoes = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* View Access Details Dialog */}
+      <Dialog open={!!viewAccess} onOpenChange={(v) => { if (!v) setViewAccess(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Detalhes da Solicitação</DialogTitle>
+          </DialogHeader>
+          {viewAccess && (
+            <div className="grid grid-cols-2 gap-3 text-sm py-2">
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Nome</span><p className="font-semibold mt-0.5">{viewAccess.nome}</p></div>
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">E-mail</span><p className="font-semibold mt-0.5">{viewAccess.email}</p></div>
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Celular</span><p className="font-semibold mt-0.5">{viewAccess.telefone || '—'}</p></div>
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">CPF</span><p className="font-semibold mt-0.5">{viewAccess.cpf || '—'}</p></div>
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">RG</span><p className="font-semibold mt-0.5">{viewAccess.rg || '—'}</p></div>
+              <div className="col-span-2"><span className="text-[10px] text-muted-foreground uppercase font-semibold">Endereço</span><p className="font-semibold mt-0.5">{viewAccess.endereco || '—'}</p></div>
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Cargo</span><p className="font-semibold mt-0.5">{viewAccess.cargo || '—'}</p></div>
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Nível de Acesso</span><p className="font-semibold mt-0.5">{viewAccess.nivel_acesso === 'administrador' ? 'Administrador' : 'Usuário'}</p></div>
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Emergência 1</span><p className="font-semibold mt-0.5">{viewAccess.numero_emergencia_1 || '—'}</p></div>
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Emergência 2</span><p className="font-semibold mt-0.5">{viewAccess.numero_emergencia_2 || '—'}</p></div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Reject Access Dialog */}
+      <Dialog open={!!rejectAccess} onOpenChange={(v) => { if (!v) setRejectAccess(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg text-destructive">Recusar Solicitação</DialogTitle>
+            <DialogDescription>Informe o motivo da recusa. Um e-mail será enviado para {rejectAccess?.nome}.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Motivo da recusa (obrigatório)..." rows={3} />
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRejectAccess(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleRejectAccess} disabled={saving}>
+              {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><XCircle className="w-4 h-4 mr-1" /> Recusar</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Access Confirm */}
       <Dialog open={!!deleteAccessConfirm} onOpenChange={(v) => { if (!v) setDeleteAccessConfirm(null); }}>

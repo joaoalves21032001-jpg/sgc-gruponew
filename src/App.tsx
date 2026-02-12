@@ -16,11 +16,33 @@ import AdminSolicitacoes from "./pages/AdminSolicitacoes";
 import MinhasAcoes from "./pages/MinhasAcoes";
 import Aprovacoes from "./pages/Aprovacoes";
 import NotFound from "./pages/NotFound";
+import { Shield, UserPlus } from "lucide-react";
+import { Button } from "./components/ui/button";
 
 const queryClient = new QueryClient();
 
+function NoAccessScreen() {
+  const { signOut } = useAuth();
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background p-6">
+      <div className="text-center space-y-4 max-w-md">
+        <Shield className="w-16 h-16 text-muted-foreground mx-auto" />
+        <h2 className="text-2xl font-bold font-display text-foreground">Acesso não autorizado</h2>
+        <p className="text-sm text-muted-foreground">
+          Sua conta ainda não possui acesso ao sistema. Solicite acesso ao administrador na tela de login.
+        </p>
+        <div className="flex gap-3 justify-center">
+          <Button variant="outline" onClick={signOut}>
+            Voltar ao Login
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, mfaVerified, needsMfa, setMfaVerified } = useAuth();
+  const { user, loading, mfaVerified, needsMfa, setMfaVerified, hasProfile } = useAuth();
   
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -29,6 +51,20 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
   
   if (!user) return <Navigate to="/login" replace />;
+
+  // Check if user has a profile (is authorized)
+  if (hasProfile === false) {
+    return <NoAccessScreen />;
+  }
+
+  // Still checking profile
+  if (hasProfile === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    );
+  }
   
   if (needsMfa && !mfaVerified) {
     return <MfaSetup onVerified={() => setMfaVerified(true)} />;
@@ -38,9 +74,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, mfaVerified, needsMfa } = useAuth();
+  const { user, loading, mfaVerified, needsMfa, hasProfile } = useAuth();
   if (loading) return null;
-  if (user && (!needsMfa || mfaVerified)) return <Navigate to="/" replace />;
+  if (user && hasProfile === true && (!needsMfa || mfaVerified)) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 

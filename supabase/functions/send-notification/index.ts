@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface NotificationPayload {
-  type: "atividade_registrada" | "venda_registrada" | "venda_status_atualizado" | "novo_usuario" | "acesso_solicitado";
+  type: "atividade_registrada" | "venda_registrada" | "venda_status_atualizado" | "novo_usuario" | "acesso_solicitado" | "acesso_negado";
   data: Record<string, any>;
 }
 
@@ -205,6 +205,24 @@ serve(async (req) => {
             ${telefone ? `<tr style="background: #f3f4f6;"><td style="padding: 10px 12px; font-size: 13px; color: #6b7280;">Telefone</td><td style="padding: 10px 12px; font-size: 13px; font-weight: 600; text-align: right;">${telefone}</td></tr>` : ''}
           </table>
           ${mensagem ? `<div style="margin-top: 16px; padding: 12px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;"><p style="font-size: 13px; color: #1e40af; margin: 0;"><strong>Mensagem:</strong> ${mensagem}</p></div>` : ''}
+        `);
+        break;
+      }
+
+      case "acesso_negado": {
+        const { nome, email, motivo } = data;
+        recipients = [email];
+        subject = `Solicitação de Acesso Negado`;
+        html = emailTemplate("Solicitação de Acesso Negado", `
+          <p style="color: #374151; font-size: 14px; line-height: 1.6;">
+            Olá <strong>${nome}</strong>,
+          </p>
+          <p style="color: #374151; font-size: 14px; line-height: 1.6;">
+            Sua solicitação de acesso ao sistema SGC foi negada.
+          </p>
+          <div style="margin-top: 16px; padding: 16px; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">
+            <p style="font-size: 14px; color: #991b1b; margin: 0;">${motivo}</p>
+          </div>
         `);
         break;
       }
