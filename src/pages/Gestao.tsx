@@ -3,7 +3,9 @@ import { Users, AlertTriangle, TrendingUp, CheckCircle2, X, Filter, BarChart3, T
 import { StatCard } from '@/components/StatCard';
 import { PatenteBadge } from '@/components/PatenteBadge';
 import { FlagRiscoBadge } from '@/components/FlagRiscoBadge';
-import { consultores, vendas, type Venda } from '@/lib/mock-data';
+import { useTeamProfiles } from '@/hooks/useProfile';
+import { useTeamVendas, useUpdateVendaStatus, type Venda } from '@/hooks/useVendas';
+import { useTeamAtividades } from '@/hooks/useAtividades';
 import { getFlagRisco, getPatente } from '@/lib/gamification';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,8 +13,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { useMemo } from 'react';
 
 const statusColors: Record<string, string> = {
   analise: 'bg-primary/10 text-primary border-primary/20',
@@ -22,19 +26,44 @@ const statusColors: Record<string, string> = {
 };
 
 const Gestao = () => {
+  const { data: profiles, isLoading: loadingProfiles } = useTeamProfiles();
+  const { data: vendas = [], isLoading: loadingVendas } = useTeamVendas();
+  const { data: atividades = [] } = useTeamAtividades();
+  const updateStatus = useUpdateVendaStatus();
   const [selectedVenda, setSelectedVenda] = useState<Venda | null>(null);
   const [obs, setObs] = useState('');
   const [filtroConsultor, setFiltroConsultor] = useState<string>('todos');
   const [filtroPeriodo, setFiltroPeriodo] = useState<string>('mes');
 
-  const riskConsultores = consultores.filter(c => getFlagRisco(c.percentMeta, c.mesesAbaixo) !== null);
+  const consultores = profiles ?? [];
+
+  // Aggregate atividades per user
+  const userStats = useMemo(() => {
+    const map: Record<string, { ligacoes: number; mensagens: number; cotacoes_enviadas: number; cotacoes_fechadas: number; follow_up: number; faturamento: number }> = {};
+    for (const a of atividades) {
+      if (!map[a.user_id]) map[a.user_id] = { ligacoes: 0, mensagens: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0, follow_up: 0, faturamento: 0 };
+      map[a.user_id].ligacoes += a.ligacoes;
+      map[a.user_id].mensagens += a.mensagens;
+      map[a.user_id].cotacoes_enviadas += a.cotacoes_enviadas;
+      map[a.user_id].cotacoes_fechadas += a.cotacoes_fechadas;
+      map[a.user_id].follow_up += a.follow_up;
+    }
+    for (const v of vendas) {
+      if (v.status === 'aprovado') {
+        if (!map[v.user_id]) map[v.user_id] = { ligacoes: 0, mensagens: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0, follow_up: 0, faturamento: 0 };
+        map[v.user_id].faturamento += v.valor ?? 0;
+      }
+    }
+    return map;
+  }, [atividades, vendas]);
+
   const totalVidas = vendas.reduce((sum, v) => sum + v.vidas, 0);
-  const totalFaturamento = consultores.reduce((sum, c) => sum + c.faturamento, 0);
-  const metaEquipe = consultores.reduce((sum, c) => sum + c.meta_faturamento, 0);
+  const totalFaturamento = Object.values(userStats).reduce((sum, s) => sum + s.faturamento, 0);
+  const metaEquipe = consultores.reduce((sum, c) => sum + (c.meta_faturamento ?? 75000), 0);
   const percentMetaEquipe = metaEquipe > 0 ? Math.round((totalFaturamento / metaEquipe) * 100) : 0;
-  const totalLigacoes = consultores.reduce((sum, c) => sum + c.ligacoes, 0);
-  const totalCotEnviadas = consultores.reduce((sum, c) => sum + c.cotacoes_enviadas, 0);
-  const totalCotFechadas = consultores.reduce((sum, c) => sum + c.cotacoes_fechadas, 0);
+  const totalLigacoes = Object.values(userStats).reduce((sum, s) => sum + s.ligacoes, 0);
+  const totalCotEnviadas = Object.values(userStats).reduce((sum, s) => sum + s.cotacoes_enviadas, 0);
+  const totalCotFechadas = Object.values(userStats).reduce((sum, s) => sum + s.cotacoes_fechadas, 0);
   const taxaConversaoEquipe = totalCotEnviadas > 0 ? Math.round((totalCotFechadas / totalCotEnviadas) * 100) : 0;
 
   const kanbanColumns = [
@@ -43,32 +72,54 @@ const Gestao = () => {
     { status: 'aprovado', label: 'Aprovado', items: vendas.filter(v => v.status === 'aprovado') },
   ];
 
-  // Ranking por faturamento
-  const ranking = [...consultores].sort((a, b) => b.percentMeta - a.percentMeta);
+  const ranking = useMemo(() => {
+    return consultores.map(c => {
+      const stats = userStats[c.id] ?? { ligacoes: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0, faturamento: 0, mensagens: 0, follow_up: 0 };
+      const percentMeta = (c.meta_faturamento ?? 75000) > 0 ? Math.round((stats.faturamento / (c.meta_faturamento ?? 75000)) * 100) : 0;
+      return { ...c, stats, percentMeta };
+    }).sort((a, b) => b.percentMeta - a.percentMeta);
+  }, [consultores, userStats]);
 
-  // Mock evolução mensal
-  const evolucaoData = [
-    { mes: 'Set', faturamento: 380, meta: 525 },
-    { mes: 'Out', faturamento: 420, meta: 525 },
-    { mes: 'Nov', faturamento: 490, meta: 525 },
-    { mes: 'Dez', faturamento: 510, meta: 525 },
-    { mes: 'Jan', faturamento: 545, meta: 525 },
-    { mes: 'Fev', faturamento: Math.round(totalFaturamento / 1000), meta: Math.round(metaEquipe / 1000) },
-  ];
+  const riskConsultores = ranking.filter(c => c.percentMeta < 80);
 
-  // Comparação por consultor
-  const comparativoData = consultores.map(c => ({
-    nome: c.apelido,
-    faturamento: Math.round(c.faturamento / 1000),
-    meta: Math.round(c.meta_faturamento / 1000),
-    conversao: c.cotacoes_enviadas > 0 ? Math.round((c.cotacoes_fechadas / c.cotacoes_enviadas) * 100) : 0,
+  const comparativoData = ranking.map(c => ({
+    nome: c.apelido || c.nome_completo.split(' ')[0],
+    faturamento: Math.round(c.stats.faturamento / 1000),
+    meta: Math.round((c.meta_faturamento ?? 75000) / 1000),
+    conversao: c.stats.cotacoes_enviadas > 0 ? Math.round((c.stats.cotacoes_fechadas / c.stats.cotacoes_enviadas) * 100) : 0,
   }));
 
-  const handleAction = (action: string) => {
-    toast.success(`Venda ${action} com sucesso!`);
-    setSelectedVenda(null);
-    setObs('');
+  const getConsultorName = (userId: string) => {
+    const p = consultores.find(c => c.id === userId);
+    return p?.apelido || p?.nome_completo?.split(' ')[0] || '—';
   };
+
+  const handleAction = async (action: string) => {
+    if (!selectedVenda) return;
+    try {
+      await updateStatus.mutateAsync({
+        id: selectedVenda.id,
+        status: action === 'aprovada' ? 'aprovado' : 'recusado',
+        observacoes: obs,
+      });
+      toast.success(`Venda ${action} com sucesso!`);
+      setSelectedVenda(null);
+      setObs('');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao atualizar venda.');
+    }
+  };
+
+  if (loadingProfiles || loadingVendas) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -97,7 +148,7 @@ const Gestao = () => {
             <SelectContent>
               <SelectItem value="todos">Todos Consultores</SelectItem>
               {consultores.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.apelido}</SelectItem>
+                <SelectItem key={c.id} value={c.id}>{c.apelido || c.nome_completo}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -138,7 +189,7 @@ const Gestao = () => {
             <Phone className="w-4 h-4 text-primary" />
           </div>
           <p className="text-2xl font-bold font-display text-foreground">{totalLigacoes}</p>
-          <p className="text-xs text-muted-foreground mt-1">Média: {Math.round(totalLigacoes / consultores.length)} por consultor</p>
+          <p className="text-xs text-muted-foreground mt-1">Média: {consultores.length > 0 ? Math.round(totalLigacoes / consultores.length) : 0} por consultor</p>
         </div>
         <div className="bg-card rounded-2xl p-4 shadow-card border border-border/40">
           <div className="flex items-center justify-between mb-1">
@@ -152,24 +203,6 @@ const Gestao = () => {
 
       {/* Gráficos */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Evolução Mensal */}
-        <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
-          <h3 className="text-sm font-semibold text-foreground mb-4 font-display flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-primary" /> Evolução Mensal (R$ mil)
-          </h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={evolucaoData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(214 20% 88%)" />
-              <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="hsl(215 16% 47%)" />
-              <YAxis tick={{ fontSize: 11 }} stroke="hsl(215 16% 47%)" />
-              <Tooltip contentStyle={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(214 20% 88%)', borderRadius: '8px', fontSize: '12px' }} />
-              <Line type="monotone" dataKey="faturamento" name="Faturamento" stroke="hsl(194, 53%, 26%)" strokeWidth={2.5} dot={{ r: 4 }} />
-              <Line type="monotone" dataKey="meta" name="Meta" stroke="hsl(93, 53%, 51%)" strokeWidth={2} strokeDasharray="5 5" dot={false} />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Comparativo por Consultor */}
         <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
           <h3 className="text-sm font-semibold text-foreground mb-4 font-display flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-primary" /> Faturamento por Consultor (R$ mil)
@@ -185,6 +218,20 @@ const Gestao = () => {
             </BarChart>
           </ResponsiveContainer>
         </div>
+        <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
+          <h3 className="text-sm font-semibold text-foreground mb-4 font-display flex items-center gap-2">
+            <BarChart3 className="w-4 h-4 text-primary" /> Conversão por Consultor
+          </h3>
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart data={comparativoData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(214 20% 88%)" />
+              <XAxis dataKey="nome" tick={{ fontSize: 11 }} stroke="hsl(215 16% 47%)" />
+              <YAxis tick={{ fontSize: 11 }} stroke="hsl(215 16% 47%)" unit="%" />
+              <Tooltip contentStyle={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(214 20% 88%)', borderRadius: '8px', fontSize: '12px' }} />
+              <Bar dataKey="conversao" name="Conversão %" fill="hsl(93, 53%, 51%)" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
       </div>
 
       {/* Ranking Gamificado */}
@@ -195,7 +242,6 @@ const Gestao = () => {
         <div className="space-y-2">
           {ranking.map((c, idx) => {
             const patente = getPatente(c.percentMeta);
-            const flag = getFlagRisco(c.percentMeta, c.mesesAbaixo);
             return (
               <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-xl bg-background border border-border/30 hover:border-primary/20 transition-colors">
                 <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
@@ -207,13 +253,13 @@ const Gestao = () => {
                     {patente && <PatenteBadge percentMeta={c.percentMeta} size="sm" />}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
-                    <span>R$ {(c.faturamento / 1000).toFixed(1)}k</span>
+                    <span>R$ {(c.stats.faturamento / 1000).toFixed(1)}k</span>
                     <span>•</span>
                     <span>{c.percentMeta}% da meta</span>
                     <span>•</span>
-                    <span>{c.cotacoes_fechadas} vendas</span>
+                    <span>{c.stats.cotacoes_fechadas} vendas</span>
                     <span>•</span>
-                    <span>Conversão: {c.cotacoes_enviadas > 0 ? Math.round((c.cotacoes_fechadas / c.cotacoes_enviadas) * 100) : 0}%</span>
+                    <span>Conversão: {c.stats.cotacoes_enviadas > 0 ? Math.round((c.stats.cotacoes_fechadas / c.stats.cotacoes_enviadas) * 100) : 0}%</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -222,33 +268,12 @@ const Gestao = () => {
                   ) : (
                     <span className="flex items-center gap-1 text-xs font-medium text-destructive"><ArrowDownRight className="w-3.5 h-3.5" />{c.percentMeta}%</span>
                   )}
-                  {flag && <FlagRiscoBadge percentAtual={c.percentMeta} mesesAbaixo={c.mesesAbaixo} />}
                 </div>
               </div>
             );
           })}
         </div>
       </div>
-
-      {/* Matriz de Risco */}
-      {riskConsultores.length > 0 && (
-        <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
-          <h3 className="text-sm font-semibold text-foreground font-display flex items-center gap-2 mb-4">
-            <AlertTriangle className="w-4 h-4 text-warning" /> Matriz de Risco
-          </h3>
-          <div className="space-y-2">
-            {riskConsultores.map((c) => (
-              <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-xl bg-background border border-border/30">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">{c.nome_completo}</p>
-                  <p className="text-xs text-muted-foreground">{c.percentMeta}% da meta • {c.mesesAbaixo} mês(es) abaixo • Conversão: {c.cotacoes_enviadas > 0 ? Math.round((c.cotacoes_fechadas / c.cotacoes_enviadas) * 100) : 0}%</p>
-                </div>
-                <FlagRiscoBadge percentAtual={c.percentMeta} mesesAbaixo={c.mesesAbaixo} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Kanban */}
       <div>
@@ -270,7 +295,7 @@ const Gestao = () => {
                     className="bg-card rounded-xl p-4 shadow-card hover:shadow-card-hover transition-all cursor-pointer border border-border/40"
                   >
                     <p className="text-sm font-medium text-foreground">{v.nome_titular}</p>
-                    <p className="text-xs text-muted-foreground">{v.consultor_nome} • {v.modalidade}</p>
+                    <p className="text-xs text-muted-foreground">{getConsultorName(v.user_id)} • {v.modalidade}</p>
                     <div className="flex items-center justify-between mt-2">
                       <span className="text-xs text-muted-foreground">{v.vidas} vida(s)</span>
                       <span className="text-xs font-medium text-primary">{v.valor ? `R$ ${v.valor.toLocaleString('pt-BR')}` : ''}</span>
@@ -294,7 +319,7 @@ const Gestao = () => {
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div><span className="text-muted-foreground">Titular</span><p className="font-medium text-foreground">{selectedVenda.nome_titular}</p></div>
                 <div><span className="text-muted-foreground">Modalidade</span><p className="font-medium text-foreground">{selectedVenda.modalidade}</p></div>
-                <div><span className="text-muted-foreground">Consultor</span><p className="font-medium text-foreground">{selectedVenda.consultor_nome}</p></div>
+                <div><span className="text-muted-foreground">Consultor</span><p className="font-medium text-foreground">{getConsultorName(selectedVenda.user_id)}</p></div>
                 <div><span className="text-muted-foreground">Vidas</span><p className="font-medium text-foreground">{selectedVenda.vidas}</p></div>
                 {selectedVenda.valor && <div><span className="text-muted-foreground">Valor</span><p className="font-medium text-foreground">R$ {selectedVenda.valor.toLocaleString('pt-BR')}</p></div>}
               </div>
