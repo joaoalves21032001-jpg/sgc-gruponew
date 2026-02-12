@@ -1,15 +1,20 @@
 import { Phone, MessageSquare, FileText, CheckCircle2, DollarSign, Target, TrendingUp, RotateCcw } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
-import { useProfile } from '@/hooks/useProfile';
+import { useProfile, useUserRole } from '@/hooks/useProfile';
 import { useMyAtividades } from '@/hooks/useAtividades';
 import { useMyVendas } from '@/hooks/useVendas';
+import { PatenteBadge } from '@/components/PatenteBadge';
+import { getFraseMotivacional } from '@/lib/gamification';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMemo } from 'react';
 
 const Index = () => {
   const { data: profile } = useProfile();
+  const { data: role } = useUserRole();
   const { data: atividades } = useMyAtividades();
   const { data: vendas } = useMyVendas();
+
+  const isAdmin = role === 'administrador';
 
   const stats = useMemo(() => {
     if (!atividades) return { ligacoes: 0, mensagens: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0, follow_up: 0 };
@@ -31,6 +36,7 @@ const Index = () => {
 
   const metaFaturamento = profile?.meta_faturamento ?? 75000;
   const percentMeta = metaFaturamento > 0 ? Math.round((faturamento / metaFaturamento) * 100) : 0;
+  const frase = getFraseMotivacional(percentMeta);
 
   const activityData = useMemo(() => {
     if (!atividades || atividades.length === 0) return [];
@@ -47,12 +53,17 @@ const Index = () => {
     <div className="space-y-8 animate-fade-in-up">
       {/* Header */}
       <div>
-        <h1 className="text-[28px] font-bold font-display text-foreground leading-none">
-          {displayName ? `Olá, ${displayName}` : 'Meu Painel'}
-        </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-[28px] font-bold font-display text-foreground leading-none">
+            {displayName ? `Olá, ${displayName}` : 'Meu Painel'}
+          </h1>
+          {percentMeta >= 80 && <PatenteBadge percentMeta={percentMeta} size="md" />}
+        </div>
         <p className="text-sm text-muted-foreground mt-1">
           Resumo das suas atividades • {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
         </p>
+        {/* Motivational phrase for all users */}
+        <p className="text-xs text-muted-foreground/70 italic mt-2">{frase}</p>
       </div>
 
       {/* KPI Cards */}
@@ -78,9 +89,12 @@ const Index = () => {
             </div>
             <h3 className="text-sm font-semibold text-foreground font-display">Progresso da Meta</h3>
           </div>
-          <span className={`text-lg font-bold font-display ${percentMeta >= 100 ? 'text-success' : percentMeta >= 80 ? 'text-warning' : 'text-destructive'}`}>
-            {percentMeta}%
-          </span>
+          <div className="flex items-center gap-2">
+            {percentMeta >= 80 && <PatenteBadge percentMeta={percentMeta} size="sm" showLabel={false} />}
+            <span className={`text-lg font-bold font-display ${percentMeta >= 100 ? 'text-success' : percentMeta >= 80 ? 'text-warning' : 'text-destructive'}`}>
+              {percentMeta}%
+            </span>
+          </div>
         </div>
         <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
           <div
@@ -98,7 +112,6 @@ const Index = () => {
 
       {/* Chart + Mini Stats */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Chart */}
         {activityData.length > 0 && (
           <div className="lg:col-span-2 bg-card rounded-xl p-6 shadow-card border border-border/30">
             <h3 className="text-sm font-semibold text-foreground mb-5 font-display flex items-center gap-2.5">
@@ -128,7 +141,6 @@ const Index = () => {
           </div>
         )}
 
-        {/* Mini Stats */}
         <div className="space-y-4">
           <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
             <div className="flex items-center gap-2.5 mb-3">
