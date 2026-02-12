@@ -29,7 +29,7 @@ export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = 
   };
 
   return (
-    <div className={`rounded-xl p-5 shadow-card hover:shadow-card-hover transition-all duration-300 ${bgVariants[variant]}`}>
+    <div className={`rounded-2xl p-5 shadow-card hover:shadow-card-hover transition-all duration-300 border border-border/40 ${bgVariants[variant]}`}>
       <div className="flex items-start justify-between">
         <div>
           <p className={`text-xs font-medium uppercase tracking-wider ${subtitleVariants[variant]}`}>{title}</p>

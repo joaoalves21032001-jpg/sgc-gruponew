@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, AlertTriangle, TrendingUp, Eye, CheckCircle2, X } from 'lucide-react';
+import { Users, AlertTriangle, TrendingUp, CheckCircle2, X } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { PatenteBadge } from '@/components/PatenteBadge';
 import { FlagRiscoBadge } from '@/components/FlagRiscoBadge';
@@ -16,13 +16,6 @@ const statusColors: Record<string, string> = {
   pendente: 'bg-warning/10 text-warning border-warning/20',
   aprovado: 'bg-success/10 text-success border-success/20',
   recusado: 'bg-destructive/10 text-destructive border-destructive/20',
-};
-
-const statusLabels: Record<string, string> = {
-  analise: 'Em Análise',
-  pendente: 'Pendência',
-  aprovado: 'Aprovado',
-  recusado: 'Recusado',
 };
 
 const Gestao = () => {
@@ -49,11 +42,10 @@ const Gestao = () => {
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div>
-        <h1 className="text-2xl font-bold font-display text-foreground">Painel de Gestão</h1>
+        <h1 className="text-2xl font-bold font-display text-foreground tracking-tight">Painel de Gestão</h1>
         <p className="text-sm text-muted-foreground">Visão geral da equipe e vendas</p>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Consultores" value={consultores.length} icon={Users} />
         <StatCard title="Faturamento Equipe" value={`R$ ${(totalFaturamento / 1000).toFixed(0)}k`} subtitle={`Meta: R$ ${(metaEquipe / 1000).toFixed(0)}k`} icon={TrendingUp} variant="brand" />
@@ -61,18 +53,17 @@ const Gestao = () => {
         <StatCard title="Alertas de Risco" value={riskConsultores.length} icon={AlertTriangle} />
       </div>
 
-      {/* Matriz de Risco */}
       {riskConsultores.length > 0 && (
-        <div className="bg-card rounded-xl p-5 shadow-card">
+        <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
           <h3 className="text-sm font-semibold text-foreground font-display flex items-center gap-2 mb-4">
             <AlertTriangle className="w-4 h-4 text-warning" /> Matriz de Risco
           </h3>
           <div className="space-y-2">
             {riskConsultores.map((c) => (
-              <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-lg bg-background">
+              <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-xl bg-background border border-border/30">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-foreground">{c.nome_completo}</p>
-                  <p className="text-xs text-muted-foreground">{c.percentMeta}% da meta • {c.mesesAbaixo} mês(es) consecutivo(s)</p>
+                  <p className="text-xs text-muted-foreground">{c.percentMeta}% da meta • {c.mesesAbaixo} mês(es)</p>
                 </div>
                 <FlagRiscoBadge percentAtual={c.percentMeta} mesesAbaixo={c.mesesAbaixo} />
               </div>
@@ -81,7 +72,6 @@ const Gestao = () => {
         </div>
       )}
 
-      {/* Kanban */}
       <div>
         <h3 className="text-sm font-semibold text-foreground font-display mb-4">Kanban de Vendas</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -98,13 +88,13 @@ const Gestao = () => {
                   <div
                     key={v.id}
                     onClick={() => setSelectedVenda(v)}
-                    className="bg-card rounded-lg p-4 shadow-card hover:shadow-card-hover transition-all cursor-pointer border border-border"
+                    className="bg-card rounded-xl p-4 shadow-card hover:shadow-card-hover transition-all cursor-pointer border border-border/40"
                   >
                     <p className="text-sm font-medium text-foreground">{v.nome_titular}</p>
                     <p className="text-xs text-muted-foreground">{v.consultor_nome} • {v.modalidade}</p>
                     <div className="flex items-center justify-between mt-2">
                       <span className="text-xs text-muted-foreground">{v.vidas} vida(s)</span>
-                      <span className="text-xs text-muted-foreground">{v.created_at}</span>
+                      <span className="text-xs font-medium text-primary">{v.valor ? `R$ ${v.valor.toLocaleString('pt-BR')}` : ''}</span>
                     </div>
                   </div>
                 ))}
@@ -114,7 +104,6 @@ const Gestao = () => {
         </div>
       </div>
 
-      {/* Modal de Venda */}
       <Dialog open={!!selectedVenda} onOpenChange={() => setSelectedVenda(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -123,22 +112,11 @@ const Gestao = () => {
           {selectedVenda && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Titular</span>
-                  <p className="font-medium text-foreground">{selectedVenda.nome_titular}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Modalidade</span>
-                  <p className="font-medium text-foreground">{selectedVenda.modalidade}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Consultor</span>
-                  <p className="font-medium text-foreground">{selectedVenda.consultor_nome}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Vidas</span>
-                  <p className="font-medium text-foreground">{selectedVenda.vidas}</p>
-                </div>
+                <div><span className="text-muted-foreground">Titular</span><p className="font-medium text-foreground">{selectedVenda.nome_titular}</p></div>
+                <div><span className="text-muted-foreground">Modalidade</span><p className="font-medium text-foreground">{selectedVenda.modalidade}</p></div>
+                <div><span className="text-muted-foreground">Consultor</span><p className="font-medium text-foreground">{selectedVenda.consultor_nome}</p></div>
+                <div><span className="text-muted-foreground">Vidas</span><p className="font-medium text-foreground">{selectedVenda.vidas}</p></div>
+                {selectedVenda.valor && <div><span className="text-muted-foreground">Valor</span><p className="font-medium text-foreground">R$ {selectedVenda.valor.toLocaleString('pt-BR')}</p></div>}
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">Observações</label>

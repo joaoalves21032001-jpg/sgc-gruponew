@@ -17,7 +17,7 @@ const Index = () => {
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div>
-        <h1 className="text-2xl font-bold font-display text-foreground">Meu Painel</h1>
+        <h1 className="text-2xl font-bold font-display text-foreground tracking-tight">Meu Painel</h1>
         <p className="text-sm text-muted-foreground">
           Resumo das suas atividades • Fevereiro 2026
         </p>
@@ -38,7 +38,7 @@ const Index = () => {
       </div>
 
       {/* Progress toward meta */}
-      <div className="bg-card rounded-xl p-5 shadow-card border border-border/50">
+      <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-foreground font-display flex items-center gap-2">
             <Target className="w-4 h-4 text-primary" /> Progresso da Meta
@@ -60,7 +60,7 @@ const Index = () => {
       </div>
 
       {/* Activity Chart */}
-      <div className="bg-card rounded-xl p-5 shadow-card border border-border/50">
+      <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
         <h3 className="text-sm font-semibold text-foreground mb-4 font-display flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-primary" /> Minhas Atividades da Semana
         </h3>
@@ -85,7 +85,7 @@ const Index = () => {
 
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-card rounded-xl p-5 shadow-card border border-border/50">
+        <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
           <div className="flex items-center gap-2 mb-2">
             <MessageSquare className="w-4 h-4 text-primary" />
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Mensagens</span>
@@ -93,7 +93,7 @@ const Index = () => {
           <p className="text-2xl font-bold font-display text-foreground">{currentUser.mensagens}</p>
           <p className="text-xs text-muted-foreground mt-1">Enviadas este mês</p>
         </div>
-        <div className="bg-card rounded-xl p-5 shadow-card border border-border/50">
+        <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
           <div className="flex items-center gap-2 mb-2">
             <RotateCcw className="w-4 h-4 text-primary" />
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Follow-ups</span>
@@ -101,7 +101,7 @@ const Index = () => {
           <p className="text-2xl font-bold font-display text-foreground">{currentUser.follow_up}</p>
           <p className="text-xs text-muted-foreground mt-1">Realizados este mês</p>
         </div>
-        <div className="bg-card rounded-xl p-5 shadow-card border border-border/50">
+        <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
           <div className="flex items-center gap-2 mb-2">
             <Target className="w-4 h-4 text-primary" />
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Taxa de Conversão</span>
