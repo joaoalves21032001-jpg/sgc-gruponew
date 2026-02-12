@@ -8,12 +8,9 @@ export function maskCPF(value: string): string {
 }
 
 export function maskRG(value: string): string {
-  return value
-    .replace(/\D/g, '')
-    .slice(0, 10)
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d)/, '$1.$2')
-    .replace(/(\d{3})(\d{1})$/, '$1-$2');
+  // RG format varies by state: allow alphanumeric, flexible length (7-14 chars)
+  // Just clean and allow free-form entry
+  return value.replace(/[^a-zA-Z0-9.\-\/]/g, '').slice(0, 20);
 }
 
 export function maskPhone(value: string): string {

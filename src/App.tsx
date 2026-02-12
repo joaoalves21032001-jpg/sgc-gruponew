@@ -12,8 +12,9 @@ import Perfil from "./pages/Perfil";
 import Login from "./pages/Login";
 import MfaSetup from "./pages/MfaSetup";
 import AdminUsuarios from "./pages/AdminUsuarios";
-import AdminCorrecoes from "./pages/AdminCorrecoes";
 import AdminSolicitacoes from "./pages/AdminSolicitacoes";
+import MinhasAcoes from "./pages/MinhasAcoes";
+import Aprovacoes from "./pages/Aprovacoes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -55,10 +56,11 @@ const App = () => (
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Index />} />
               <Route path="/comercial" element={<Comercial />} />
+              <Route path="/minhas-acoes" element={<MinhasAcoes />} />
+              <Route path="/aprovacoes" element={<Aprovacoes />} />
               <Route path="/gestao" element={<Gestao />} />
               <Route path="/perfil" element={<Perfil />} />
               <Route path="/admin/usuarios" element={<AdminUsuarios />} />
-              <Route path="/admin/correcoes" element={<AdminCorrecoes />} />
               <Route path="/admin/solicitacoes" element={<AdminSolicitacoes />} />
             </Route>
             <Route path="*" element={<NotFound />} />

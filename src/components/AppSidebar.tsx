@@ -9,8 +9,9 @@ import {
   UserCircle,
   ChevronLeft,
   ChevronRight,
-  Flag,
   UserPlus,
+  ClipboardList,
+  CheckSquare,
 } from 'lucide-react';
 import { useProfile, useUserRole } from '@/hooks/useProfile';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
@@ -20,13 +21,16 @@ import { useAuth } from '@/contexts/AuthContext';
 import { HelpGuide } from './HelpGuide';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 
-const navItems = [
-  { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/comercial', icon: Briefcase, label: 'Comercial' },
-  { to: '/gestao', icon: BarChart3, label: 'Gestão', adminOnly: true },
-  { to: '/admin/usuarios', icon: UserCog, label: 'Usuários', adminOnly: true },
-  { to: '/admin/solicitacoes', icon: UserPlus, label: 'Solicitações', adminOnly: true },
-  { to: '/admin/correcoes', icon: Flag, label: 'Correções', adminOnly: true },
+type NavRole = 'all' | 'admin' | 'supervisor_up';
+
+const navItems: { to: string; icon: any; label: string; access: NavRole }[] = [
+  { to: '/', icon: LayoutDashboard, label: 'Meu Progresso', access: 'all' },
+  { to: '/comercial', icon: Briefcase, label: 'Registro de Atividades', access: 'all' },
+  { to: '/minhas-acoes', icon: ClipboardList, label: 'Minhas Ações', access: 'all' },
+  { to: '/aprovacoes', icon: CheckSquare, label: 'Aprovações', access: 'supervisor_up' },
+  { to: '/gestao', icon: BarChart3, label: 'Dashboard', access: 'admin' },
+  { to: '/admin/usuarios', icon: UserCog, label: 'Usuários', access: 'admin' },
+  { to: '/admin/solicitacoes', icon: UserPlus, label: 'Solicitações', access: 'admin' },
 ];
 
 export function AppSidebar() {
@@ -42,7 +46,15 @@ export function AppSidebar() {
   const patente = getPatente(percentMeta);
   const frase = getFraseMotivacional(percentMeta);
   const isAdmin = role === 'administrador';
+  const isSupervisorUp = role === 'supervisor' || role === 'gerente' || role === 'administrador';
   const borderClass = patente?.borderClass ?? 'border-sidebar-border';
+
+  const canAccess = (access: NavRole) => {
+    if (access === 'all') return true;
+    if (access === 'admin') return isAdmin;
+    if (access === 'supervisor_up') return isSupervisorUp;
+    return false;
+  };
 
   return (
     <aside
@@ -94,7 +106,7 @@ export function AppSidebar() {
       {/* Navigation */}
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
-          if ((item as any).adminOnly && !isAdmin) return null;
+          if (!canAccess(item.access)) return null;
           const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
           return (
             <NavLink

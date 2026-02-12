@@ -596,52 +596,6 @@ function AtividadesTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal Reportar Registro */}
-      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display text-lg">Reportar Registro Indevido</DialogTitle>
-            <DialogDescription>Selecione o tipo e o registro que deseja reportar ao administrador.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <FieldWithTooltip label="Tipo de Registro" tooltip="Escolha se o problema é em uma atividade ou venda." required>
-              <Select value={reportType} onValueChange={(v) => { setReportType(v as 'atividade' | 'venda'); setReportRegistroId(''); }}>
-                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="atividade">Atividade</SelectItem>
-                  <SelectItem value="venda">Venda</SelectItem>
-                </SelectContent>
-              </Select>
-            </FieldWithTooltip>
-            <FieldWithTooltip label="Registro" tooltip="Selecione o registro específico que está incorreto." required>
-              <Select value={reportRegistroId} onValueChange={setReportRegistroId}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  {reportType === 'atividade' && myAtividades?.map(a => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.data.split('-').reverse().join('/')} — Lig: {a.ligacoes}, Msg: {a.mensagens}
-                    </SelectItem>
-                  ))}
-                  {reportType === 'venda' && myVendas?.map(v => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.nome_titular} — {v.modalidade} ({v.status})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FieldWithTooltip>
-            <FieldWithTooltip label="Motivo" tooltip="Descreva o que está incorreto no registro e qual a correção necessária." required>
-              <Textarea value={reportMotivo} onChange={(e) => setReportMotivo(e.target.value)} placeholder="Descreva o problema..." rows={3} />
-            </FieldWithTooltip>
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setShowReportDialog(false)}>Cancelar</Button>
-            <Button onClick={handleReportSubmit} disabled={reportSaving || !reportRegistroId || !reportMotivo.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-              {reportSaving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Flag className="w-4 h-4 mr-1" /> Enviar Solicitação</>}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
