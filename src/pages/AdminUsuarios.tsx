@@ -47,10 +47,8 @@ function FieldWithTooltip({ label, tooltip, required, children }: { label: strin
 }
 
 const CARGOS = ['Consultor de Vendas', 'Supervisor', 'Gerente', 'Diretor'];
-const ROLES: Array<{ value: 'consultor' | 'supervisor' | 'gerente' | 'administrador'; label: string }> = [
-  { value: 'consultor', label: 'Consultor' },
-  { value: 'supervisor', label: 'Supervisor' },
-  { value: 'gerente', label: 'Gerente' },
+const ROLES: Array<{ value: 'consultor' | 'administrador'; label: string }> = [
+  { value: 'consultor', label: 'Usuário' },
   { value: 'administrador', label: 'Administrador' },
 ];
 
