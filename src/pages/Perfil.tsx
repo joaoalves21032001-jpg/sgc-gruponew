@@ -42,7 +42,7 @@ const Perfil = () => {
   const percentMeta = 0;
   const patente = getPatente(percentMeta);
   const frase = getFraseMotivacional(percentMeta);
-  const nivelLabel = role === 'administrador' ? 'Administrador' : role === 'gerente' ? 'Gerente' : role === 'supervisor' ? 'Supervisor' : 'Consultor';
+  const nivelLabel = role === 'administrador' ? 'Administrador' : 'Usuário';
 
   return (
     <div className="max-w-3xl space-y-6 animate-fade-in-up">
