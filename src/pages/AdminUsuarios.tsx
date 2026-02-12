@@ -21,11 +21,13 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { maskCPF, maskRG, maskPhone } from '@/lib/masks';
 import {
   UserPlus, Users, Mail, Phone, CreditCard, FileText,
-  MapPin, AlertTriangle, Shield, Building, Camera, Search, Info, Trash2
+  MapPin, AlertTriangle, Shield, Building, Camera, Search, Info, Trash2,
+  Ban, CheckCircle2, Plus
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Profile } from '@/hooks/useProfile';
@@ -89,7 +91,10 @@ const AdminUsuarios = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [deleteConfirm, setDeleteConfirm] = useState<Profile | null>(null);
+  const [disableConfirm, setDisableConfirm] = useState<Profile | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [toggling, setToggling] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'disabled'>('active');
   const queryClient = useQueryClient();
 
   if (role !== 'administrador') {
@@ -104,20 +109,18 @@ const AdminUsuarios = () => {
     );
   }
 
-  const supervisors = allProfiles?.filter(p => {
-    // profiles that have supervisor or gerente role - simplified check by cargo
-    return p.cargo?.toLowerCase().includes('supervisor');
-  }) ?? [];
+  const supervisors = allProfiles?.filter(p => p.cargo?.toLowerCase().includes('supervisor')) ?? [];
+  const gerentes = allProfiles?.filter(p => p.cargo?.toLowerCase().includes('gerente') || p.cargo?.toLowerCase().includes('diretor')) ?? [];
 
-  const gerentes = allProfiles?.filter(p => {
-    return p.cargo?.toLowerCase().includes('gerente') || p.cargo?.toLowerCase().includes('diretor');
+  const filtered = allProfiles?.filter(p => {
+    const matchesSearch = p.nome_completo.toLowerCase().includes(search.toLowerCase()) ||
+      p.email.toLowerCase().includes(search.toLowerCase()) ||
+      (p.codigo && p.codigo.toLowerCase().includes(search.toLowerCase()));
+    const isDisabled = (p as any).disabled === true;
+    if (filterStatus === 'active') return matchesSearch && !isDisabled;
+    if (filterStatus === 'disabled') return matchesSearch && isDisabled;
+    return matchesSearch;
   }) ?? [];
-
-  const filtered = allProfiles?.filter(p =>
-    p.nome_completo.toLowerCase().includes(search.toLowerCase()) ||
-    p.email.toLowerCase().includes(search.toLowerCase()) ||
-    (p.codigo && p.codigo.toLowerCase().includes(search.toLowerCase()))
-  ) ?? [];
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -129,6 +132,14 @@ const AdminUsuarios = () => {
 
   const setField = (key: keyof FormData, value: string) => {
     setForm(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleNew = () => {
+    setEditingId(null);
+    setForm({ ...emptyForm });
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setOpen(true);
   };
 
   const handleEdit = (profile: Profile) => {
@@ -143,7 +154,7 @@ const AdminUsuarios = () => {
       endereco: profile.endereco || '',
       cargo: profile.cargo,
       codigo: profile.codigo || '',
-      role: 'consultor', // will be fetched separately if needed
+      role: 'consultor',
       numero_emergencia_1: profile.numero_emergencia_1 || '',
       numero_emergencia_2: profile.numero_emergencia_2 || '',
       supervisor_id: profile.supervisor_id || 'none',
@@ -155,8 +166,12 @@ const AdminUsuarios = () => {
     setOpen(true);
   };
 
+  const generateCodigo = () => {
+    const count = allProfiles?.length ?? 0;
+    return `GN${String(count + 1).padStart(3, '0')}`;
+  };
+
   const handleSave = async () => {
-    // Validate required fields (excluding codigo which is auto-generated)
     const required: (keyof FormData)[] = [
       'email', 'nome_completo', 'apelido', 'celular', 'cpf', 'rg',
       'endereco', 'cargo', 'numero_emergencia_1', 'numero_emergencia_2',
@@ -171,15 +186,11 @@ const AdminUsuarios = () => {
     setSaving(true);
     try {
       let avatarUrl = avatarPreview;
-
-      // Auto-generate codigo if empty
       let codigo = form.codigo;
       if (!codigo.trim()) {
-        const count = allProfiles?.length ?? 0;
-        codigo = `GN${String(count + 1).padStart(3, '0')}`;
+        codigo = generateCodigo();
       }
 
-      // Upload avatar if new file
       if (avatarFile && editingId) {
         const ext = avatarFile.name.split('.').pop();
         const path = `${editingId}/avatar.${ext}`;
@@ -192,7 +203,6 @@ const AdminUsuarios = () => {
       }
 
       if (editingId) {
-        // Update existing profile
         const { error } = await supabase.from('profiles').update({
           nome_completo: form.nome_completo,
           apelido: form.apelido,
@@ -211,28 +221,21 @@ const AdminUsuarios = () => {
         }).eq('id', editingId);
 
         if (error) throw error;
-
-        // Update role
         await supabase.from('user_roles').update({ role: form.role }).eq('user_id', editingId);
-
         toast.success('Usuário atualizado com sucesso!');
-
-        // Notify about user update
-        try {
-          await supabase.functions.invoke('send-notification', {
-            body: {
-              type: 'novo_usuario',
-              data: { nome: form.nome_completo, email: form.email, cargo: form.cargo },
-            },
-          });
-        } catch (e) {
-          console.error('Notification error:', e);
-        }
       } else {
-        // For new users: the profile is auto-created via the trigger when they first sign in with Google.
-        // Admin pre-registers by creating a profile entry for the email.
-        // We'll insert into profiles with a temporary UUID that will be matched on first login.
-        toast.info('O perfil será criado automaticamente quando o usuário fizer login com o Google pela primeira vez. Atualize os dados após o primeiro login.');
+        toast.info('O perfil será criado automaticamente quando o usuário fizer login com o Google pela primeira vez. Os dados serão atualizados após o primeiro login.');
+      }
+
+      try {
+        await supabase.functions.invoke('send-notification', {
+          body: {
+            type: 'novo_usuario',
+            data: { nome: form.nome_completo, email: form.email, cargo: form.cargo },
+          },
+        });
+      } catch (e) {
+        console.error('Notification error:', e);
       }
 
       queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
@@ -247,24 +250,55 @@ const AdminUsuarios = () => {
     setSaving(false);
   };
 
+  const handleToggleDisable = async (profile: Profile) => {
+    setToggling(true);
+    try {
+      const isDisabled = (profile as any).disabled === true;
+      const { error } = await supabase.from('profiles').update({ disabled: !isDisabled } as any).eq('id', profile.id);
+      if (error) throw error;
+      toast.success(isDisabled ? 'Usuário reativado!' : 'Usuário desabilitado!');
+      queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
+      setDisableConfirm(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao alterar status.');
+    } finally {
+      setToggling(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Gerenciar Usuários</h1>
-          <p className="text-sm text-muted-foreground mt-1">Cadastre e edite os dados dos colaboradores</p>
+          <p className="text-sm text-muted-foreground mt-1">Cadastre, edite e gerencie os colaboradores</p>
         </div>
+        <Button onClick={handleNew} className="gap-1.5 font-semibold shadow-brand">
+          <Plus className="w-4 h-4" /> Novo Usuário
+        </Button>
       </div>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por nome, e-mail ou código..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10 h-11 bg-card border-border/40"
-        />
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, e-mail ou código..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 h-11 bg-card border-border/40"
+          />
+        </div>
+        <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as any)}>
+          <SelectTrigger className="w-[160px] h-11 border-border/40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="active">Ativos</SelectItem>
+            <SelectItem value="disabled">Desabilitados</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Users list */}
@@ -274,40 +308,57 @@ const AdminUsuarios = () => {
         ) : filtered.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">Nenhum usuário encontrado.</div>
         ) : (
-          filtered.map((p) => (
-            <div
-              key={p.id}
-              className="bg-card rounded-xl border border-border/30 shadow-card p-4 flex items-center gap-4 hover:shadow-card-hover transition-all"
-            >
-              <div onClick={() => handleEdit(p)} className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer">
-                <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
-                  {p.avatar_url ? (
-                    <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-primary font-bold text-sm">
-                      {p.nome_completo.charAt(0).toUpperCase()}
-                    </span>
-                  )}
+          filtered.map((p) => {
+            const isDisabled = (p as any).disabled === true;
+            return (
+              <div
+                key={p.id}
+                className={`bg-card rounded-xl border shadow-card p-4 flex items-center gap-4 hover:shadow-card-hover transition-all ${isDisabled ? 'border-destructive/20 opacity-60' : 'border-border/30'}`}
+              >
+                <div onClick={() => handleEdit(p)} className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer">
+                  <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                    {p.avatar_url ? (
+                      <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-primary font-bold text-sm">
+                        {p.nome_completo.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-foreground truncate">{p.nome_completo}</p>
+                      {isDisabled && <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive border-destructive/20">Desabilitado</Badge>}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{p.email}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-xs font-medium text-foreground">{p.cargo}</p>
+                    {p.codigo && <p className="text-[10px] text-muted-foreground font-mono">ID {p.codigo}</p>}
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground truncate">{p.nome_completo}</p>
-                  <p className="text-xs text-muted-foreground truncate">{p.email}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <p className="text-xs font-medium text-foreground">{p.cargo}</p>
-                  {p.codigo && <p className="text-[10px] text-muted-foreground font-mono">ID {p.codigo}</p>}
+                <div className="flex gap-1.5 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className={`h-8 w-8 ${isDisabled ? 'text-success hover:bg-success/10' : 'text-warning hover:bg-warning/10'}`}
+                    onClick={(e) => { e.stopPropagation(); setDisableConfirm(p); }}
+                    title={isDisabled ? 'Reativar' : 'Desabilitar'}
+                  >
+                    {isDisabled ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
+                    onClick={(e) => { e.stopPropagation(); setDeleteConfirm(p); }}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
-                onClick={(e) => { e.stopPropagation(); setDeleteConfirm(p); }}
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -380,7 +431,7 @@ const AdminUsuarios = () => {
                 <AlertTriangle className="w-3.5 h-3.5" /> Contatos de Emergência
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FieldWithTooltip label="Emergência 1" tooltip="Número de um contato de emergência (familiar ou próximo). Formato: +55 (11) 90000-0000." required>
+                <FieldWithTooltip label="Emergência 1" tooltip="Número de um contato de emergência (familiar ou próximo)." required>
                   <Input value={form.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
                 </FieldWithTooltip>
                 <FieldWithTooltip label="Emergência 2" tooltip="Segundo contato de emergência. Deve ser diferente do primeiro." required>
@@ -406,7 +457,7 @@ const AdminUsuarios = () => {
                     </SelectContent>
                   </Select>
                 </FieldWithTooltip>
-                <FieldWithTooltip label="Nível de Acesso" tooltip="Define as permissões do usuário: Consultor (básico), Supervisor (visualiza equipe), Gerente (gestão), Administrador (total)." required>
+                <FieldWithTooltip label="Nível de Acesso" tooltip="Usuário (básico) ou Administrador (total)." required>
                   <Select value={form.role} onValueChange={(v) => setField('role', v)}>
                     <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -414,10 +465,10 @@ const AdminUsuarios = () => {
                     </SelectContent>
                   </Select>
                 </FieldWithTooltip>
-                <FieldWithTooltip label="Meta Faturamento (R$)" tooltip="Meta mensal de faturamento do colaborador em reais. Usado para cálculo de desempenho e gamificação.">
+                <FieldWithTooltip label="Meta Faturamento (R$)" tooltip="Meta mensal de faturamento em reais.">
                   <Input type="number" value={form.meta_faturamento} onChange={(e) => setField('meta_faturamento', e.target.value)} className="h-10" />
                 </FieldWithTooltip>
-                <FieldWithTooltip label="Supervisor" tooltip="Supervisor direto do colaborador. Receberá notificações das atividades e vendas.">
+                <FieldWithTooltip label="Supervisor" tooltip="Supervisor direto do colaborador.">
                   <Select value={form.supervisor_id} onValueChange={(v) => setField('supervisor_id', v)}>
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                     <SelectContent>
@@ -426,7 +477,7 @@ const AdminUsuarios = () => {
                     </SelectContent>
                   </Select>
                 </FieldWithTooltip>
-                <FieldWithTooltip label="Gerente" tooltip="Gerente responsável pela equipe. Também receberá notificações de vendas e atividades.">
+                <FieldWithTooltip label="Gerente" tooltip="Gerente responsável pela equipe.">
                   <Select value={form.gerente_id} onValueChange={(v) => setField('gerente_id', v)}>
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                     <SelectContent>
@@ -449,13 +500,44 @@ const AdminUsuarios = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Disable/Enable Confirm */}
+      <Dialog open={!!disableConfirm} onOpenChange={(v) => { if (!v) setDisableConfirm(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">
+              {(disableConfirm as any)?.disabled ? 'Reativar Usuário' : 'Desabilitar Usuário'}
+            </DialogTitle>
+            <DialogDescription>
+              {(disableConfirm as any)?.disabled
+                ? `Deseja reativar ${disableConfirm?.nome_completo}? O usuário poderá acessar o sistema novamente.`
+                : `Deseja desabilitar ${disableConfirm?.nome_completo}? O usuário não poderá mais acessar o sistema, mas seus registros serão mantidos.`
+              }
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDisableConfirm(null)}>Cancelar</Button>
+            <Button
+              variant={(disableConfirm as any)?.disabled ? 'default' : 'destructive'}
+              disabled={toggling}
+              onClick={() => disableConfirm && handleToggleDisable(disableConfirm)}
+            >
+              {toggling ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
+                (disableConfirm as any)?.disabled
+                  ? <><CheckCircle2 className="w-4 h-4 mr-1" /> Reativar</>
+                  : <><Ban className="w-4 h-4 mr-1" /> Desabilitar</>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Delete User Confirmation */}
       <Dialog open={!!deleteConfirm} onOpenChange={(v) => { if (!v) setDeleteConfirm(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="font-display text-lg text-destructive">Excluir Usuário</DialogTitle>
+            <DialogTitle className="font-display text-lg text-destructive">Excluir Usuário Permanentemente</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir <strong>{deleteConfirm?.nome_completo}</strong>? Esta ação não pode ser desfeita.
+              Tem certeza que deseja excluir <strong>{deleteConfirm?.nome_completo}</strong>? Esta ação é irreversível e remove todos os registros. Considere desabilitar o usuário para manter o histórico.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
@@ -467,9 +549,7 @@ const AdminUsuarios = () => {
                 if (!deleteConfirm) return;
                 setDeleting(true);
                 try {
-                  // Delete profile first
                   const { error: profileError } = await supabase.from('profiles').delete().eq('id', deleteConfirm.id);
-                  // Try to delete auth user via edge function
                   try {
                     await supabase.functions.invoke('admin-delete-user', {
                       body: { user_id: deleteConfirm.id },
@@ -477,7 +557,6 @@ const AdminUsuarios = () => {
                   } catch (e) {
                     console.error('Auth delete error:', e);
                   }
-                  // Delete role
                   await supabase.from('user_roles').delete().eq('user_id', deleteConfirm.id);
                   toast.success('Usuário excluído!');
                   queryClient.invalidateQueries({ queryKey: ['team-profiles'] });

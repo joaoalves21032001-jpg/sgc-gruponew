@@ -13,6 +13,7 @@ import Login from "./pages/Login";
 import MfaSetup from "./pages/MfaSetup";
 import AdminUsuarios from "./pages/AdminUsuarios";
 import AdminCorrecoes from "./pages/AdminCorrecoes";
+import AdminSolicitacoes from "./pages/AdminSolicitacoes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,7 +29,6 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   
   if (!user) return <Navigate to="/login" replace />;
   
-  // Show MFA setup/verification if needed
   if (needsMfa && !mfaVerified) {
     return <MfaSetup onVerified={() => setMfaVerified(true)} />;
   }
@@ -59,6 +59,7 @@ const App = () => (
               <Route path="/perfil" element={<Perfil />} />
               <Route path="/admin/usuarios" element={<AdminUsuarios />} />
               <Route path="/admin/correcoes" element={<AdminCorrecoes />} />
+              <Route path="/admin/solicitacoes" element={<AdminSolicitacoes />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

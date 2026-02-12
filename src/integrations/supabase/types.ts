@@ -152,6 +152,7 @@ export type Database = {
           codigo: string | null
           cpf: string | null
           created_at: string
+          disabled: boolean
           email: string
           endereco: string | null
           gerente_id: string | null
@@ -172,6 +173,7 @@ export type Database = {
           codigo?: string | null
           cpf?: string | null
           created_at?: string
+          disabled?: boolean
           email: string
           endereco?: string | null
           gerente_id?: string | null
@@ -192,6 +194,7 @@ export type Database = {
           codigo?: string | null
           cpf?: string | null
           created_at?: string
+          disabled?: boolean
           email?: string
           endereco?: string | null
           gerente_id?: string | null
