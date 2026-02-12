@@ -243,11 +243,6 @@ function AtividadesTab() {
   const [bulkData, setBulkData] = useState<ParsedAtividade[]>([]);
   const [bulkJustificativas, setBulkJustificativas] = useState<Record<string, string>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
-  const [showReportDialog, setShowReportDialog] = useState(false);
-  const [reportType, setReportType] = useState<'atividade' | 'venda'>('atividade');
-  const [reportRegistroId, setReportRegistroId] = useState('');
-  const [reportMotivo, setReportMotivo] = useState('');
-  const [reportSaving, setReportSaving] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<AtividadesForm>({
     ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '',
@@ -356,30 +351,6 @@ function AtividadesTab() {
     }
   };
 
-  const handleReportSubmit = async () => {
-    if (!reportRegistroId || !reportMotivo.trim()) {
-      toast.error('Selecione um registro e informe o motivo.');
-      return;
-    }
-    setReportSaving(true);
-    try {
-      const { error } = await supabase.from('correction_requests').insert({
-        user_id: user!.id,
-        tipo: reportType,
-        registro_id: reportRegistroId,
-        motivo: reportMotivo.trim(),
-      } as any);
-      if (error) throw error;
-      toast.success('Solicitação de correção enviada ao administrador!');
-      setShowReportDialog(false);
-      setReportMotivo('');
-      setReportRegistroId('');
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao enviar solicitação.');
-    } finally {
-      setReportSaving(false);
-    }
-  };
 
   const update = (key: keyof AtividadesForm, value: string) => setForm(prev => ({ ...prev, [key]: value }));
 
@@ -466,13 +437,6 @@ function AtividadesTab() {
         </div>
       </div>
 
-      {/* ── Reportar Registro Indevido ── */}
-      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
-        <SectionHeader icon={Flag} title="Reportar Registro Indevido" subtitle="Notifique o administrador sobre um registro incorreto para correção" />
-        <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => setShowReportDialog(true)}>
-          <Flag className="w-3.5 h-3.5" /> Reportar Registro
-        </Button>
-      </div>
 
       {/* ── Hierarquia ── */}
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
@@ -1207,8 +1171,8 @@ const Comercial = () => {
   return (
     <div className="max-w-5xl space-y-6 animate-fade-in-up">
       <div>
-        <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Comercial</h1>
-        <p className="text-sm text-muted-foreground mt-1">Atividades diárias e vendas</p>
+        <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Registro de Atividades</h1>
+        <p className="text-sm text-muted-foreground mt-1">Atividades diárias e registro de vendas</p>
       </div>
 
       <Tabs defaultValue="atividades" className="space-y-6">
