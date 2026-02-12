@@ -5,8 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Shield, UserPlus } from 'lucide-react';
+import { Shield, UserPlus, Info } from 'lucide-react';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 import logo from '@/assets/logo-grupo-new.png';
 
@@ -184,19 +185,31 @@ const Login = () => {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome Completo *</label>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome Completo *</label>
+                <Tooltip><TooltipTrigger tabIndex={-1}><Info className="w-3 h-3 text-muted-foreground/50 hover:text-primary transition-colors" /></TooltipTrigger><TooltipContent className="max-w-[280px] text-xs">Seu nome completo para identificação no sistema.</TooltipContent></Tooltip>
+              </div>
               <Input value={requestForm.nome} onChange={(e) => setRequestForm({ ...requestForm, nome: e.target.value })} placeholder="Seu nome completo" className="h-11" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail *</label>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail *</label>
+                <Tooltip><TooltipTrigger tabIndex={-1}><Info className="w-3 h-3 text-muted-foreground/50 hover:text-primary transition-colors" /></TooltipTrigger><TooltipContent className="max-w-[280px] text-xs">E-mail Google que você usará para acessar o SGC.</TooltipContent></Tooltip>
+              </div>
               <Input type="email" value={requestForm.email} onChange={(e) => setRequestForm({ ...requestForm, email: e.target.value })} placeholder="seu.email@exemplo.com" className="h-11" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Telefone</label>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Telefone</label>
+                <Tooltip><TooltipTrigger tabIndex={-1}><Info className="w-3 h-3 text-muted-foreground/50 hover:text-primary transition-colors" /></TooltipTrigger><TooltipContent className="max-w-[280px] text-xs">Telefone para contato caso o administrador precise entrar em contato.</TooltipContent></Tooltip>
+              </div>
               <Input value={requestForm.telefone} onChange={(e) => setRequestForm({ ...requestForm, telefone: e.target.value })} placeholder="+55 (11) 90000-0000" className="h-11" />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mensagem (opcional)</label>
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mensagem (opcional)</label>
+                <Tooltip><TooltipTrigger tabIndex={-1}><Info className="w-3 h-3 text-muted-foreground/50 hover:text-primary transition-colors" /></TooltipTrigger><TooltipContent className="max-w-[280px] text-xs">Descreva o motivo da solicitação ou qualquer informação adicional.</TooltipContent></Tooltip>
+              </div>
               <Textarea value={requestForm.mensagem} onChange={(e) => setRequestForm({ ...requestForm, mensagem: e.target.value })} placeholder="Informe o motivo da solicitação..." rows={3} />
             </div>
           </div>
