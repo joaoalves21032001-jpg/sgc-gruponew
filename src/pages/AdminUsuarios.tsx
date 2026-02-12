@@ -17,14 +17,15 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogFooter,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { maskCPF, maskRG, maskPhone } from '@/lib/masks';
 import {
   UserPlus, Users, Mail, Phone, CreditCard, FileText,
-  MapPin, AlertTriangle, Shield, Building, Camera, Search, Info
+  MapPin, AlertTriangle, Shield, Building, Camera, Search, Info, Trash2
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Profile } from '@/hooks/useProfile';
@@ -87,6 +88,8 @@ const AdminUsuarios = () => {
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<Profile | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const queryClient = useQueryClient();
 
   if (role !== 'administrador') {
@@ -153,10 +156,10 @@ const AdminUsuarios = () => {
   };
 
   const handleSave = async () => {
-    // Validate required fields
+    // Validate required fields (excluding codigo which is auto-generated)
     const required: (keyof FormData)[] = [
       'email', 'nome_completo', 'apelido', 'celular', 'cpf', 'rg',
-      'endereco', 'cargo', 'codigo', 'numero_emergencia_1', 'numero_emergencia_2',
+      'endereco', 'cargo', 'numero_emergencia_1', 'numero_emergencia_2',
     ];
     for (const field of required) {
       if (!form[field]?.trim()) {
@@ -168,6 +171,13 @@ const AdminUsuarios = () => {
     setSaving(true);
     try {
       let avatarUrl = avatarPreview;
+
+      // Auto-generate codigo if empty
+      let codigo = form.codigo;
+      if (!codigo.trim()) {
+        const count = allProfiles?.length ?? 0;
+        codigo = `GN${String(count + 1).padStart(3, '0')}`;
+      }
 
       // Upload avatar if new file
       if (avatarFile && editingId) {
@@ -191,7 +201,7 @@ const AdminUsuarios = () => {
           rg: form.rg,
           endereco: form.endereco,
           cargo: form.cargo,
-          codigo: form.codigo,
+          codigo,
           numero_emergencia_1: form.numero_emergencia_1,
           numero_emergencia_2: form.numero_emergencia_2,
           supervisor_id: form.supervisor_id && form.supervisor_id !== 'none' ? form.supervisor_id : null,
@@ -267,26 +277,35 @@ const AdminUsuarios = () => {
           filtered.map((p) => (
             <div
               key={p.id}
-              onClick={() => handleEdit(p)}
-              className="bg-card rounded-xl border border-border/30 shadow-card p-4 flex items-center gap-4 cursor-pointer hover:shadow-card-hover transition-all"
+              className="bg-card rounded-xl border border-border/30 shadow-card p-4 flex items-center gap-4 hover:shadow-card-hover transition-all"
             >
-              <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
-                {p.avatar_url ? (
-                  <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-primary font-bold text-sm">
-                    {p.nome_completo.charAt(0).toUpperCase()}
-                  </span>
-                )}
+              <div onClick={() => handleEdit(p)} className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer">
+                <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">
+                  {p.avatar_url ? (
+                    <img src={p.avatar_url} alt="" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-primary font-bold text-sm">
+                      {p.nome_completo.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">{p.nome_completo}</p>
+                  <p className="text-xs text-muted-foreground truncate">{p.email}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="text-xs font-medium text-foreground">{p.cargo}</p>
+                  {p.codigo && <p className="text-[10px] text-muted-foreground font-mono">ID {p.codigo}</p>}
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground truncate">{p.nome_completo}</p>
-                <p className="text-xs text-muted-foreground truncate">{p.email}</p>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-xs font-medium text-foreground">{p.cargo}</p>
-                {p.codigo && <p className="text-[10px] text-muted-foreground font-mono">ID {p.codigo}</p>}
-              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
+                onClick={(e) => { e.stopPropagation(); setDeleteConfirm(p); }}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </Button>
             </div>
           ))
         )}
@@ -376,8 +395,8 @@ const AdminUsuarios = () => {
                 <Building className="w-3.5 h-3.5" /> Cargo & Hierarquia
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FieldWithTooltip label="ID/Código" tooltip="Código interno do colaborador na empresa. Ex: GN001." required>
-                  <Input value={form.codigo} onChange={(e) => setField('codigo', e.target.value)} className="h-10" />
+                <FieldWithTooltip label="ID/Código" tooltip="Gerado automaticamente pelo sistema. Ex: GN001.">
+                  <Input value={form.codigo} disabled placeholder="Gerado automaticamente" className="h-10 bg-muted/50" />
                 </FieldWithTooltip>
                 <FieldWithTooltip label="Cargo" tooltip="Cargo oficial do colaborador na empresa." required>
                   <Select value={form.cargo} onValueChange={(v) => setField('cargo', v)}>
@@ -427,6 +446,52 @@ const AdminUsuarios = () => {
               )}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Confirmation */}
+      <Dialog open={!!deleteConfirm} onOpenChange={(v) => { if (!v) setDeleteConfirm(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg text-destructive">Excluir Usuário</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir <strong>{deleteConfirm?.nome_completo}</strong>? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={deleting}
+              onClick={async () => {
+                if (!deleteConfirm) return;
+                setDeleting(true);
+                try {
+                  // Delete profile first
+                  const { error: profileError } = await supabase.from('profiles').delete().eq('id', deleteConfirm.id);
+                  // Try to delete auth user via edge function
+                  try {
+                    await supabase.functions.invoke('admin-delete-user', {
+                      body: { user_id: deleteConfirm.id },
+                    });
+                  } catch (e) {
+                    console.error('Auth delete error:', e);
+                  }
+                  // Delete role
+                  await supabase.from('user_roles').delete().eq('user_id', deleteConfirm.id);
+                  toast.success('Usuário excluído!');
+                  queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
+                  setDeleteConfirm(null);
+                } catch (err: any) {
+                  toast.error(err.message || 'Erro ao excluir usuário.');
+                } finally {
+                  setDeleting(false);
+                }
+              }}
+            >
+              {deleting ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Trash2 className="w-4 h-4 mr-1" /> Excluir</>}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

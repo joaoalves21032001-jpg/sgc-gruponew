@@ -211,7 +211,7 @@ function AtividadesTab() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
   const [bulkData, setBulkData] = useState<ParsedAtividade[]>([]);
-  const [bulkJustificativa, setBulkJustificativa] = useState('');
+  const [bulkJustificativas, setBulkJustificativas] = useState<Record<string, string>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [reportType, setReportType] = useState<'atividade' | 'venda'>('atividade');
@@ -226,11 +226,15 @@ function AtividadesTab() {
 
   const isRetroativo = !isToday(dataLancamento);
 
-  // Check if bulk import has past dates
-  const bulkHasPastDates = bulkData.some(row => {
-    const d = new Date(row.data + 'T12:00:00');
-    return isBefore(startOfDay(d), startOfDay(new Date()));
-  });
+  // Find which bulk dates are retroactive
+  const bulkPastDates = bulkData
+    .map(row => row.data)
+    .filter(d => {
+      const date = new Date(d + 'T12:00:00');
+      return isBefore(startOfDay(date), startOfDay(new Date()));
+    });
+  const bulkHasPastDates = bulkPastDates.length > 0;
+  const allBulkPastJustified = bulkPastDates.every(d => (bulkJustificativas[d] || '').trim().length > 0);
 
   const metrics: { key: keyof AtividadesForm; label: string; icon: React.ElementType; tooltip: string }[] = [
     { key: 'ligacoes', label: 'Ligações Realizadas', icon: Phone, tooltip: 'Total de ligações de prospecção e follow-up realizadas no dia selecionado.' },
@@ -288,7 +292,7 @@ function AtividadesTab() {
         return;
       }
       setBulkData(parsed);
-      setBulkJustificativa('');
+      setBulkJustificativas({});
       setShowBulkConfirm(true);
     };
     reader.readAsText(file, 'UTF-8');
@@ -296,8 +300,8 @@ function AtividadesTab() {
   };
 
   const confirmBulkSave = async () => {
-    if (bulkHasPastDates && !bulkJustificativa.trim()) {
-      toast.error('Justificativa obrigatória para datas retroativas.');
+    if (bulkHasPastDates && !allBulkPastJustified) {
+      toast.error('Justificativa obrigatória para cada data retroativa.');
       return;
     }
     setBulkSaving(true);
@@ -533,20 +537,25 @@ function AtividadesTab() {
                   <AlertCircle className="w-4 h-4 text-warning shrink-0" />
                   <p className="text-sm font-medium text-foreground">Datas retroativas detectadas</p>
                 </div>
-                <p className="text-xs text-muted-foreground">Justificativa obrigatória para registros com data anterior a hoje.</p>
-                <Textarea
-                  placeholder="Justifique o motivo do lançamento retroativo..."
-                  value={bulkJustificativa}
-                  onChange={(e) => setBulkJustificativa(e.target.value)}
-                  rows={3}
-                  className="border-warning/30 focus:border-warning"
-                />
+                <p className="text-xs text-muted-foreground">Justificativa obrigatória para cada data retroativa.</p>
+                {[...new Set(bulkPastDates)].map(dateStr => (
+                  <div key={dateStr} className="space-y-1">
+                    <label className="text-xs font-semibold text-foreground">📅 {dateStr.split('-').reverse().join('/')}</label>
+                    <Textarea
+                      placeholder={`Justifique o lançamento de ${dateStr.split('-').reverse().join('/')}...`}
+                      value={bulkJustificativas[dateStr] || ''}
+                      onChange={(e) => setBulkJustificativas(prev => ({ ...prev, [dateStr]: e.target.value }))}
+                      rows={2}
+                      className="border-warning/30 focus:border-warning"
+                    />
+                  </div>
+                ))}
               </div>
             )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => { setShowBulkConfirm(false); setBulkData([]); }}>Cancelar</Button>
-            <Button onClick={confirmBulkSave} disabled={bulkSaving || (bulkHasPastDates && !bulkJustificativa.trim())} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+            <Button onClick={confirmBulkSave} disabled={bulkSaving || (bulkHasPastDates && !allBulkPastJustified)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
               {bulkSaving ? (
                 <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
@@ -693,6 +702,7 @@ function NovaVendaTab() {
   const [showBulkVendas, setShowBulkVendas] = useState(false);
   const [bulkVendas, setBulkVendas] = useState<ParsedVenda[]>([]);
   const [bulkVendasSaving, setBulkVendasSaving] = useState(false);
+  const [bulkVendasDocs, setBulkVendasDocs] = useState<Record<number, Record<string, File | null>>>({});
 
   const isEmpresa = ['pme_1', 'pme_multi', 'empresarial_10'].includes(modalidade as string);
   const needsBeneficiarios = ['familiar', 'pme_multi', 'empresarial_10', 'adesao'].includes(modalidade as string);
@@ -759,27 +769,56 @@ function NovaVendaTab() {
         return;
       }
       setBulkVendas(parsed);
+      setBulkVendasDocs({});
       setShowBulkVendas(true);
     };
     reader.readAsText(file, 'UTF-8');
     if (uploadRefVendas.current) uploadRefVendas.current.value = '';
   };
 
+  const getBulkVendaRequiredDocs = (modalidade: string): string[] => {
+    const docs = ['Documento com foto', 'Comprovante de endereço'];
+    if (['PME Multi', 'Empresarial'].includes(modalidade)) {
+      docs.push('Numeração do CNPJ');
+    }
+    if (modalidade === 'Empresarial') {
+      docs.push('Comprovação de vínculo (FGTS/eSocial/CTPS/Holerite)');
+    }
+    return docs;
+  };
+
+  const allBulkVendasDocsUploaded = bulkVendas.every((v, i) => {
+    const requiredDocs = getBulkVendaRequiredDocs(v.modalidade);
+    return requiredDocs.every(d => bulkVendasDocs[i]?.[d]);
+  });
+
   const confirmBulkVendas = async () => {
+    if (!allBulkVendasDocsUploaded) {
+      toast.error('Faça upload de todos os documentos obrigatórios.');
+      return;
+    }
     setBulkVendasSaving(true);
     try {
-      for (const row of bulkVendas) {
-        await createVenda.mutateAsync({
+      for (let i = 0; i < bulkVendas.length; i++) {
+        const row = bulkVendas[i];
+        const venda = await createVenda.mutateAsync({
           nome_titular: row.nome_titular,
           modalidade: row.modalidade,
           vidas: row.vidas,
           valor: row.valor || undefined,
           observacoes: row.observacoes || undefined,
         });
+        // Upload docs for this venda
+        if (user && bulkVendasDocs[i]) {
+          for (const [label, file] of Object.entries(bulkVendasDocs[i])) {
+            if (file) await uploadVendaDocumento(venda.id, user.id, file, `Titular - ${label}`);
+          }
+        }
       }
       toast.success(`${bulkVendas.length} venda(s) importada(s) com sucesso!`);
       setShowBulkVendas(false);
       setBulkVendas([]);
+      setBulkVendasDocs({});
     } catch (err: any) {
       toast.error(err.message || 'Erro ao importar vendas.');
     } finally {
@@ -1098,27 +1137,48 @@ function NovaVendaTab() {
 
       {/* Modal de Importação em Massa - Vendas */}
       <Dialog open={showBulkVendas} onOpenChange={setShowBulkVendas}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-lg">Confirmar Importação de Vendas</DialogTitle>
-            <DialogDescription>Revise as {bulkVendas.length} venda(s) antes de confirmar.</DialogDescription>
+            <DialogDescription>Revise as {bulkVendas.length} venda(s) e faça upload dos documentos obrigatórios.</DialogDescription>
           </DialogHeader>
-          <div className="max-h-[50vh] overflow-y-auto space-y-3 py-2">
-            {bulkVendas.map((row, i) => (
-              <div key={i} className="p-3 bg-muted/30 rounded-lg border border-border/20 space-y-1">
-                <p className="text-xs font-bold text-foreground">{row.nome_titular}</p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
-                  <span className="text-muted-foreground">Modalidade: <strong className="text-foreground">{row.modalidade}</strong></span>
-                  <span className="text-muted-foreground">Vidas: <strong className="text-foreground">{row.vidas}</strong></span>
-                  <span className="text-muted-foreground">Valor: <strong className="text-foreground">{row.valor ? `R$ ${row.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}</strong></span>
-                  {row.observacoes && <span className="text-muted-foreground col-span-2">Obs: <strong className="text-foreground">{row.observacoes}</strong></span>}
+          <div className="space-y-4 py-2">
+            {bulkVendas.map((row, i) => {
+              const requiredDocs = getBulkVendaRequiredDocs(row.modalidade);
+              return (
+                <div key={i} className="p-4 bg-muted/30 rounded-lg border border-border/20 space-y-3">
+                  <div>
+                    <p className="text-sm font-bold text-foreground">{row.nome_titular}</p>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs mt-1">
+                      <span className="text-muted-foreground">Modalidade: <strong className="text-foreground">{row.modalidade}</strong></span>
+                      <span className="text-muted-foreground">Vidas: <strong className="text-foreground">{row.vidas}</strong></span>
+                      <span className="text-muted-foreground">Valor: <strong className="text-foreground">{row.valor ? `R$ ${row.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}</strong></span>
+                      {row.observacoes && <span className="text-muted-foreground col-span-2">Obs: <strong className="text-foreground">{row.observacoes}</strong></span>}
+                    </div>
+                  </div>
+                  <Separator className="bg-border/20" />
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Documentos Obrigatórios</p>
+                    {requiredDocs.map(docLabel => (
+                      <DocUploadRow
+                        key={docLabel}
+                        label={docLabel}
+                        required={true}
+                        file={bulkVendasDocs[i]?.[docLabel] || null}
+                        onUpload={(file) => setBulkVendasDocs(prev => ({
+                          ...prev,
+                          [i]: { ...(prev[i] || {}), [docLabel]: file }
+                        }))}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setShowBulkVendas(false); setBulkVendas([]); }}>Cancelar</Button>
-            <Button onClick={confirmBulkVendas} disabled={bulkVendasSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+            <Button variant="outline" onClick={() => { setShowBulkVendas(false); setBulkVendas([]); setBulkVendasDocs({}); }}>Cancelar</Button>
+            <Button onClick={confirmBulkVendas} disabled={bulkVendasSaving || !allBulkVendasDocsUploaded} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
               {bulkVendasSaving ? (
                 <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
