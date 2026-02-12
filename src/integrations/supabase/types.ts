@@ -83,6 +83,42 @@ export type Database = {
         }
         Relationships: []
       }
+      correction_requests: {
+        Row: {
+          admin_resposta: string | null
+          created_at: string
+          id: string
+          motivo: string
+          registro_id: string
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_resposta?: string | null
+          created_at?: string
+          id?: string
+          motivo: string
+          registro_id: string
+          status?: string
+          tipo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_resposta?: string | null
+          created_at?: string
+          id?: string
+          motivo?: string
+          registro_id?: string
+          status?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       mfa_trusted_devices: {
         Row: {
           created_at: string
