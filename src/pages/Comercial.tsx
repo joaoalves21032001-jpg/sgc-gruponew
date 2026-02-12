@@ -4,7 +4,8 @@ import { ptBR } from 'date-fns/locale';
 import {
   Phone, MessageSquare, FileText, CheckCircle2, RotateCcw, MapPin, Info, Save,
   ChevronRight, ChevronLeft, Upload, AlertCircle, CalendarIcon, DollarSign,
-  ClipboardList, ShoppingCart, FileUp, Trash2, Plus
+  ClipboardList, ShoppingCart, FileUp, Trash2, Plus, TrendingUp, Download,
+  Mail, User, XCircle, MessageCircle, BarChart3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,21 +17,24 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { currentUser } from '@/lib/mock-data';
 
-/* ─── Field with Tooltip ─── */
+/* ─── Shared Components ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5">
         <label className="text-sm font-medium text-foreground">{label}</label>
-        {required && <span className="text-destructive text-xs">*</span>}
+        {required && <span className="text-destructive text-xs font-bold">*</span>}
         <Tooltip>
           <TooltipTrigger tabIndex={-1}>
-            <Info className="w-3.5 h-3.5 text-muted-foreground" />
+            <Info className="w-3.5 h-3.5 text-muted-foreground hover:text-primary transition-colors" />
           </TooltipTrigger>
-          <TooltipContent className="max-w-[260px] text-xs">{tooltip}</TooltipContent>
+          <TooltipContent className="max-w-[280px] text-xs">{tooltip}</TooltipContent>
         </Tooltip>
       </div>
       {children}
@@ -38,52 +42,103 @@ function FieldWithTooltip({ label, tooltip, required, children }: { label: strin
   );
 }
 
+function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementType; title: string; subtitle?: string }) {
+  return (
+    <div className="flex items-center gap-3 mb-5">
+      <div className="w-9 h-9 rounded-lg gradient-brand flex items-center justify-center shrink-0">
+        <Icon className="w-4.5 h-4.5 text-primary-foreground" />
+      </div>
+      <div>
+        <h2 className="text-base font-semibold text-foreground font-display leading-tight">{title}</h2>
+        {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════ */
-/*                  TAB: ATIVIDADES                */
+/*              TAB: ATIVIDADES                    */
 /* ═══════════════════════════════════════════════ */
+
+interface AtividadesForm {
+  ligacoes: string;
+  mensagens: string;
+  cotacoes_coletadas: string;
+  cotacoes_enviadas: string;
+  cotacoes_respondidas: string;
+  cotacoes_nao_respondidas: string;
+  follow_up: string;
+  justificativa: string;
+}
+
+function calcRate(a: string, b: string): string {
+  const numA = parseInt(a) || 0;
+  const numB = parseInt(b) || 0;
+  if (numA === 0) return '0%';
+  return `${((numB / numA) * 100).toFixed(1)}%`;
+}
+
 function AtividadesTab() {
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
-  const [form, setForm] = useState({
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [form, setForm] = useState<AtividadesForm>({
     ligacoes: '',
     mensagens: '',
+    cotacoes_coletadas: '',
     cotacoes_enviadas: '',
-    cotacoes_fechadas: '',
+    cotacoes_respondidas: '',
+    cotacoes_nao_respondidas: '',
     follow_up: '',
     justificativa: '',
   });
 
   const isRetroativo = !isToday(dataLancamento);
 
-  const metrics = [
-    { key: 'ligacoes', label: 'Ligações Realizadas', icon: Phone, tooltip: 'Total de ligações de prospecção e follow-up realizadas no dia.' },
-    { key: 'mensagens', label: 'Mensagens Enviadas', icon: MessageSquare, tooltip: 'WhatsApp, e-mails e mensagens enviadas a clientes e leads.' },
-    { key: 'cotacoes_enviadas', label: 'Cotações Enviadas', icon: FileText, tooltip: 'Propostas comerciais enviadas ao cliente. Esse KPI define sua Patente.' },
-    { key: 'cotacoes_fechadas', label: 'Cotações Fechadas', icon: CheckCircle2, tooltip: 'Propostas que o cliente aceitou e viraram venda efetiva.' },
-    { key: 'follow_up', label: 'Follow-ups', icon: RotateCcw, tooltip: 'Retornos a clientes que já receberam cotação ou demonstraram interesse.' },
-  ] as const;
+  const metrics: { key: keyof AtividadesForm; label: string; icon: React.ElementType; tooltip: string }[] = [
+    { key: 'ligacoes', label: 'Ligações Realizadas', icon: Phone, tooltip: 'Total de ligações de prospecção e follow-up realizadas no dia selecionado.' },
+    { key: 'mensagens', label: 'Mensagens Enviadas', icon: MessageSquare, tooltip: 'WhatsApp, e-mails e mensagens enviadas a clientes e leads no dia.' },
+    { key: 'cotacoes_coletadas', label: 'Cotações Coletadas', icon: FileText, tooltip: 'Cotações recebidas de operadoras para apresentar ao cliente.' },
+    { key: 'cotacoes_enviadas', label: 'Cotações Enviadas', icon: MessageCircle, tooltip: 'Propostas comerciais efetivamente enviadas ao cliente.' },
+    { key: 'cotacoes_respondidas', label: 'Cotações Respondidas', icon: CheckCircle2, tooltip: 'Cotações que o cliente respondeu (positiva ou negativamente).' },
+    { key: 'cotacoes_nao_respondidas', label: 'Cotações Não Respondidas', icon: XCircle, tooltip: 'Cotações enviadas que ainda não obtiveram retorno do cliente.' },
+    { key: 'follow_up', label: 'Follow-up', icon: RotateCcw, tooltip: 'Retornos agendados com clientes que já receberam cotação ou demonstraram interesse. Tempo pré-estabelecido para retorno.' },
+  ];
 
-  const allFilled = metrics.every(m => form[m.key] !== '' && parseInt(form[m.key]) >= 0);
+  const metricKeys = metrics.map(m => m.key);
+  const allFilled = metricKeys.every(k => form[k] !== '');
   const canSave = allFilled && (!isRetroativo || form.justificativa.trim().length > 0);
 
+  const conversionRates = [
+    { label: 'Ligações → Cotações Coletadas', value: calcRate(form.ligacoes, form.cotacoes_coletadas) },
+    { label: 'Ligações → Cotações Enviadas', value: calcRate(form.ligacoes, form.cotacoes_enviadas) },
+    { label: 'Cotações Enviadas → Respondidas', value: calcRate(form.cotacoes_enviadas, form.cotacoes_respondidas) },
+    { label: 'Cotações Coletadas → Enviadas', value: calcRate(form.cotacoes_coletadas, form.cotacoes_enviadas) },
+    { label: 'Ligações → Respondidas', value: calcRate(form.ligacoes, form.cotacoes_respondidas) },
+  ];
+
   const handleSave = () => {
-    if (!canSave) {
-      toast.error('Preencha todos os campos obrigatórios.');
-      return;
-    }
+    if (!canSave) { toast.error('Preencha todos os campos obrigatórios.'); return; }
+    setShowConfirm(true);
+  };
+
+  const confirmSave = () => {
+    setShowConfirm(false);
     toast.success('Atividades registradas com sucesso!');
   };
 
+  const update = (key: keyof AtividadesForm, value: string) => setForm(prev => ({ ...prev, [key]: value }));
+
   return (
     <div className="space-y-6">
-      {/* Date Picker + GPS */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-        <div className="space-y-1.5">
-          <Label className="text-sm font-medium text-foreground">Data do Lançamento *</Label>
+      {/* ── Bloco 1: Data ── */}
+      <div className="bg-card rounded-2xl p-6 shadow-card border border-border/40">
+        <SectionHeader icon={CalendarIcon} title="Data de Lançamento" subtitle="Selecione o dia das atividades" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <Popover>
             <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("w-[220px] justify-start text-left font-normal", !dataLancamento && "text-muted-foreground")}>
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {dataLancamento ? format(dataLancamento, "dd 'de' MMMM, yyyy", { locale: ptBR }) : 'Selecione a data'}
+              <Button variant="outline" className={cn("w-[260px] justify-start text-left font-normal h-11 border-border/60", !dataLancamento && "text-muted-foreground")}>
+                <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                {dataLancamento ? format(dataLancamento, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'Selecione a data'}
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
@@ -97,58 +152,157 @@ function AtividadesTab() {
               />
             </PopoverContent>
           </Popover>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-accent/40 rounded-lg px-3 py-2.5">
+            <MapPin className="w-3.5 h-3.5 text-success" />
+            GPS ativo • São Paulo, SP
+          </div>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-accent/50 rounded-lg px-3 py-2.5 self-end">
-          <MapPin className="w-3.5 h-3.5 text-success" />
-          GPS ativo • São Paulo, SP
-        </div>
+
+        {isRetroativo && (
+          <div className="mt-4 p-4 bg-warning/8 border border-warning/20 rounded-xl space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-warning shrink-0" />
+              <p className="text-sm font-medium text-foreground">Lançamento retroativo detectado</p>
+            </div>
+            <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada automaticamente para o supervisor e gerente.</p>
+            <Textarea
+              placeholder="Justifique o motivo do lançamento fora da data correta..."
+              value={form.justificativa}
+              onChange={(e) => update('justificativa', e.target.value)}
+              rows={3}
+              className="border-warning/30 focus:border-warning"
+            />
+          </div>
+        )}
       </div>
 
-      {isRetroativo && (
-        <div className="flex items-center gap-2 p-3 bg-warning/10 border border-warning/20 rounded-lg">
-          <AlertCircle className="w-4 h-4 text-warning shrink-0" />
-          <p className="text-xs text-foreground">Lançamento retroativo detectado. A justificativa é obrigatória e será enviada ao supervisor.</p>
-        </div>
-      )}
-
-      {/* Metrics */}
-      <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-5">
-        <h2 className="text-base font-semibold text-foreground font-display">Registrar Atividades</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      {/* ── Bloco 2: Campos de Atividade ── */}
+      <div className="bg-card rounded-2xl p-6 shadow-card border border-border/40">
+        <SectionHeader icon={ClipboardList} title="Registrar Atividades" subtitle="Todos os campos são obrigatórios" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {metrics.map((m) => (
             <FieldWithTooltip key={m.key} label={m.label} tooltip={m.tooltip} required>
-              <div className="flex items-center gap-2">
-                <m.icon className="w-4 h-4 text-primary shrink-0" />
+              <div className="relative">
+                <m.icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/60" />
                 <Input
                   type="number"
                   min={0}
                   placeholder="0"
                   value={form[m.key]}
-                  onChange={(e) => setForm({ ...form, [m.key]: e.target.value })}
-                  className="w-full"
+                  onChange={(e) => update(m.key, e.target.value)}
+                  className="pl-10 h-11 border-border/60 focus:border-primary"
                 />
               </div>
             </FieldWithTooltip>
           ))}
         </div>
 
-        {/* Justificativa — só aparece se retroativo */}
-        {isRetroativo && (
-          <FieldWithTooltip label="Justificativa de Atraso" tooltip="Preencha o motivo do lançamento retroativo. Um e-mail será enviado ao supervisor." required>
-            <Textarea
-              placeholder="Explique o motivo do lançamento fora da data..."
-              value={form.justificativa}
-              onChange={(e) => setForm({ ...form, justificativa: e.target.value })}
-              rows={3}
-            />
-          </FieldWithTooltip>
+        {/* Taxas de Conversão */}
+        {allFilled && (
+          <>
+            <Separator className="my-6" />
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <BarChart3 className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-foreground font-display">Desempenho do Dia</h3>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {conversionRates.map((r) => (
+                  <div key={r.label} className="flex items-center justify-between p-3 bg-accent/30 rounded-lg border border-border/30">
+                    <span className="text-xs text-muted-foreground">{r.label}</span>
+                    <span className="text-sm font-bold text-primary font-display">{r.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
         )}
 
-        <Button onClick={handleSave} disabled={!canSave} className="w-full sm:w-auto bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold">
+        {/* Import planilha */}
+        <Separator className="my-6" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-accent/20 rounded-xl border border-border/30">
+          <FileUp className="w-6 h-6 text-primary shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground">Importar atividades em massa</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Preencha o modelo de planilha e faça o upload para registrar múltiplos dias de uma vez.</p>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <Download className="w-3.5 h-3.5" /> Modelo
+            </Button>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+              <Upload className="w-3.5 h-3.5" /> Upload
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Bloco 3: Supervisor & Gerente ── */}
+      <div className="bg-card rounded-2xl p-6 shadow-card border border-border/40">
+        <SectionHeader icon={User} title="Hierarquia de Cotações" subtitle="As cotações serão encaminhadas para:" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="p-4 bg-accent/30 rounded-xl border border-border/30 space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Supervisor</p>
+            <p className="text-sm font-semibold text-foreground">{currentUser.supervisor_nome}</p>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Mail className="w-3 h-3" />
+              {currentUser.supervisor_email}
+            </div>
+          </div>
+          <div className="p-4 bg-accent/30 rounded-xl border border-border/30 space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Gerente</p>
+            <p className="text-sm font-semibold text-foreground">{currentUser.gerente_nome}</p>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Mail className="w-3 h-3" />
+              {currentUser.gerente_email}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Botão Registrar */}
+      <div className="flex justify-end">
+        <Button onClick={handleSave} disabled={!canSave} size="lg" className="bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold px-8 shadow-brand">
           <Save className="w-4 h-4 mr-2" />
-          Salvar Atividades
+          Registrar Atividades
         </Button>
       </div>
+
+      {/* Modal de Confirmação */}
+      <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Confirmar Registro</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Revise o resumo das atividades antes de confirmar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 text-sm py-2">
+            <div className="flex justify-between p-2.5 bg-accent/30 rounded-lg">
+              <span className="text-muted-foreground">Data</span>
+              <span className="font-medium text-foreground">{format(dataLancamento, "dd/MM/yyyy")}</span>
+            </div>
+            {metrics.map(m => (
+              <div key={m.key} className="flex justify-between p-2.5 bg-accent/30 rounded-lg">
+                <span className="text-muted-foreground">{m.label}</span>
+                <span className="font-medium text-foreground">{form[m.key] || '0'}</span>
+              </div>
+            ))}
+            {isRetroativo && (
+              <div className="p-2.5 bg-warning/10 rounded-lg border border-warning/20">
+                <p className="text-xs text-muted-foreground mb-1">Justificativa</p>
+                <p className="text-xs text-foreground">{form.justificativa}</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
+            <Button onClick={confirmSave} className="bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold">
+              <CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar Registro
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -173,7 +327,7 @@ function StepIndicator({ steps, current }: { steps: string[]; current: number })
       {steps.map((step, i) => (
         <div key={step} className="flex items-center gap-1 shrink-0">
           <div className={cn(
-            "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all",
+            "flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition-all",
             i === current ? 'bg-primary text-primary-foreground shadow-brand' :
             i < current ? 'bg-secondary text-secondary-foreground' :
             'bg-muted text-muted-foreground'
@@ -193,9 +347,7 @@ function NovaVendaTab() {
   const [modalidade, setModalidade] = useState<Modalidade | ''>('');
   const [possuiPlanoAnterior, setPossuiPlanoAnterior] = useState(false);
   const [valorVenda, setValorVenda] = useState('');
-  const [formData, setFormData] = useState({
-    nome: '', cpf_cnpj: '', email: '', telefone: '', endereco: '',
-  });
+  const [formData, setFormData] = useState({ nome: '', cpf_cnpj: '', email: '', telefone: '', endereco: '' });
   const [beneficiarios, setBeneficiarios] = useState<Beneficiario[]>([]);
   const [newBenef, setNewBenef] = useState<Beneficiario>({ nome: '', tipo: 'dependente', is_conjuge: false });
 
@@ -207,9 +359,7 @@ function NovaVendaTab() {
     setNewBenef({ nome: '', tipo: 'dependente', is_conjuge: false });
   };
 
-  const removeBeneficiario = (idx: number) => {
-    setBeneficiarios(beneficiarios.filter((_, i) => i !== idx));
-  };
+  const removeBeneficiario = (idx: number) => setBeneficiarios(beneficiarios.filter((_, i) => i !== idx));
 
   const canNext = () => {
     if (step === 0) return modalidade !== '';
@@ -225,19 +375,13 @@ function NovaVendaTab() {
     if (possuiPlanoAnterior) {
       docs.push(
         { label: 'Carteirinha do Plano Anterior', tip: 'Foto da carteirinha do plano de saúde anterior.', required: true },
-        { label: 'Carta de Permanência (PDF)', tip: 'Documento emitido pelo RH ou operadora anterior comprovando o tempo de plano. Obrigatório em PDF.', required: true },
-        { label: 'Últimos 3 Boletos/Comprovantes', tip: 'Comprovantes de pagamento dos últimos 3 meses do plano anterior (opcional).', required: false },
+        { label: 'Carta de Permanência (PDF)', tip: 'Documento emitido pelo RH ou operadora anterior comprovando tempo de plano. Obrigatório em PDF.', required: true },
+        { label: 'Últimos 3 Boletos/Comprovantes', tip: 'Comprovantes de pagamento dos últimos 3 meses do plano anterior.', required: false },
       );
     }
-    if (isEmpresa) {
-      docs.push({ label: 'Cartão CNPJ', tip: 'Comprovante de inscrição e situação cadastral da empresa na Receita Federal.', required: true });
-    }
-    if (modalidade === 'empresarial_10') {
-      docs.push({ label: 'Comprovação de Vínculo (FGTS/Holerite/CTPS)', tip: 'Documento comprovando vínculo empregatício: FGTS, Holerite ou Carteira de Trabalho.', required: true });
-    }
-    if (beneficiarios.some(b => b.is_conjuge)) {
-      docs.push({ label: 'Certidão de Casamento', tip: 'Documento exigido para cônjuges incluídos no plano.', required: true });
-    }
+    if (isEmpresa) docs.push({ label: 'Cartão CNPJ', tip: 'Comprovante de inscrição e situação cadastral da empresa na Receita Federal.', required: true });
+    if (modalidade === 'empresarial_10') docs.push({ label: 'Comprovação de Vínculo (FGTS/Holerite/CTPS)', tip: 'Documento comprovando vínculo empregatício.', required: true });
+    if (beneficiarios.some(b => b.is_conjuge)) docs.push({ label: 'Certidão de Casamento', tip: 'Documento exigido para cônjuges incluídos no plano.', required: true });
     return docs;
   };
 
@@ -245,14 +389,13 @@ function NovaVendaTab() {
     <div className="space-y-6">
       <StepIndicator steps={STEPS} current={step} />
 
-      <div className="bg-card rounded-xl p-6 shadow-card border border-border/50">
-        {/* Step 0: Modalidade */}
+      <div className="bg-card rounded-2xl p-6 shadow-card border border-border/40">
         {step === 0 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold font-display text-foreground">Selecione a Modalidade</h2>
+            <SectionHeader icon={ShoppingCart} title="Selecione a Modalidade" subtitle="Escolha o tipo de plano para esta venda" />
             <FieldWithTooltip label="Modalidade do Plano" tooltip="Tipo de plano que será contratado. Cada modalidade possui documentação específica." required>
               <Select value={modalidade} onValueChange={(v) => setModalidade(v as Modalidade)}>
-                <SelectTrigger><SelectValue placeholder="Escolha a modalidade..." /></SelectTrigger>
+                <SelectTrigger className="h-11"><SelectValue placeholder="Escolha a modalidade..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pf">Pessoa Física (PF)</SelectItem>
                   <SelectItem value="familiar">Familiar</SelectItem>
@@ -262,78 +405,73 @@ function NovaVendaTab() {
                 </SelectContent>
               </Select>
             </FieldWithTooltip>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 p-3 bg-accent/20 rounded-lg">
               <Switch checked={possuiPlanoAnterior} onCheckedChange={setPossuiPlanoAnterior} />
               <Label className="text-sm text-foreground">Possui plano anterior (portabilidade de carência)?</Label>
               <Tooltip>
                 <TooltipTrigger tabIndex={-1}><Info className="w-3.5 h-3.5 text-muted-foreground" /></TooltipTrigger>
-                <TooltipContent className="max-w-[260px] text-xs">Se o beneficiário possui plano de saúde anterior, documentos adicionais serão solicitados para portabilidade de carência.</TooltipContent>
+                <TooltipContent className="max-w-[260px] text-xs">Se o beneficiário possui plano anterior, documentos adicionais serão solicitados.</TooltipContent>
               </Tooltip>
             </div>
           </div>
         )}
 
-        {/* Step 1: Dados Titular */}
         {step === 1 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold font-display text-foreground">
-              {isEmpresa ? 'Dados da Empresa' : 'Dados do Titular'}
-            </h2>
+            <SectionHeader icon={User} title={isEmpresa ? 'Dados da Empresa' : 'Dados do Titular'} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FieldWithTooltip label={isEmpresa ? 'Razão Social' : 'Nome Completo'} tooltip={isEmpresa ? 'Razão social conforme cartão CNPJ.' : 'Nome completo do titular conforme documento.'} required>
-                <Input value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })} placeholder={isEmpresa ? 'Ex: Empresa XYZ Ltda' : 'Ex: João da Silva'} />
+                <Input value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })} placeholder={isEmpresa ? 'Ex: Empresa XYZ Ltda' : 'Ex: João da Silva'} className="h-11" />
               </FieldWithTooltip>
-              <FieldWithTooltip label={isEmpresa ? 'CNPJ' : 'CPF'} tooltip={isEmpresa ? 'CNPJ com 14 dígitos conforme Receita Federal.' : 'CPF com 11 dígitos do titular do plano.'} required>
-                <Input value={formData.cpf_cnpj} onChange={(e) => setFormData({ ...formData, cpf_cnpj: e.target.value })} placeholder={isEmpresa ? '00.000.000/0000-00' : '000.000.000-00'} />
+              <FieldWithTooltip label={isEmpresa ? 'CNPJ' : 'CPF'} tooltip={isEmpresa ? 'CNPJ com 14 dígitos.' : 'CPF com 11 dígitos.'} required>
+                <Input value={formData.cpf_cnpj} onChange={(e) => setFormData({ ...formData, cpf_cnpj: e.target.value })} placeholder={isEmpresa ? '00.000.000/0000-00' : '000.000.000-00'} className="h-11" />
               </FieldWithTooltip>
-              <FieldWithTooltip label="E-mail de Contato" tooltip="E-mail principal para comunicação e envio de documentos." required>
-                <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="email@exemplo.com" />
+              <FieldWithTooltip label="E-mail de Contato" tooltip="E-mail principal para comunicação." required>
+                <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="email@exemplo.com" className="h-11" />
               </FieldWithTooltip>
-              <FieldWithTooltip label="Telefone" tooltip="Telefone com DDD para contato." required>
-                <Input value={formData.telefone} onChange={(e) => setFormData({ ...formData, telefone: e.target.value })} placeholder="(11) 99999-9999" />
+              <FieldWithTooltip label="Telefone" tooltip="Telefone com DDD." required>
+                <Input value={formData.telefone} onChange={(e) => setFormData({ ...formData, telefone: e.target.value })} placeholder="(11) 99999-9999" className="h-11" />
               </FieldWithTooltip>
               <div className="sm:col-span-2">
                 <FieldWithTooltip label="Endereço Completo" tooltip="Endereço com rua, número, bairro, cidade e CEP." required>
-                  <Input value={formData.endereco} onChange={(e) => setFormData({ ...formData, endereco: e.target.value })} placeholder="Rua, número, bairro, cidade - UF, CEP" />
+                  <Input value={formData.endereco} onChange={(e) => setFormData({ ...formData, endereco: e.target.value })} placeholder="Rua, número, bairro, cidade - UF, CEP" className="h-11" />
                 </FieldWithTooltip>
               </div>
-              <FieldWithTooltip label="Valor da Venda (R$)" tooltip="Valor total mensal da venda para contabilização de faturamento." required>
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-primary shrink-0" />
-                  <Input type="number" min={0} step={0.01} value={valorVenda} onChange={(e) => setValorVenda(e.target.value)} placeholder="0,00" />
+              <FieldWithTooltip label="Valor Mensal da Venda (R$)" tooltip="Valor total mensal para contabilização de faturamento." required>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/60" />
+                  <Input type="number" min={0} step={0.01} value={valorVenda} onChange={(e) => setValorVenda(e.target.value)} placeholder="0,00" className="pl-10 h-11" />
                 </div>
               </FieldWithTooltip>
             </div>
           </div>
         )}
 
-        {/* Step 2: Beneficiários */}
         {step === 2 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold font-display text-foreground">Beneficiários</h2>
-            <p className="text-sm text-muted-foreground">Adicione as vidas que farão parte deste plano.</p>
-
+            <SectionHeader icon={User} title="Beneficiários" subtitle="Adicione as vidas que farão parte deste plano" />
             {beneficiarios.length > 0 && (
               <div className="space-y-2">
                 {beneficiarios.map((b, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-lg border border-border bg-background">
+                  <div key={i} className="flex items-center gap-3 p-3.5 rounded-xl border border-border/50 bg-background hover:border-primary/20 transition-colors">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{i + 1}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{b.nome}</p>
                       <p className="text-xs text-muted-foreground capitalize">{b.tipo}{b.is_conjuge ? ' • Cônjuge' : ''}</p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => removeBeneficiario(i)} className="text-destructive hover:text-destructive shrink-0">
-                      <Trash2 className="w-4 h-4" />
+                    <Button variant="ghost" size="icon" onClick={() => removeBeneficiario(i)} className="text-destructive hover:text-destructive shrink-0 h-8 w-8">
+                      <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                 ))}
               </div>
             )}
-
-            <div className="border border-border rounded-lg p-4 bg-accent/30 space-y-3">
+            <div className="border border-dashed border-primary/30 rounded-xl p-5 bg-primary/3 space-y-3">
+              <p className="text-xs font-medium text-primary uppercase tracking-wider">Novo Beneficiário</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Input placeholder="Nome completo" value={newBenef.nome} onChange={(e) => setNewBenef({ ...newBenef, nome: e.target.value })} />
+                <Input placeholder="Nome completo" value={newBenef.nome} onChange={(e) => setNewBenef({ ...newBenef, nome: e.target.value })} className="h-10" />
                 <Select value={newBenef.tipo} onValueChange={(v) => setNewBenef({ ...newBenef, tipo: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="titular">Titular</SelectItem>
                     <SelectItem value="dependente">Dependente</SelectItem>
@@ -347,19 +485,17 @@ function NovaVendaTab() {
                 </div>
               </div>
               <Button variant="outline" size="sm" onClick={addBeneficiario} className="gap-1.5">
-                <Plus className="w-3.5 h-3.5" /> Adicionar Beneficiário
+                <Plus className="w-3.5 h-3.5" /> Adicionar
               </Button>
             </div>
           </div>
         )}
 
-        {/* Step 3: Documentos */}
         {step === 3 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold font-display text-foreground">Documentos</h2>
-            <p className="text-sm text-muted-foreground">Envie os documentos obrigatórios para esta modalidade.</p>
+            <SectionHeader icon={FileText} title="Documentos" subtitle="Envie os documentos obrigatórios para esta modalidade" />
             {getDocumentos().map((doc) => (
-              <div key={doc.label} className="flex items-center gap-3 p-3.5 rounded-lg border border-border bg-background hover:border-primary/30 transition-colors">
+              <div key={doc.label} className="flex items-center gap-3 p-4 rounded-xl border border-border/50 bg-background hover:border-primary/20 transition-colors">
                 <div className="flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-medium text-foreground">{doc.label}</span>
@@ -378,10 +514,9 @@ function NovaVendaTab() {
           </div>
         )}
 
-        {/* Step 4: Revisão */}
         {step === 4 && (
           <div className="space-y-5">
-            <h2 className="text-lg font-semibold font-display text-foreground">Revisão Final</h2>
+            <SectionHeader icon={CheckCircle2} title="Revisão Final" subtitle="Confira todos os dados antes de enviar" />
             <div className="space-y-2 text-sm">
               {[
                 ['Modalidade', modalidade?.replace(/_/g, ' ').toUpperCase() || '—'],
@@ -390,11 +525,11 @@ function NovaVendaTab() {
                 ['E-mail', formData.email || '—'],
                 ['Telefone', formData.telefone || '—'],
                 ['Endereço', formData.endereco || '—'],
-                ['Valor da Venda', valorVenda ? `R$ ${parseFloat(valorVenda).toFixed(2)}` : '—'],
+                ['Valor Mensal', valorVenda ? `R$ ${parseFloat(valorVenda).toFixed(2)}` : '—'],
                 ['Beneficiários', `${beneficiarios.length} vida(s)`],
                 ['Portabilidade', possuiPlanoAnterior ? 'Sim' : 'Não'],
               ].map(([label, value]) => (
-                <div key={label} className="flex justify-between p-3 bg-background rounded-lg">
+                <div key={label} className="flex justify-between p-3 bg-accent/30 rounded-lg">
                   <span className="text-muted-foreground">{label}</span>
                   <span className="font-medium text-foreground">{value}</span>
                 </div>
@@ -402,23 +537,22 @@ function NovaVendaTab() {
             </div>
             <div className="flex items-center gap-2 p-3 bg-warning/10 border border-warning/20 rounded-lg">
               <AlertCircle className="w-4 h-4 text-warning shrink-0" />
-              <p className="text-xs text-foreground">Verifique todos os dados e documentos antes de finalizar. Pendências atrasam a aprovação.</p>
+              <p className="text-xs text-foreground">Verifique todos os dados e documentos. Pendências atrasam a aprovação.</p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Navigation */}
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0}>
+        <Button variant="outline" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0} className="h-11">
           <ChevronLeft className="w-4 h-4 mr-1" /> Voltar
         </Button>
         {step < STEPS.length - 1 ? (
-          <Button onClick={() => setStep(step + 1)} disabled={!canNext()} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+          <Button onClick={() => setStep(step + 1)} disabled={!canNext()} className="bg-primary hover:bg-primary/90 text-primary-foreground h-11">
             Próximo <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         ) : (
-          <Button onClick={() => toast.success('Venda enviada para análise!')} className="bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold">
+          <Button onClick={() => toast.success('Venda enviada para análise!')} className="bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold h-11">
             <CheckCircle2 className="w-4 h-4 mr-1" /> Finalizar Venda
           </Button>
         )}
@@ -433,28 +567,28 @@ function NovaVendaTab() {
 function ImportacaoTab() {
   return (
     <div className="space-y-6">
-      <div className="bg-card rounded-xl p-6 shadow-card border border-border/50 space-y-5">
-        <h2 className="text-lg font-semibold font-display text-foreground">Importação em Massa</h2>
-        <p className="text-sm text-muted-foreground">Importe registros de atividades ou documentos de vendas via planilha.</p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="border-2 border-dashed border-border rounded-xl p-8 flex flex-col items-center gap-3 bg-background hover:border-primary/40 transition-colors cursor-pointer">
-            <FileUp className="w-8 h-8 text-primary" />
-            <p className="text-sm font-medium text-foreground">Importar Atividades</p>
-            <p className="text-xs text-muted-foreground text-center">Arraste uma planilha CSV/XLSX ou clique para selecionar</p>
-            <Button variant="outline" size="sm" className="mt-2">Selecionar Arquivo</Button>
+      <div className="bg-card rounded-2xl p-6 shadow-card border border-border/40 space-y-5">
+        <SectionHeader icon={FileUp} title="Importação em Massa" subtitle="Importe registros ou documentos via planilha" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="border-2 border-dashed border-border/50 rounded-2xl p-8 flex flex-col items-center gap-3 bg-background hover:border-primary/40 transition-colors cursor-pointer group">
+            <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+              <FileUp className="w-7 h-7 text-primary" />
+            </div>
+            <p className="text-sm font-semibold text-foreground">Importar Atividades</p>
+            <p className="text-xs text-muted-foreground text-center">Arraste CSV/XLSX ou clique para selecionar</p>
+            <div className="flex gap-2 mt-2">
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs"><Download className="w-3 h-3" /> Modelo</Button>
+              <Button variant="outline" size="sm" className="gap-1.5 text-xs"><Upload className="w-3 h-3" /> Upload</Button>
+            </div>
           </div>
-          <div className="border-2 border-dashed border-border rounded-xl p-8 flex flex-col items-center gap-3 bg-background hover:border-primary/40 transition-colors cursor-pointer">
-            <Upload className="w-8 h-8 text-secondary" />
-            <p className="text-sm font-medium text-foreground">Importar Documentos</p>
-            <p className="text-xs text-muted-foreground text-center">Upload de documentos de vendas em lote (PDF, JPG, PNG)</p>
-            <Button variant="outline" size="sm" className="mt-2">Selecionar Arquivos</Button>
+          <div className="border-2 border-dashed border-border/50 rounded-2xl p-8 flex flex-col items-center gap-3 bg-background hover:border-secondary/40 transition-colors cursor-pointer group">
+            <div className="w-14 h-14 rounded-xl bg-secondary/10 flex items-center justify-center group-hover:bg-secondary/20 transition-colors">
+              <Upload className="w-7 h-7 text-secondary" />
+            </div>
+            <p className="text-sm font-semibold text-foreground">Importar Documentos</p>
+            <p className="text-xs text-muted-foreground text-center">Upload de documentos em lote (PDF, JPG, PNG)</p>
+            <Button variant="outline" size="sm" className="mt-2 gap-1.5 text-xs"><Upload className="w-3 h-3" /> Selecionar</Button>
           </div>
-        </div>
-
-        <div className="flex items-center gap-2 p-3 bg-accent/50 rounded-lg">
-          <Info className="w-4 h-4 text-primary shrink-0" />
-          <p className="text-xs text-muted-foreground">Baixe o <button className="text-primary underline font-medium">modelo de planilha</button> para garantir a formatação correta.</p>
         </div>
       </div>
     </div>
@@ -462,25 +596,25 @@ function ImportacaoTab() {
 }
 
 /* ═══════════════════════════════════════════════ */
-/*                PÁGINA COMERCIAL                 */
+/*              PÁGINA COMERCIAL                   */
 /* ═══════════════════════════════════════════════ */
 const Comercial = () => {
   return (
-    <div className="max-w-4xl space-y-6 animate-fade-in-up">
+    <div className="max-w-5xl space-y-6 animate-fade-in-up">
       <div>
-        <h1 className="text-2xl font-bold font-display text-foreground">Comercial</h1>
+        <h1 className="text-2xl font-bold font-display text-foreground tracking-tight">Comercial</h1>
         <p className="text-sm text-muted-foreground">Atividades diárias, vendas e importação</p>
       </div>
 
       <Tabs defaultValue="atividades" className="space-y-6">
-        <TabsList className="bg-card border border-border/50 shadow-card p-1">
-          <TabsTrigger value="atividades" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+        <TabsList className="bg-card border border-border/40 shadow-card p-1 h-auto">
+          <TabsTrigger value="atividades" className="gap-1.5 py-2.5 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-medium">
             <ClipboardList className="w-4 h-4" /> Atividades
           </TabsTrigger>
-          <TabsTrigger value="nova-venda" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="nova-venda" className="gap-1.5 py-2.5 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-medium">
             <ShoppingCart className="w-4 h-4" /> Nova Venda
           </TabsTrigger>
-          <TabsTrigger value="importacao" className="gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger value="importacao" className="gap-1.5 py-2.5 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-medium">
             <FileUp className="w-4 h-4" /> Importação
           </TabsTrigger>
         </TabsList>
