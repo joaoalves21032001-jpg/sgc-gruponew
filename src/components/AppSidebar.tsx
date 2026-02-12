@@ -1,13 +1,13 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
-  ClipboardList, 
-  ShoppingCart, 
+  Briefcase, 
   BarChart3, 
   HelpCircle,
   ChevronLeft,
   ChevronRight,
-  LogOut
+  LogOut,
+  UserCircle
 } from 'lucide-react';
 import { currentUser } from '@/lib/mock-data';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
@@ -16,8 +16,7 @@ import { useState } from 'react';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/crm', icon: ClipboardList, label: 'CRM Diário' },
-  { to: '/vendas', icon: ShoppingCart, label: 'Vendas' },
+  { to: '/comercial', icon: Briefcase, label: 'Comercial' },
   { to: '/gestao', icon: BarChart3, label: 'Gestão', restricted: true },
 ];
 
@@ -68,7 +67,7 @@ export function AppSidebar() {
       <nav className="flex-1 py-3 px-2 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           if (item.restricted && !isGestor) return null;
-          const isActive = location.pathname === item.to;
+          const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
           return (
             <NavLink
               key={item.to}
@@ -88,6 +87,15 @@ export function AppSidebar() {
 
       {/* Footer */}
       <div className="p-2 border-t border-sidebar-border space-y-1">
+        <NavLink
+          to="/perfil"
+          className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors w-full ${
+            isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground'
+          } ${collapsed ? 'justify-center' : ''}`}
+        >
+          <UserCircle className="w-5 h-5 shrink-0" />
+          {!collapsed && <span>Meu Perfil</span>}
+        </NavLink>
         <button className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground w-full transition-colors ${collapsed ? 'justify-center' : ''}`}>
           <HelpCircle className="w-5 h-5 shrink-0" />
           {!collapsed && <span>Ajuda</span>}
