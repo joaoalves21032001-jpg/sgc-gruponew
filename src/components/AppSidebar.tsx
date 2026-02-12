@@ -15,6 +15,7 @@ import { getPatente, getFraseMotivacional } from '@/lib/gamification';
 import { PatenteBadge } from './PatenteBadge';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { HelpGuide } from './HelpGuide';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 
 const navItems = [
@@ -27,6 +28,7 @@ const navItems = [
 export function AppSidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const { signOut } = useAuth();
   const { data: profile } = useProfile();
   const { data: role } = useUserRole();
@@ -120,10 +122,11 @@ export function AppSidebar() {
           <UserCircle className="w-[18px] h-[18px] shrink-0" />
           {!collapsed && <span>Meu Perfil</span>}
         </NavLink>
-        <button className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-white/50 hover:bg-white/[0.06] hover:text-white/80 w-full transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}>
+        <button onClick={() => setHelpOpen(true)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-white/50 hover:bg-white/[0.06] hover:text-white/80 w-full transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}>
           <HelpCircle className="w-[18px] h-[18px] shrink-0" />
           {!collapsed && <span>Ajuda</span>}
         </button>
+        <HelpGuide open={helpOpen} onOpenChange={setHelpOpen} />
         <button
           onClick={signOut}
           className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-white/50 hover:bg-destructive/20 hover:text-destructive w-full transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}
