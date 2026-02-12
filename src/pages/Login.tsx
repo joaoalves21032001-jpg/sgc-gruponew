@@ -1,13 +1,20 @@
 import { useState } from 'react';
 import { lovable } from '@/integrations/lovable/index';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Shield } from 'lucide-react';
+import { Shield, UserPlus } from 'lucide-react';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 import logo from '@/assets/logo-grupo-new.png';
 
 const Login = () => {
   const [loading, setLoading] = useState(false);
+  const [showRequest, setShowRequest] = useState(false);
+  const [requestForm, setRequestForm] = useState({ nome: '', email: '', telefone: '', mensagem: '' });
+  const [submitting, setSubmitting] = useState(false);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -24,6 +31,27 @@ const Login = () => {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAccessRequest = async () => {
+    if (!requestForm.nome.trim() || !requestForm.email.trim()) {
+      toast.error('Preencha nome e e-mail.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.functions.invoke('notify-access-request', {
+        body: requestForm,
+      });
+      if (error) throw error;
+      toast.success('Solicitação enviada! O administrador será notificado.');
+      setShowRequest(false);
+      setRequestForm({ nome: '', email: '', telefone: '', mensagem: '' });
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao enviar solicitação.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -127,11 +155,59 @@ const Login = () => {
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground/60 text-center">
-            Somente usuários pré-cadastrados por um administrador podem acessar o sistema.
-          </p>
+          <div className="text-center space-y-3">
+            <p className="text-xs text-muted-foreground/60">
+              Somente usuários pré-cadastrados por um administrador podem acessar o sistema.
+            </p>
+            <button
+              onClick={() => setShowRequest(true)}
+              className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-semibold transition-colors"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              Não tem acesso? Solicitar ao administrador
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Access Request Dialog */}
+      <Dialog open={showRequest} onOpenChange={setShowRequest}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg flex items-center gap-2">
+              <UserPlus className="w-5 h-5 text-primary" />
+              Solicitar Acesso
+            </DialogTitle>
+            <DialogDescription>
+              Preencha seus dados. O administrador, supervisor e gerente serão notificados.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome Completo *</label>
+              <Input value={requestForm.nome} onChange={(e) => setRequestForm({ ...requestForm, nome: e.target.value })} placeholder="Seu nome completo" className="h-11" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail *</label>
+              <Input type="email" value={requestForm.email} onChange={(e) => setRequestForm({ ...requestForm, email: e.target.value })} placeholder="seu.email@exemplo.com" className="h-11" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Telefone</label>
+              <Input value={requestForm.telefone} onChange={(e) => setRequestForm({ ...requestForm, telefone: e.target.value })} placeholder="+55 (11) 90000-0000" className="h-11" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mensagem (opcional)</label>
+              <Textarea value={requestForm.mensagem} onChange={(e) => setRequestForm({ ...requestForm, mensagem: e.target.value })} placeholder="Informe o motivo da solicitação..." rows={3} />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowRequest(false)}>Cancelar</Button>
+            <Button onClick={handleAccessRequest} disabled={submitting} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+              {submitting ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Enviar Solicitação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
