@@ -29,13 +29,13 @@ import { useAuth } from '@/contexts/AuthContext';
 /* ─── Shared Components ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <div className="flex items-center gap-1.5">
-        <label className="text-sm font-medium text-foreground">{label}</label>
+        <label className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{label}</label>
         {required && <span className="text-destructive text-xs font-bold">*</span>}
         <Tooltip>
           <TooltipTrigger tabIndex={-1}>
-            <Info className="w-3.5 h-3.5 text-muted-foreground hover:text-primary transition-colors" />
+            <Info className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-primary transition-colors" />
           </TooltipTrigger>
           <TooltipContent className="max-w-[280px] text-xs">{tooltip}</TooltipContent>
         </Tooltip>
@@ -48,11 +48,11 @@ function FieldWithTooltip({ label, tooltip, required, children }: { label: strin
 function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementType; title: string; subtitle?: string }) {
   return (
     <div className="flex items-center gap-3 mb-5">
-      <div className="w-9 h-9 rounded-lg gradient-brand flex items-center justify-center shrink-0">
-        <Icon className="w-4.5 h-4.5 text-primary-foreground" />
+      <div className="w-9 h-9 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
+        <Icon className="w-4 h-4 text-primary" />
       </div>
       <div>
-        <h2 className="text-base font-semibold text-foreground font-display leading-tight">{title}</h2>
+        <h2 className="text-sm font-bold text-foreground font-display">{title}</h2>
         {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
       </div>
     </div>
@@ -88,14 +88,8 @@ function AtividadesTab() {
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const [showConfirm, setShowConfirm] = useState(false);
   const [form, setForm] = useState<AtividadesForm>({
-    ligacoes: '',
-    mensagens: '',
-    cotacoes_coletadas: '',
-    cotacoes_enviadas: '',
-    cotacoes_respondidas: '',
-    cotacoes_nao_respondidas: '',
-    follow_up: '',
-    justificativa: '',
+    ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '',
+    cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '',
   });
 
   const isRetroativo = !isToday(dataLancamento);
@@ -152,37 +146,35 @@ function AtividadesTab() {
 
   return (
     <div className="space-y-6">
-      {/* ── Bloco 1: Data ── */}
-      <div className="bg-card rounded-2xl p-6 shadow-card border border-border/40">
+      {/* ── Data ── */}
+      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
         <SectionHeader icon={CalendarIcon} title="Data de Lançamento" subtitle="Preenchida automaticamente com a data atual" />
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className={cn("w-[260px] justify-start text-left font-normal h-11 border-border/60", !dataLancamento && "text-muted-foreground")}>
-                <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                {dataLancamento ? format(dataLancamento, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'Selecione a data'}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="single"
-                selected={dataLancamento}
-                onSelect={(d) => d && setDataLancamento(d)}
-                disabled={(date) => date > new Date()}
-                initialFocus
-                className={cn("p-3 pointer-events-auto")}
-              />
-            </PopoverContent>
-          </Popover>
-        </div>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className={cn("w-[260px] justify-start text-left font-normal h-11 border-border/40", !dataLancamento && "text-muted-foreground")}>
+              <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+              {dataLancamento ? format(dataLancamento, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'Selecione a data'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={dataLancamento}
+              onSelect={(d) => d && setDataLancamento(d)}
+              disabled={(date) => date > new Date()}
+              initialFocus
+              className={cn("p-3 pointer-events-auto")}
+            />
+          </PopoverContent>
+        </Popover>
 
         {isRetroativo && (
-          <div className="mt-4 p-4 bg-warning/8 border border-warning/20 rounded-xl space-y-3">
+          <div className="mt-4 p-4 bg-warning/8 border border-warning/20 rounded-lg space-y-3">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-warning shrink-0" />
               <p className="text-sm font-medium text-foreground">Lançamento retroativo detectado</p>
             </div>
-            <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada automaticamente para <strong>{supervisor?.nome_completo || 'Supervisor'}</strong>, com você em cópia.</p>
+            <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada automaticamente para <strong>{supervisor?.nome_completo || 'Supervisor'}</strong>.</p>
             <Textarea
               placeholder="Justifique o motivo do lançamento fora da data correta..."
               value={form.justificativa}
@@ -194,40 +186,39 @@ function AtividadesTab() {
         )}
       </div>
 
-      {/* ── Bloco 2: Campos de Atividade ── */}
-      <div className="bg-card rounded-2xl p-6 shadow-card border border-border/40">
+      {/* ── Campos de Atividade ── */}
+      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
         <SectionHeader icon={ClipboardList} title="Registrar Atividades" subtitle="Todos os campos são obrigatórios, mesmo que o valor seja 0" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {metrics.map((m) => (
             <FieldWithTooltip key={m.key} label={m.label} tooltip={m.tooltip} required>
               <div className="relative">
-                <m.icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/60" />
+                <m.icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/50" />
                 <Input
                   type="number"
                   min={0}
                   placeholder="0"
                   value={form[m.key]}
                   onChange={(e) => update(m.key, e.target.value)}
-                  className="pl-10 h-11 border-border/60 focus:border-primary"
+                  className="pl-10 h-11 border-border/40 focus:border-primary bg-muted/30 focus:bg-card transition-all"
                 />
               </div>
             </FieldWithTooltip>
           ))}
         </div>
 
-        {/* Taxas de Conversão */}
         {allFilled && (
           <>
-            <Separator className="my-6" />
+            <Separator className="my-6 bg-border/20" />
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <BarChart3 className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-semibold text-foreground font-display">Desempenho do Dia</h3>
+                <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em]">Desempenho do Dia</h3>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {conversionRates.map((r) => (
-                  <div key={r.label} className="flex items-center justify-between p-3.5 bg-accent/30 rounded-xl border border-border/30">
-                    <span className="text-xs text-muted-foreground leading-tight">{r.label}</span>
+                  <div key={r.label} className="flex items-center justify-between p-3 bg-muted/40 rounded-lg border border-border/20">
+                    <span className="text-[11px] text-muted-foreground leading-tight">{r.label}</span>
                     <span className="text-sm font-bold text-primary font-display ml-3">{r.value}</span>
                   </div>
                 ))}
@@ -237,31 +228,31 @@ function AtividadesTab() {
         )}
 
         {/* Import planilha inline */}
-        <Separator className="my-6" />
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-accent/20 rounded-xl border border-border/30">
-          <FileUp className="w-6 h-6 text-primary shrink-0" />
+        <Separator className="my-6 bg-border/20" />
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-muted/40 rounded-lg border border-border/20">
+          <FileUp className="w-5 h-5 text-primary shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground">Importar atividades em massa</p>
+            <p className="text-sm font-semibold text-foreground">Importar atividades em massa</p>
             <p className="text-xs text-muted-foreground mt-0.5">Preencha o modelo de planilha e faça o upload para registrar múltiplos dias de uma vez.</p>
           </div>
           <div className="flex gap-2 shrink-0">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40">
               <Download className="w-3.5 h-3.5" /> Modelo
             </Button>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40">
               <Upload className="w-3.5 h-3.5" /> Upload
             </Button>
           </div>
         </div>
       </div>
 
-      {/* ── Bloco 3: Supervisor & Gerente ── */}
-      <div className="bg-card rounded-2xl p-6 shadow-card border border-border/40">
+      {/* ── Hierarquia ── */}
+      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
         <SectionHeader icon={User} title="Hierarquia" subtitle="Informações de envio automático — não editável" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="p-4 bg-accent/30 rounded-xl border border-border/30 space-y-2">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Supervisor</p>
-            <p className="text-sm font-semibold text-foreground">{supervisor?.nome_completo || '—'}</p>
+          <div className="p-4 bg-muted/40 rounded-lg border border-border/20 space-y-1.5">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Supervisor</p>
+            <p className="text-sm font-bold text-foreground">{supervisor?.nome_completo || '—'}</p>
             {supervisor?.email && (
               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <Mail className="w-3 h-3" />
@@ -269,18 +260,23 @@ function AtividadesTab() {
               </div>
             )}
           </div>
-          <div className="p-4 bg-accent/30 rounded-xl border border-border/30 space-y-2">
-            <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Gerente</p>
-            <p className="text-sm font-semibold text-foreground">—</p>
+          <div className="p-4 bg-muted/40 rounded-lg border border-border/20 space-y-1.5">
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Gerente</p>
+            <p className="text-sm font-bold text-foreground">—</p>
           </div>
         </div>
       </div>
 
-      {/* Botão Registrar */}
+      {/* Botão Registrar - mais proeminente */}
       <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={!canSave} size="lg" className="bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold px-8 shadow-brand">
+        <Button
+          onClick={handleSave}
+          disabled={!canSave}
+          size="lg"
+          className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-10 h-12 shadow-brand text-sm tracking-wide"
+        >
           <Save className="w-4 h-4 mr-2" />
-          Registrar Atividades
+          REGISTRAR ATIVIDADES
         </Button>
       </div>
 
@@ -294,12 +290,12 @@ function AtividadesTab() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 text-sm py-2 max-h-[50vh] overflow-y-auto">
-            <div className="flex justify-between p-2.5 bg-accent/30 rounded-lg">
+            <div className="flex justify-between p-2.5 bg-muted/40 rounded-lg">
               <span className="text-muted-foreground">Data</span>
               <span className="font-medium text-foreground">{format(dataLancamento, "dd/MM/yyyy")}</span>
             </div>
             {metrics.map(m => (
-              <div key={m.key} className="flex justify-between p-2.5 bg-accent/30 rounded-lg">
+              <div key={m.key} className="flex justify-between p-2.5 bg-muted/40 rounded-lg">
                 <span className="text-muted-foreground">{m.label}</span>
                 <span className="font-medium text-foreground">{form[m.key] || '0'}</span>
               </div>
@@ -310,7 +306,7 @@ function AtividadesTab() {
                 <p className="text-xs text-foreground">{form.justificativa}</p>
               </div>
             )}
-            <Separator className="my-2" />
+            <Separator className="my-2 bg-border/20" />
             <div className="p-2.5 bg-primary/5 rounded-lg border border-primary/10">
               <p className="text-xs text-muted-foreground mb-1">Notificação automática</p>
               <p className="text-xs text-foreground">Supervisor: {supervisor?.nome_completo || '—'} ({supervisor?.email || '—'})</p>
@@ -318,7 +314,7 @@ function AtividadesTab() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
-            <Button onClick={confirmSave} className="bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold">
+            <Button onClick={confirmSave} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
               <CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar Registro
             </Button>
           </DialogFooter>
@@ -355,13 +351,13 @@ function StepIndicator({ steps, current }: { steps: string[]; current: number })
           <div className={cn(
             "flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition-all",
             i === current ? 'bg-primary text-primary-foreground shadow-brand' :
-            i < current ? 'bg-secondary text-secondary-foreground' :
+            i < current ? 'bg-success text-success-foreground' :
             'bg-muted text-muted-foreground'
           )}>
             {i < current ? <CheckCircle2 className="w-3.5 h-3.5" /> : <span>{i + 1}</span>}
             <span className="hidden sm:inline">{step}</span>
           </div>
-          {i < steps.length - 1 && <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+          {i < steps.length - 1 && <ChevronRight className="w-4 h-4 text-muted-foreground/40" />}
         </div>
       ))}
     </div>
@@ -459,7 +455,6 @@ function NovaVendaTab() {
         observacoes: possuiPlanoAnterior ? 'Portabilidade de carência' : undefined,
       });
 
-      // Upload documents
       for (const doc of docUploads) {
         if (doc.file && user) {
           await uploadVendaDocumento(venda.id, user.id, doc.file, doc.label);
@@ -477,13 +472,13 @@ function NovaVendaTab() {
     <div className="space-y-6">
       <StepIndicator steps={STEPS} current={step} />
 
-      <div className="bg-card rounded-2xl p-6 shadow-card border border-border/40">
+      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
         {step === 0 && (
           <div className="space-y-5">
             <SectionHeader icon={ShoppingCart} title="Selecione a Modalidade" subtitle="Escolha o tipo de plano para esta venda" />
             <FieldWithTooltip label="Modalidade do Plano" tooltip="Cada modalidade possui documentação específica obrigatória." required>
               <Select value={modalidade} onValueChange={(v) => setModalidade(v as Modalidade)}>
-                <SelectTrigger className="h-11"><SelectValue placeholder="Escolha a modalidade..." /></SelectTrigger>
+                <SelectTrigger className="h-11 border-border/40"><SelectValue placeholder="Escolha a modalidade..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="pf">Pessoa Física (PF)</SelectItem>
                   <SelectItem value="familiar">Familiar</SelectItem>
@@ -493,24 +488,23 @@ function NovaVendaTab() {
                 </SelectContent>
               </Select>
             </FieldWithTooltip>
-            <div className="flex items-center gap-3 p-3 bg-accent/20 rounded-lg">
+            <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
               <Switch checked={possuiPlanoAnterior} onCheckedChange={setPossuiPlanoAnterior} />
               <Label className="text-sm text-foreground">Possui plano anterior (portabilidade de carência)?</Label>
             </div>
 
-            {/* Import de vendas inline */}
-            <Separator className="my-4" />
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-accent/20 rounded-xl border border-border/30">
-              <FileUp className="w-6 h-6 text-secondary shrink-0" />
+            <Separator className="my-4 bg-border/20" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-muted/40 rounded-lg border border-border/20">
+              <FileUp className="w-5 h-5 text-primary shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">Importar vendas em massa</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Baixe o modelo, preencha e faça upload. Após importação, edite cada venda para anexar documentos obrigatórios.</p>
+                <p className="text-sm font-semibold text-foreground">Importar vendas em massa</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Baixe o modelo, preencha e faça upload.</p>
               </div>
               <div className="flex gap-2 shrink-0">
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40">
                   <Download className="w-3.5 h-3.5" /> Modelo
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40">
                   <Upload className="w-3.5 h-3.5" /> Upload
                 </Button>
               </div>
@@ -523,26 +517,26 @@ function NovaVendaTab() {
             <SectionHeader icon={User} title={isEmpresa ? 'Dados da Empresa' : 'Dados do Titular'} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FieldWithTooltip label={isEmpresa ? 'Razão Social' : 'Nome Completo'} tooltip={isEmpresa ? 'Razão social conforme cartão CNPJ.' : 'Nome completo conforme documento.'} required>
-                <Input value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })} placeholder={isEmpresa ? 'Ex: Empresa XYZ Ltda' : 'Ex: João da Silva'} className="h-11" />
+                <Input value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })} placeholder={isEmpresa ? 'Ex: Empresa XYZ Ltda' : 'Ex: João da Silva'} className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
               </FieldWithTooltip>
               <FieldWithTooltip label={isEmpresa ? 'CNPJ' : 'CPF'} tooltip={isEmpresa ? 'CNPJ com 14 dígitos.' : 'CPF com 11 dígitos.'} required>
-                <Input value={formData.cpf_cnpj} onChange={(e) => setFormData({ ...formData, cpf_cnpj: e.target.value })} placeholder={isEmpresa ? '00.000.000/0000-00' : '000.000.000-00'} className="h-11" />
+                <Input value={formData.cpf_cnpj} onChange={(e) => setFormData({ ...formData, cpf_cnpj: e.target.value })} placeholder={isEmpresa ? '00.000.000/0000-00' : '000.000.000-00'} className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
               </FieldWithTooltip>
               <FieldWithTooltip label="E-mail de Contato" tooltip="E-mail principal para comunicação." required>
-                <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="email@exemplo.com" className="h-11" />
+                <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="email@exemplo.com" className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
               </FieldWithTooltip>
               <FieldWithTooltip label="Telefone" tooltip="Telefone com DDD." required>
-                <Input value={formData.telefone} onChange={(e) => setFormData({ ...formData, telefone: e.target.value })} placeholder="(11) 99999-9999" className="h-11" />
+                <Input value={formData.telefone} onChange={(e) => setFormData({ ...formData, telefone: e.target.value })} placeholder="(11) 99999-9999" className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
               </FieldWithTooltip>
               <div className="sm:col-span-2">
                 <FieldWithTooltip label="Endereço Completo" tooltip="Endereço com rua, número, bairro, cidade e CEP." required>
-                  <Input value={formData.endereco} onChange={(e) => setFormData({ ...formData, endereco: e.target.value })} placeholder="Rua, número, bairro, cidade - UF, CEP" className="h-11" />
+                  <Input value={formData.endereco} onChange={(e) => setFormData({ ...formData, endereco: e.target.value })} placeholder="Rua, número, bairro, cidade - UF, CEP" className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
                 </FieldWithTooltip>
               </div>
-              <FieldWithTooltip label="Valor Mensal da Venda (R$)" tooltip="Valor total mensal para contabilização de faturamento." required>
+              <FieldWithTooltip label="Valor do Contrato (R$)" tooltip="Valor total do contrato para contabilização de faturamento." required>
                 <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/60" />
-                  <Input type="number" min={0} step={0.01} value={valorVenda} onChange={(e) => setValorVenda(e.target.value)} placeholder="0,00" className="pl-10 h-11" />
+                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/50" />
+                  <Input type="number" min={0} step={0.01} value={valorVenda} onChange={(e) => setValorVenda(e.target.value)} placeholder="0,00" className="pl-10 h-11 bg-muted/30 border-border/40 focus:bg-card" />
                 </div>
               </FieldWithTooltip>
             </div>
@@ -555,8 +549,8 @@ function NovaVendaTab() {
             {beneficiarios.length > 0 && (
               <div className="space-y-2">
                 {beneficiarios.map((b, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3.5 rounded-xl border border-border/50 bg-background hover:border-primary/20 transition-colors">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">{i + 1}</div>
+                  <div key={i} className="flex items-center gap-3 p-3.5 rounded-lg border border-border/30 bg-muted/20 hover:border-primary/20 transition-colors">
+                    <div className="w-8 h-8 rounded-full bg-primary/8 flex items-center justify-center text-xs font-bold text-primary">{i + 1}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{b.nome}</p>
                       <p className="text-xs text-muted-foreground capitalize">{b.tipo}{b.is_conjuge ? ' • Cônjuge' : ''}</p>
@@ -568,12 +562,12 @@ function NovaVendaTab() {
                 ))}
               </div>
             )}
-            <div className="border border-dashed border-primary/30 rounded-xl p-5 bg-primary/3 space-y-3">
-              <p className="text-xs font-medium text-primary uppercase tracking-wider">Novo Beneficiário</p>
+            <div className="border border-dashed border-primary/20 rounded-lg p-5 bg-primary/[0.02] space-y-3">
+              <p className="text-[10px] font-bold text-primary uppercase tracking-[0.12em]">Novo Beneficiário</p>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Input placeholder="Nome completo" value={newBenef.nome} onChange={(e) => setNewBenef({ ...newBenef, nome: e.target.value })} className="h-10" />
+                <Input placeholder="Nome completo" value={newBenef.nome} onChange={(e) => setNewBenef({ ...newBenef, nome: e.target.value })} className="h-10 bg-muted/30 border-border/40" />
                 <Select value={newBenef.tipo} onValueChange={(v) => setNewBenef({ ...newBenef, tipo: v })}>
-                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-10 border-border/40"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="titular">Titular</SelectItem>
                     <SelectItem value="dependente">Dependente</SelectItem>
@@ -586,7 +580,7 @@ function NovaVendaTab() {
                   <Label className="text-xs">Cônjuge?</Label>
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={addBeneficiario} className="gap-1.5">
+              <Button variant="outline" size="sm" onClick={addBeneficiario} className="gap-1.5 border-border/40">
                 <Plus className="w-3.5 h-3.5" /> Adicionar
               </Button>
             </div>
@@ -595,20 +589,20 @@ function NovaVendaTab() {
 
         {step === 3 && (
           <div className="space-y-5">
-            <SectionHeader icon={FileText} title="Documentos Obrigatórios" subtitle="Todos os documentos marcados com * são obrigatórios para aprovação da venda" />
+            <SectionHeader icon={FileText} title="Documentos Obrigatórios" subtitle="Todos os documentos marcados com * são obrigatórios para aprovação" />
             {getDocumentos().map((doc) => {
               const uploaded = getDocFile(doc.label);
               return (
                 <div key={doc.label} className={cn(
-                  "flex items-center gap-3 p-4 rounded-xl border transition-colors",
-                  uploaded ? "border-success/40 bg-success/5" : doc.required ? "border-destructive/20 bg-background" : "border-border/50 bg-background"
+                  "flex items-center gap-3 p-4 rounded-lg border transition-colors",
+                  uploaded ? "border-success/30 bg-success/5" : doc.required ? "border-border/30 bg-muted/20" : "border-border/20 bg-muted/10"
                 )}>
                   <div className="flex-1">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-medium text-foreground">{doc.label}</span>
                       {doc.required && <span className="text-xs text-destructive font-bold">*</span>}
                       <Tooltip>
-                        <TooltipTrigger tabIndex={-1}><Info className="w-3.5 h-3.5 text-muted-foreground" /></TooltipTrigger>
+                        <TooltipTrigger tabIndex={-1}><Info className="w-3.5 h-3.5 text-muted-foreground/50" /></TooltipTrigger>
                         <TooltipContent className="max-w-[260px] text-xs">{doc.tip}</TooltipContent>
                       </Tooltip>
                     </div>
@@ -624,7 +618,7 @@ function NovaVendaTab() {
                         if (file) handleDocUpload(doc.label, file);
                       }}
                     />
-                    <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-input bg-background text-sm font-medium hover:bg-accent transition-colors">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-border/40 bg-card text-sm font-medium hover:bg-muted transition-colors cursor-pointer">
                       <Upload className="w-3.5 h-3.5" /> {uploaded ? 'Trocar' : 'Upload'}
                     </span>
                   </label>
@@ -645,24 +639,23 @@ function NovaVendaTab() {
                 ['E-mail', formData.email || '—'],
                 ['Telefone', formData.telefone || '—'],
                 ['Endereço', formData.endereco || '—'],
-                ['Valor Mensal', valorVenda ? `R$ ${parseFloat(valorVenda).toFixed(2)}` : '—'],
+                ['Valor do Contrato', valorVenda ? `R$ ${parseFloat(valorVenda).toFixed(2)}` : '—'],
                 ['Beneficiários', `${beneficiarios.length} vida(s)`],
                 ['Portabilidade', possuiPlanoAnterior ? 'Sim' : 'Não'],
               ].map(([label, value]) => (
-                <div key={label} className="flex justify-between p-3 bg-accent/30 rounded-lg">
+                <div key={label} className="flex justify-between p-3 bg-muted/30 rounded-lg">
                   <span className="text-muted-foreground">{label}</span>
                   <span className="font-medium text-foreground">{value}</span>
                 </div>
               ))}
             </div>
 
-            {/* Documentos anexados */}
             <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Documentos Anexados</p>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Documentos Anexados</p>
               {getDocumentos().map(doc => {
                 const uploaded = getDocFile(doc.label);
                 return (
-                  <div key={doc.label} className="flex items-center justify-between p-2.5 bg-accent/30 rounded-lg text-sm">
+                  <div key={doc.label} className="flex items-center justify-between p-2.5 bg-muted/30 rounded-lg text-sm">
                     <span className="text-muted-foreground">{doc.label} {doc.required && '*'}</span>
                     <span className={cn("font-medium", uploaded ? "text-success" : "text-destructive")}>
                       {uploaded ? `✓ ${uploaded.name}` : 'Não enviado'}
@@ -672,12 +665,12 @@ function NovaVendaTab() {
               })}
             </div>
 
-            <div className="p-3 bg-primary/5 rounded-lg border border-primary/10">
+            <div className="p-3 bg-primary/[0.03] rounded-lg border border-primary/10">
               <p className="text-xs text-muted-foreground mb-1">Notificação automática ao finalizar</p>
               <p className="text-xs text-foreground">Supervisor: {supervisor?.nome_completo || '—'} ({supervisor?.email || '—'})</p>
             </div>
 
-            <div className="flex items-center gap-2 p-3 bg-warning/10 border border-warning/20 rounded-lg">
+            <div className="flex items-center gap-2 p-3 bg-warning/8 border border-warning/15 rounded-lg">
               <AlertCircle className="w-4 h-4 text-warning shrink-0" />
               <p className="text-xs text-foreground">Verifique todos os dados e documentos. Pendências atrasam a aprovação.</p>
             </div>
@@ -686,7 +679,7 @@ function NovaVendaTab() {
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0} className="h-11">
+        <Button variant="outline" onClick={() => setStep(Math.max(0, step - 1))} disabled={step === 0} className="h-11 border-border/40">
           <ChevronLeft className="w-4 h-4 mr-1" /> Voltar
         </Button>
         {step < STEPS.length - 1 ? (
@@ -694,7 +687,7 @@ function NovaVendaTab() {
             Próximo <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         ) : (
-          <Button onClick={handleFinalize} className="bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold h-11">
+          <Button onClick={handleFinalize} className="bg-success hover:bg-success/90 text-success-foreground font-bold h-11 shadow-brand">
             <CheckCircle2 className="w-4 h-4 mr-1" /> Finalizar Venda
           </Button>
         )}
@@ -706,34 +699,34 @@ function NovaVendaTab() {
           <DialogHeader>
             <DialogTitle className="font-display text-lg">Confirmar Envio da Venda</DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              A venda será enviada para análise. O supervisor e gerente serão notificados por e-mail.
+              A venda será enviada para análise. O supervisor e gerente serão notificados.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 text-sm py-2 max-h-[50vh] overflow-y-auto">
-            <div className="flex justify-between p-2.5 bg-accent/30 rounded-lg">
+            <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg">
               <span className="text-muted-foreground">Titular</span>
               <span className="font-medium text-foreground">{formData.nome}</span>
             </div>
-            <div className="flex justify-between p-2.5 bg-accent/30 rounded-lg">
+            <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg">
               <span className="text-muted-foreground">Modalidade</span>
               <span className="font-medium text-foreground">{modalidade?.replace(/_/g, ' ').toUpperCase()}</span>
             </div>
-            <div className="flex justify-between p-2.5 bg-accent/30 rounded-lg">
-              <span className="text-muted-foreground">Valor Mensal</span>
+            <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg">
+              <span className="text-muted-foreground">Valor do Contrato</span>
               <span className="font-medium text-foreground">R$ {parseFloat(valorVenda || '0').toFixed(2)}</span>
             </div>
-            <div className="flex justify-between p-2.5 bg-accent/30 rounded-lg">
+            <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg">
               <span className="text-muted-foreground">Vidas</span>
               <span className="font-medium text-foreground">{beneficiarios.length}</span>
             </div>
-            <div className="flex justify-between p-2.5 bg-accent/30 rounded-lg">
+            <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg">
               <span className="text-muted-foreground">Documentos</span>
               <span className="font-medium text-foreground">{docUploads.filter(d => d.file).length} anexados</span>
             </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
-            <Button onClick={confirmVenda} className="bg-secondary hover:bg-secondary/90 text-secondary-foreground font-semibold">
+            <Button onClick={confirmVenda} className="bg-success hover:bg-success/90 text-success-foreground font-semibold">
               <CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar Venda
             </Button>
           </DialogFooter>
@@ -750,16 +743,16 @@ const Comercial = () => {
   return (
     <div className="max-w-5xl space-y-6 animate-fade-in-up">
       <div>
-        <h1 className="text-2xl font-bold font-display text-foreground tracking-tight">Comercial</h1>
-        <p className="text-sm text-muted-foreground">Atividades diárias e vendas</p>
+        <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Comercial</h1>
+        <p className="text-sm text-muted-foreground mt-1">Atividades diárias e vendas</p>
       </div>
 
       <Tabs defaultValue="atividades" className="space-y-6">
-        <TabsList className="bg-card border border-border/40 shadow-card p-1 h-auto">
-          <TabsTrigger value="atividades" className="gap-1.5 py-2.5 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-medium">
+        <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg">
+          <TabsTrigger value="atividades" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
             <ClipboardList className="w-4 h-4" /> Atividades
           </TabsTrigger>
-          <TabsTrigger value="nova-venda" className="gap-1.5 py-2.5 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-medium">
+          <TabsTrigger value="nova-venda" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
             <ShoppingCart className="w-4 h-4" /> Nova Venda
           </TabsTrigger>
         </TabsList>
