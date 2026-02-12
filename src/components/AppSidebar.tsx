@@ -5,6 +5,7 @@ import {
   BarChart3, 
   HelpCircle,
   LogOut,
+  UserCog,
   UserCircle,
   ChevronLeft,
   ChevronRight,
@@ -20,6 +21,7 @@ const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
   { to: '/comercial', icon: Briefcase, label: 'Comercial' },
   { to: '/gestao', icon: BarChart3, label: 'Gestão', restricted: true },
+  { to: '/admin/usuarios', icon: UserCog, label: 'Usuários', adminOnly: true },
 ];
 
 export function AppSidebar() {
@@ -34,6 +36,7 @@ export function AppSidebar() {
   const patente = getPatente(percentMeta);
   const frase = getFraseMotivacional(percentMeta);
   const isGestor = ['supervisor', 'gerente', 'administrador'].includes(role ?? '');
+  const isAdmin = role === 'administrador';
   const borderClass = patente?.borderClass ?? 'border-sidebar-border';
 
   return (
@@ -87,6 +90,7 @@ export function AppSidebar() {
       <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           if (item.restricted && !isGestor) return null;
+          if ((item as any).adminOnly && !isAdmin) return null;
           const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
           return (
             <NavLink
