@@ -82,6 +82,23 @@ export function useSupervisorProfile(supervisorId: string | null | undefined) {
   });
 }
 
+export function useGerenteProfile(gerenteId: string | null | undefined) {
+  return useQuery({
+    queryKey: ['profile', gerenteId],
+    queryFn: async () => {
+      if (!gerenteId) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, nome_completo, email')
+        .eq('id', gerenteId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!gerenteId,
+  });
+}
+
 export function useTeamProfiles() {
   const { user } = useAuth();
 
