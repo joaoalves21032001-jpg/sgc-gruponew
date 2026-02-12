@@ -9,10 +9,11 @@ import {
   LogOut,
   UserCircle
 } from 'lucide-react';
-import { currentUser } from '@/lib/mock-data';
+import { useProfile, useUserRole } from '@/hooks/useProfile';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
 import { PatenteBadge } from './PatenteBadge';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 
 const navItems = [
@@ -24,9 +25,15 @@ const navItems = [
 export function AppSidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const patente = getPatente(currentUser.percentMeta);
-  const frase = getFraseMotivacional(currentUser.percentMeta);
-  const isGestor = ['supervisor', 'gerente', 'administrador'].includes(currentUser.perfil);
+  const { signOut } = useAuth();
+  const { data: profile } = useProfile();
+  const { data: role } = useUserRole();
+
+  const displayName = profile?.apelido || profile?.nome_completo?.split(' ')[0] || '...';
+  const percentMeta = 0; // Will be calculated from atividades
+  const patente = getPatente(percentMeta);
+  const frase = getFraseMotivacional(percentMeta);
+  const isGestor = ['supervisor', 'gerente', 'administrador'].includes(role ?? '');
 
   const borderClass = patente?.borderClass ?? 'border-sidebar-border';
 
@@ -46,13 +53,13 @@ export function AppSidebar() {
         <div className="flex items-center gap-3">
           <div className={`shrink-0 w-11 h-11 rounded-full border-[3px] ${borderClass} bg-sidebar-accent flex items-center justify-center overflow-hidden`}>
             <span className="text-sidebar-foreground font-bold text-sm">
-              {currentUser.apelido.charAt(0).toUpperCase()}
+              {displayName.charAt(0).toUpperCase()}
             </span>
           </div>
           {!collapsed && (
             <div className="min-w-0 animate-fade-in-up">
               <p className="text-sidebar-foreground text-sm font-medium truncate">
-                Olá, {currentUser.apelido}!
+                Olá, {displayName}!
               </p>
               <p className="text-sidebar-muted text-xs truncate">Bem-vindo de volta</p>
             </div>
@@ -60,10 +67,10 @@ export function AppSidebar() {
         </div>
         {!collapsed && (
           <div className="mt-3 space-y-1.5">
-            {patente && <PatenteBadge percentMeta={currentUser.percentMeta} size="sm" />}
+            {patente && <PatenteBadge percentMeta={percentMeta} size="sm" />}
             <p className="text-sidebar-muted text-[11px] italic leading-tight">{frase}</p>
             <p className="text-sidebar-muted text-[10px]">
-              {currentUser.cargo} • {currentUser.perfil}
+              {profile?.cargo || 'Consultor de Vendas'} • {role || 'consultor'}
             </p>
           </div>
         )}
@@ -106,7 +113,10 @@ export function AppSidebar() {
           <HelpCircle className="w-5 h-5 shrink-0" />
           {!collapsed && <span>Ajuda</span>}
         </button>
-        <button className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground w-full transition-colors ${collapsed ? 'justify-center' : ''}`}>
+        <button
+          onClick={signOut}
+          className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground w-full transition-colors ${collapsed ? 'justify-center' : ''}`}
+        >
           <LogOut className="w-5 h-5 shrink-0" />
           {!collapsed && <span>Sair</span>}
         </button>
