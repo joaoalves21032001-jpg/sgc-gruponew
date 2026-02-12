@@ -28,7 +28,7 @@ const navItems: { to: string; icon: any; label: string; access: NavRole }[] = [
   { to: '/comercial', icon: Briefcase, label: 'Registro de Atividades', access: 'all' },
   { to: '/minhas-acoes', icon: ClipboardList, label: 'Minhas Ações', access: 'all' },
   { to: '/aprovacoes', icon: CheckSquare, label: 'Aprovações', access: 'supervisor_up' },
-  { to: '/gestao', icon: BarChart3, label: 'Dashboard', access: 'admin' },
+  { to: '/gestao', icon: BarChart3, label: 'Dashboard', access: 'supervisor_up' },
   { to: '/admin/usuarios', icon: UserCog, label: 'Usuários', access: 'admin' },
   { to: '/admin/solicitacoes', icon: UserPlus, label: 'Solicitações', access: 'admin' },
 ];
