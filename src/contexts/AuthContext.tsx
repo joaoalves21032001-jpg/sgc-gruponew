@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { User, Session, AuthenticatorAssuranceLevels } from '@supabase/supabase-js';
-import { generateDeviceHash } from '@/pages/MfaSetup';
+import type { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
   user: User | null;
@@ -9,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   mfaVerified: boolean;
   needsMfa: boolean;
+  hasProfile: boolean | null;
   setMfaVerified: (v: boolean) => void;
   signOut: () => Promise<void>;
 }
@@ -19,6 +19,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   mfaVerified: false,
   needsMfa: false,
+  hasProfile: null,
   setMfaVerified: () => {},
   signOut: async () => {},
 });
@@ -31,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [mfaVerified, setMfaVerified] = useState(false);
   const [needsMfa, setNeedsMfa] = useState(false);
+  const [hasProfile, setHasProfile] = useState<boolean | null>(null);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -39,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!session?.user) {
         setMfaVerified(false);
         setNeedsMfa(false);
+        setHasProfile(null);
       }
       setLoading(false);
     });
@@ -52,11 +55,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Check MFA status when user is set
+  // Check if user has a profile (is authorized)
   useEffect(() => {
-    if (!user) return;
-    checkMfaStatus();
+    if (!user) { setHasProfile(null); return; }
+    
+    const checkProfile = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, disabled')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (error || !data) {
+        setHasProfile(false);
+      } else if ((data as any).disabled) {
+        setHasProfile(false);
+      } else {
+        setHasProfile(true);
+      }
+    };
+    checkProfile();
   }, [user]);
+
+  // Check MFA status when user is set and has profile
+  useEffect(() => {
+    if (!user || hasProfile !== true) return;
+    checkMfaStatus();
+  }, [user, hasProfile]);
 
   const checkMfaStatus = async () => {
     try {
@@ -66,7 +91,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { currentLevel, nextLevel } = aalData;
 
       if (nextLevel === 'aal2' && currentLevel === 'aal1') {
-        // MFA is enrolled but not verified this session - check trusted device
         const deviceHash = localStorage.getItem('mfa_device_hash');
         if (deviceHash) {
           const { data: trusted } = await supabase
@@ -78,10 +102,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .maybeSingle();
 
           if (trusted) {
-            // Device is trusted, auto-verify by challenging
             const { data: factors } = await supabase.auth.mfa.listFactors();
             if (factors?.totp?.[0]) {
-              // Trusted device - skip MFA
               setMfaVerified(true);
               setNeedsMfa(false);
               return;
@@ -94,12 +116,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setMfaVerified(true);
         setNeedsMfa(false);
       } else {
-        // No MFA enrolled yet - will need setup
         setNeedsMfa(true);
         setMfaVerified(false);
       }
     } catch {
-      // If MFA check fails, require it
       setNeedsMfa(true);
     }
   };
@@ -108,10 +128,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     setMfaVerified(false);
     setNeedsMfa(false);
+    setHasProfile(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, mfaVerified, needsMfa, setMfaVerified, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, mfaVerified, needsMfa, hasProfile, setMfaVerified, signOut }}>
       {children}
     </AuthContext.Provider>
   );

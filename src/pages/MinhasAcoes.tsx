@@ -6,7 +6,6 @@ import { useMyAtividades } from '@/hooks/useAtividades';
 import { useMyVendas, type Venda } from '@/hooks/useVendas';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
@@ -14,15 +13,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import {
-  ClipboardList, ShoppingCart, Search, Pencil, Trash2, Plus, CalendarIcon,
-  CheckCircle2, Clock, XCircle, Eye, AlertCircle
+  ClipboardList, ShoppingCart, Search, Pencil, Trash2, Plus,
+  CheckCircle2, Clock, XCircle, Undo2, AlertCircle
 } from 'lucide-react';
 
-const statusConfig: Record<string, { label: string; className: string }> = {
-  analise: { label: 'Em Análise', className: 'bg-primary/10 text-primary border-primary/20' },
-  pendente: { label: 'Pendente', className: 'bg-warning/10 text-warning border-warning/20' },
-  aprovado: { label: 'Aprovado', className: 'bg-success/10 text-success border-success/20' },
-  recusado: { label: 'Recusado', className: 'bg-destructive/10 text-destructive border-destructive/20' },
+const statusConfig: Record<string, { label: string; icon: React.ElementType; className: string }> = {
+  pendente: { label: 'Pendente', icon: Clock, className: 'bg-warning/10 text-warning border-warning/20' },
+  aprovado: { label: 'Aprovado', icon: CheckCircle2, className: 'bg-success/10 text-success border-success/20' },
+  recusado: { label: 'Recusado', icon: XCircle, className: 'bg-destructive/10 text-destructive border-destructive/20' },
+  devolvido: { label: 'Devolvido', icon: Undo2, className: 'bg-primary/10 text-primary border-primary/20' },
+  analise: { label: 'Em Análise', icon: Clock, className: 'bg-primary/10 text-primary border-primary/20' },
 };
 
 const MinhasAcoes = () => {
@@ -44,10 +44,11 @@ const MinhasAcoes = () => {
   const filteredAtividades = useMemo(() => {
     return atividades.filter(a => {
       const matchesSearch = a.data.includes(search) || search === '';
+      const matchesStatus = filterStatus === 'todos' || (a as any).status === filterStatus;
       const matchesDate = !filterDate || a.data === filterDate;
-      return matchesSearch && matchesDate;
+      return matchesSearch && matchesStatus && matchesDate;
     });
-  }, [atividades, search, filterDate]);
+  }, [atividades, search, filterStatus, filterDate]);
 
   const filteredVendas = useMemo(() => {
     return vendas.filter(v => {
@@ -57,6 +58,8 @@ const MinhasAcoes = () => {
       return matchesSearch && matchesStatus && matchesDate;
     });
   }, [vendas, search, filterStatus, filterDate]);
+
+  const canEditDelete = (status: string) => status === 'devolvido' || status === 'pendente';
 
   const handleDelete = async () => {
     if (!deleteItem) return;
@@ -76,6 +79,10 @@ const MinhasAcoes = () => {
   };
 
   const openEditAtiv = (a: any) => {
+    if (!canEditDelete((a as any).status || 'pendente')) {
+      toast.info('Este registro já foi processado e não pode ser editado.');
+      return;
+    }
     setEditAtiv(a);
     setEditForm({
       ligacoes: String(a.ligacoes),
@@ -84,6 +91,14 @@ const MinhasAcoes = () => {
       cotacoes_fechadas: String(a.cotacoes_fechadas),
       follow_up: String(a.follow_up),
     });
+  };
+
+  const tryDelete = (type: 'atividade' | 'venda', id: string, label: string, status: string) => {
+    if (!canEditDelete(status)) {
+      toast.info('Este registro já foi processado e não pode ser excluído.');
+      return;
+    }
+    setDeleteItem({ type, id, label });
   };
 
   const saveEditAtiv = async () => {
@@ -120,6 +135,14 @@ const MinhasAcoes = () => {
         </Button>
       </div>
 
+      {/* Info */}
+      <div className="bg-accent/50 rounded-xl p-3 border border-border/30 flex items-start gap-2">
+        <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+        <p className="text-xs text-muted-foreground">
+          Você pode editar ou excluir registros com status <strong>Pendente</strong> ou <strong>Devolvido</strong>. Registros aprovados ficam bloqueados.
+        </p>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
         <div className="relative flex-1 max-w-md">
@@ -127,13 +150,12 @@ const MinhasAcoes = () => {
           <Input placeholder="Buscar..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 h-10 bg-card border-border/40" />
         </div>
         <Select value={filterStatus} onValueChange={setFilterStatus}>
-          <SelectTrigger className="w-[140px] h-10 border-border/40"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[150px] h-10 border-border/40"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="todos">Todos Status</SelectItem>
-            <SelectItem value="analise">Em Análise</SelectItem>
             <SelectItem value="pendente">Pendente</SelectItem>
             <SelectItem value="aprovado">Aprovado</SelectItem>
-            <SelectItem value="recusado">Recusado</SelectItem>
+            <SelectItem value="devolvido">Devolvido</SelectItem>
           </SelectContent>
         </Select>
         <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="h-10 w-[160px] bg-card border-border/40" />
@@ -159,35 +181,43 @@ const MinhasAcoes = () => {
                 Nenhuma atividade encontrada.
               </div>
             ) : (
-              filteredAtividades.map((a) => (
-                <div key={a.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-foreground">📅 {a.data.split('-').reverse().join('/')}</p>
-                        <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/20">
-                          <Clock className="w-3 h-3 mr-1" />Pendente
-                        </Badge>
+              filteredAtividades.map((a) => {
+                const ativStatus = (a as any).status || 'pendente';
+                const sc = statusConfig[ativStatus] || statusConfig.pendente;
+                const StatusIcon = sc.icon;
+                const editable = canEditDelete(ativStatus);
+                return (
+                  <div key={a.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground">📅 {a.data.split('-').reverse().join('/')}</p>
+                          <Badge variant="outline" className={`text-[10px] ${sc.className}`}>
+                            <StatusIcon className="w-3 h-3 mr-1" />{sc.label}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
+                          <span>Ligações: <strong className="text-foreground">{a.ligacoes}</strong></span>
+                          <span>Mensagens: <strong className="text-foreground">{a.mensagens}</strong></span>
+                          <span>Cot. Enviadas: <strong className="text-foreground">{a.cotacoes_enviadas}</strong></span>
+                          <span>Cot. Fechadas: <strong className="text-foreground">{a.cotacoes_fechadas}</strong></span>
+                          <span>Follow-up: <strong className="text-foreground">{a.follow_up}</strong></span>
+                        </div>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
-                        <span>Ligações: <strong className="text-foreground">{a.ligacoes}</strong></span>
-                        <span>Mensagens: <strong className="text-foreground">{a.mensagens}</strong></span>
-                        <span>Cot. Enviadas: <strong className="text-foreground">{a.cotacoes_enviadas}</strong></span>
-                        <span>Cot. Fechadas: <strong className="text-foreground">{a.cotacoes_fechadas}</strong></span>
-                        <span>Follow-up: <strong className="text-foreground">{a.follow_up}</strong></span>
-                      </div>
-                    </div>
-                    <div className="flex gap-1.5 shrink-0">
-                      <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditAtiv(a)}>
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteItem({ type: 'atividade', id: a.id, label: a.data })}>
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      {editable && (
+                        <div className="flex gap-1.5 shrink-0">
+                          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditAtiv(a)}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => tryDelete('atividade', a.id, a.data, ativStatus)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </TabsContent>
@@ -203,14 +233,18 @@ const MinhasAcoes = () => {
               </div>
             ) : (
               filteredVendas.map((v) => {
-                const sc = statusConfig[v.status] || statusConfig.analise;
+                const sc = statusConfig[v.status] || statusConfig.pendente;
+                const StatusIcon = sc.icon;
+                const editable = canEditDelete(v.status);
                 return (
                   <div key={v.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-foreground">{v.nome_titular}</p>
-                          <Badge variant="outline" className={`text-[10px] ${sc.className}`}>{sc.label}</Badge>
+                          <Badge variant="outline" className={`text-[10px] ${sc.className}`}>
+                            <StatusIcon className="w-3 h-3 mr-1" />{sc.label}
+                          </Badge>
                           <Badge variant="outline" className="text-[10px]">{v.modalidade}</Badge>
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
@@ -220,11 +254,13 @@ const MinhasAcoes = () => {
                         </div>
                         {v.observacoes && <p className="text-xs text-muted-foreground mt-1 italic">{v.observacoes}</p>}
                       </div>
-                      <div className="flex gap-1.5 shrink-0">
-                        <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteItem({ type: 'venda', id: v.id, label: v.nome_titular })}>
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
+                      {editable && (
+                        <div className="flex gap-1.5 shrink-0">
+                          <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => tryDelete('venda', v.id, v.nome_titular, v.status)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
