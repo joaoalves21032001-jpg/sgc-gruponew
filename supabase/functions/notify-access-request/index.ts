@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
@@ -24,22 +24,21 @@ serve(async (req) => {
 
     if (insertError) throw insertError;
 
-    // Get all supervisors, gerentes and admins to notify
-    const { data: roles } = await supabaseAdmin
-      .from("user_roles")
-      .select("user_id, role")
-      .in("role", ["supervisor", "gerente", "administrador"]);
+    // Send email notification via send-notification function
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    if (roles && roles.length > 0) {
-      const userIds = roles.map((r: any) => r.user_id);
-      const { data: profiles } = await supabaseAdmin
-        .from("profiles")
-        .select("email, nome_completo")
-        .in("id", userIds);
-
-      // Log notification (in production, integrate with email service)
-      console.log(`Access request from ${nome} (${email}). Notifying:`, profiles?.map((p: any) => p.email));
-    }
+    await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${supabaseAnonKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "acesso_solicitado",
+        data: { nome, email, telefone, mensagem },
+      }),
+    });
 
     return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
