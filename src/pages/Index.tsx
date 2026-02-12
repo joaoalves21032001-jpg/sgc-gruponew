@@ -50,20 +50,19 @@ const Index = () => {
   const displayName = profile?.apelido || profile?.nome_completo?.split(' ')[0] || '';
 
   return (
-    <div className="space-y-8 animate-fade-in-up">
+    <div className="space-y-6 animate-fade-in-up">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-3">
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
           <h1 className="text-[28px] font-bold font-display text-foreground leading-none">
             {displayName ? `Olá, ${displayName}` : 'Meu Progresso'}
           </h1>
-          {percentMeta >= 80 && <PatenteBadge percentMeta={percentMeta} size="md" />}
+          <p className="text-sm text-muted-foreground mt-1">
+            Resumo das suas atividades • {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+          </p>
+          <p className="text-xs text-muted-foreground/70 italic mt-2">{frase}</p>
         </div>
-        <p className="text-sm text-muted-foreground mt-1">
-          Resumo das suas atividades • {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-        </p>
-        {/* Motivational phrase for all users */}
-        <p className="text-xs text-muted-foreground/70 italic mt-2">{frase}</p>
+        {percentMeta >= 80 && <PatenteBadge percentMeta={percentMeta} size="md" />}
       </div>
 
       {/* KPI Cards */}
