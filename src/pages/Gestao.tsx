@@ -15,14 +15,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMemo } from 'react';
 
 const statusColors: Record<string, string> = {
-  analise: 'bg-primary/10 text-primary border-primary/20',
-  pendente: 'bg-warning/10 text-warning border-warning/20',
-  aprovado: 'bg-success/10 text-success border-success/20',
-  recusado: 'bg-destructive/10 text-destructive border-destructive/20',
+  analise: 'bg-primary/8 text-primary border-primary/15',
+  pendente: 'bg-warning/8 text-warning border-warning/15',
+  aprovado: 'bg-success/8 text-success border-success/15',
+  recusado: 'bg-destructive/8 text-destructive border-destructive/15',
 };
 
 const Gestao = () => {
@@ -37,7 +37,6 @@ const Gestao = () => {
 
   const consultores = profiles ?? [];
 
-  // Aggregate atividades per user
   const userStats = useMemo(() => {
     const map: Record<string, { ligacoes: number; mensagens: number; cotacoes_enviadas: number; cotacoes_fechadas: number; follow_up: number; faturamento: number }> = {};
     for (const a of atividades) {
@@ -115,22 +114,22 @@ const Gestao = () => {
       <div className="space-y-6">
         <Skeleton className="h-8 w-48" />
         <div className="grid grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-2xl" />)}
+          {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24 rounded-xl" />)}
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
+    <div className="space-y-8 animate-fade-in-up">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-bold font-display text-foreground tracking-tight">Painel de Gestão</h1>
-          <p className="text-sm text-muted-foreground">Visão geral da equipe e vendas</p>
+          <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Painel de Gestão</h1>
+          <p className="text-sm text-muted-foreground mt-1">Visão geral da equipe e vendas</p>
         </div>
         <div className="flex gap-2">
           <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
-            <SelectTrigger className="w-[140px] h-9 text-xs">
+            <SelectTrigger className="w-[140px] h-9 text-xs border-border/40">
               <Filter className="w-3 h-3 mr-1" />
               <SelectValue />
             </SelectTrigger>
@@ -141,7 +140,7 @@ const Gestao = () => {
             </SelectContent>
           </Select>
           <Select value={filtroConsultor} onValueChange={setFiltroConsultor}>
-            <SelectTrigger className="w-[160px] h-9 text-xs">
+            <SelectTrigger className="w-[160px] h-9 text-xs border-border/40">
               <Users className="w-3 h-3 mr-1" />
               <SelectValue />
             </SelectTrigger>
@@ -158,42 +157,42 @@ const Gestao = () => {
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Consultores" value={consultores.length} icon={Users} />
-        <StatCard title="Faturamento Equipe" value={`R$ ${(totalFaturamento / 1000).toFixed(0)}k`} subtitle={`Meta: R$ ${(metaEquipe / 1000).toFixed(0)}k`} icon={TrendingUp} variant="brand" />
+        <StatCard title="Faturamento" value={`R$ ${(totalFaturamento / 1000).toFixed(0)}k`} subtitle={`Meta: R$ ${(metaEquipe / 1000).toFixed(0)}k`} icon={TrendingUp} variant="brand" />
         <StatCard title="Total de Vidas" value={totalVidas} icon={Users} variant="success" />
-        <StatCard title="Alertas de Risco" value={riskConsultores.length} icon={AlertTriangle} />
+        <StatCard title="Alertas" value={riskConsultores.length} icon={AlertTriangle} />
       </div>
 
-      {/* Métricas secundárias */}
+      {/* Secondary metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card rounded-2xl p-4 shadow-card border border-border/40">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">Meta da Equipe</span>
+        <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Meta da Equipe</span>
             <Target className="w-4 h-4 text-primary" />
           </div>
           <p className="text-2xl font-bold font-display text-foreground">{percentMetaEquipe}%</p>
-          <div className="w-full bg-muted rounded-full h-2 mt-2">
-            <div className={`h-2 rounded-full transition-all ${percentMetaEquipe >= 100 ? 'bg-success' : 'bg-warning'}`} style={{ width: `${Math.min(percentMetaEquipe, 100)}%` }} />
+          <div className="w-full bg-muted rounded-full h-1.5 mt-2">
+            <div className={`h-1.5 rounded-full transition-all ${percentMetaEquipe >= 100 ? 'bg-success' : 'bg-warning'}`} style={{ width: `${Math.min(percentMetaEquipe, 100)}%` }} />
           </div>
         </div>
-        <div className="bg-card rounded-2xl p-4 shadow-card border border-border/40">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">Taxa de Conversão</span>
+        <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Conversão</span>
             <BarChart3 className="w-4 h-4 text-primary" />
           </div>
           <p className="text-2xl font-bold font-display text-foreground">{taxaConversaoEquipe}%</p>
-          <p className="text-xs text-muted-foreground mt-1">{totalCotFechadas} fechadas / {totalCotEnviadas} enviadas</p>
+          <p className="text-xs text-muted-foreground mt-1">{totalCotFechadas}/{totalCotEnviadas}</p>
         </div>
-        <div className="bg-card rounded-2xl p-4 shadow-card border border-border/40">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">Ligações Total</span>
+        <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Ligações</span>
             <Phone className="w-4 h-4 text-primary" />
           </div>
           <p className="text-2xl font-bold font-display text-foreground">{totalLigacoes}</p>
-          <p className="text-xs text-muted-foreground mt-1">Média: {consultores.length > 0 ? Math.round(totalLigacoes / consultores.length) : 0} por consultor</p>
+          <p className="text-xs text-muted-foreground mt-1">Média: {consultores.length > 0 ? Math.round(totalLigacoes / consultores.length) : 0}/consultor</p>
         </div>
-        <div className="bg-card rounded-2xl p-4 shadow-card border border-border/40">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-muted-foreground uppercase tracking-wider">Vendas em Análise</span>
+        <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Em Análise</span>
             <FileText className="w-4 h-4 text-primary" />
           </div>
           <p className="text-2xl font-bold font-display text-foreground">{vendas.filter(v => v.status === 'analise').length}</p>
@@ -201,72 +200,70 @@ const Gestao = () => {
         </div>
       </div>
 
-      {/* Gráficos */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
-          <h3 className="text-sm font-semibold text-foreground mb-4 font-display flex items-center gap-2">
+        <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+          <h3 className="text-xs font-bold text-muted-foreground mb-5 font-display uppercase tracking-[0.08em] flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-primary" /> Faturamento por Consultor (R$ mil)
           </h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={comparativoData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(214 20% 88%)" />
-              <XAxis dataKey="nome" tick={{ fontSize: 11 }} stroke="hsl(215 16% 47%)" />
-              <YAxis tick={{ fontSize: 11 }} stroke="hsl(215 16% 47%)" />
-              <Tooltip contentStyle={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(214 20% 88%)', borderRadius: '8px', fontSize: '12px' }} />
-              <Bar dataKey="faturamento" name="Faturamento" fill="hsl(194, 53%, 26%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="meta" name="Meta" fill="hsl(214 20% 88%)" radius={[4, 4, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 13% 90%)" vertical={false} />
+              <XAxis dataKey="nome" tick={{ fontSize: 11, fill: 'hsl(220 10% 46%)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: 'hsl(220 10% 46%)' }} axisLine={false} tickLine={false} />
+              <Tooltip contentStyle={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(220 13% 90%)', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 12px hsl(220 25% 10% / 0.08)' }} />
+              <Bar dataKey="faturamento" name="Faturamento" fill="hsl(194 53% 26%)" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="meta" name="Meta" fill="hsl(220 13% 90%)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
-        <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
-          <h3 className="text-sm font-semibold text-foreground mb-4 font-display flex items-center gap-2">
+        <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+          <h3 className="text-xs font-bold text-muted-foreground mb-5 font-display uppercase tracking-[0.08em] flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-primary" /> Conversão por Consultor
           </h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={comparativoData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(214 20% 88%)" />
-              <XAxis dataKey="nome" tick={{ fontSize: 11 }} stroke="hsl(215 16% 47%)" />
-              <YAxis tick={{ fontSize: 11 }} stroke="hsl(215 16% 47%)" unit="%" />
-              <Tooltip contentStyle={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(214 20% 88%)', borderRadius: '8px', fontSize: '12px' }} />
-              <Bar dataKey="conversao" name="Conversão %" fill="hsl(93, 53%, 51%)" radius={[4, 4, 0, 0]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 13% 90%)" vertical={false} />
+              <XAxis dataKey="nome" tick={{ fontSize: 11, fill: 'hsl(220 10% 46%)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: 'hsl(220 10% 46%)' }} axisLine={false} tickLine={false} unit="%" />
+              <Tooltip contentStyle={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(220 13% 90%)', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 12px hsl(220 25% 10% / 0.08)' }} />
+              <Bar dataKey="conversao" name="Conversão %" fill="hsl(152 60% 40%)" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Ranking Gamificado */}
-      <div className="bg-card rounded-2xl p-5 shadow-card border border-border/40">
-        <h3 className="text-sm font-semibold text-foreground font-display flex items-center gap-2 mb-4">
+      {/* Ranking */}
+      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+        <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em] flex items-center gap-2 mb-5">
           <Trophy className="w-4 h-4 text-primary" /> Ranking de Desempenho
         </h3>
         <div className="space-y-2">
           {ranking.map((c, idx) => {
             const patente = getPatente(c.percentMeta);
             return (
-              <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-xl bg-background border border-border/30 hover:border-primary/20 transition-colors">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-sm font-bold text-primary shrink-0">
+              <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-lg bg-muted/30 border border-border/20 hover:border-primary/15 transition-colors">
+                <div className="w-8 h-8 rounded-full bg-primary/8 flex items-center justify-center text-sm font-bold text-primary shrink-0 font-display">
                   {idx + 1}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">{c.nome_completo}</p>
+                    <p className="text-sm font-semibold text-foreground">{c.nome_completo}</p>
                     {patente && <PatenteBadge percentMeta={c.percentMeta} size="sm" />}
                   </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
                     <span>R$ {(c.stats.faturamento / 1000).toFixed(1)}k</span>
-                    <span>•</span>
+                    <span className="text-border">•</span>
                     <span>{c.percentMeta}% da meta</span>
-                    <span>•</span>
+                    <span className="text-border">•</span>
                     <span>{c.stats.cotacoes_fechadas} vendas</span>
-                    <span>•</span>
-                    <span>Conversão: {c.stats.cotacoes_enviadas > 0 ? Math.round((c.stats.cotacoes_fechadas / c.stats.cotacoes_enviadas) * 100) : 0}%</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="shrink-0">
                   {c.percentMeta >= 100 ? (
-                    <span className="flex items-center gap-1 text-xs font-medium text-success"><ArrowUpRight className="w-3.5 h-3.5" />{c.percentMeta}%</span>
+                    <span className="flex items-center gap-1 text-xs font-semibold text-success"><ArrowUpRight className="w-3.5 h-3.5" />{c.percentMeta}%</span>
                   ) : (
-                    <span className="flex items-center gap-1 text-xs font-medium text-destructive"><ArrowDownRight className="w-3.5 h-3.5" />{c.percentMeta}%</span>
+                    <span className="flex items-center gap-1 text-xs font-semibold text-destructive"><ArrowDownRight className="w-3.5 h-3.5" />{c.percentMeta}%</span>
                   )}
                 </div>
               </div>
@@ -277,12 +274,12 @@ const Gestao = () => {
 
       {/* Kanban */}
       <div>
-        <h3 className="text-sm font-semibold text-foreground font-display mb-4">Kanban de Vendas</h3>
+        <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em] mb-4">Kanban de Vendas</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {kanbanColumns.map((col) => (
             <div key={col.status} className="space-y-3">
               <div className="flex items-center gap-2">
-                <Badge variant="outline" className={`${statusColors[col.status]} border`}>
+                <Badge variant="outline" className={`${statusColors[col.status]} border text-[11px] font-semibold`}>
                   {col.label}
                 </Badge>
                 <span className="text-xs text-muted-foreground">{col.items.length}</span>
@@ -292,13 +289,13 @@ const Gestao = () => {
                   <div
                     key={v.id}
                     onClick={() => setSelectedVenda(v)}
-                    className="bg-card rounded-xl p-4 shadow-card hover:shadow-card-hover transition-all cursor-pointer border border-border/40"
+                    className="bg-card rounded-lg p-4 shadow-card hover:shadow-card-hover transition-all cursor-pointer border border-border/30"
                   >
-                    <p className="text-sm font-medium text-foreground">{v.nome_titular}</p>
-                    <p className="text-xs text-muted-foreground">{getConsultorName(v.user_id)} • {v.modalidade}</p>
+                    <p className="text-sm font-semibold text-foreground">{v.nome_titular}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{getConsultorName(v.user_id)} • {v.modalidade}</p>
                     <div className="flex items-center justify-between mt-2">
-                      <span className="text-xs text-muted-foreground">{v.vidas} vida(s)</span>
-                      <span className="text-xs font-medium text-primary">{v.valor ? `R$ ${v.valor.toLocaleString('pt-BR')}` : ''}</span>
+                      <span className="text-[11px] text-muted-foreground">{v.vidas} vida(s)</span>
+                      <span className="text-xs font-semibold text-primary">{v.valor ? `R$ ${v.valor.toLocaleString('pt-BR')}` : ''}</span>
                     </div>
                   </div>
                 ))}
@@ -308,7 +305,7 @@ const Gestao = () => {
         </div>
       </div>
 
-      {/* Dialog de detalhes */}
+      {/* Dialog */}
       <Dialog open={!!selectedVenda} onOpenChange={() => setSelectedVenda(null)}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -317,21 +314,21 @@ const Gestao = () => {
           {selectedVenda && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-muted-foreground">Titular</span><p className="font-medium text-foreground">{selectedVenda.nome_titular}</p></div>
-                <div><span className="text-muted-foreground">Modalidade</span><p className="font-medium text-foreground">{selectedVenda.modalidade}</p></div>
-                <div><span className="text-muted-foreground">Consultor</span><p className="font-medium text-foreground">{getConsultorName(selectedVenda.user_id)}</p></div>
-                <div><span className="text-muted-foreground">Vidas</span><p className="font-medium text-foreground">{selectedVenda.vidas}</p></div>
-                {selectedVenda.valor && <div><span className="text-muted-foreground">Valor</span><p className="font-medium text-foreground">R$ {selectedVenda.valor.toLocaleString('pt-BR')}</p></div>}
+                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Titular</span><p className="font-semibold text-foreground mt-0.5">{selectedVenda.nome_titular}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Modalidade</span><p className="font-semibold text-foreground mt-0.5">{selectedVenda.modalidade}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Consultor</span><p className="font-semibold text-foreground mt-0.5">{getConsultorName(selectedVenda.user_id)}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Vidas</span><p className="font-semibold text-foreground mt-0.5">{selectedVenda.vidas}</p></div>
+                {selectedVenda.valor && <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Valor</span><p className="font-semibold text-foreground mt-0.5">R$ {selectedVenda.valor.toLocaleString('pt-BR')}</p></div>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Observações</label>
-                <Textarea value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Motivo da aprovação/reprovação..." rows={3} />
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.08em]">Observações</label>
+                <Textarea value={obs} onChange={(e) => setObs(e.target.value)} placeholder="Motivo da aprovação/reprovação..." rows={3} className="border-border/40" />
               </div>
               <div className="flex gap-2">
-                <Button onClick={() => handleAction('aprovada')} className="flex-1 bg-success hover:bg-success/90 text-success-foreground">
+                <Button onClick={() => handleAction('aprovada')} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold">
                   <CheckCircle2 className="w-4 h-4 mr-1" /> Aprovar
                 </Button>
-                <Button onClick={() => handleAction('reprovada')} variant="destructive" className="flex-1">
+                <Button onClick={() => handleAction('reprovada')} variant="destructive" className="flex-1 font-semibold">
                   <X className="w-4 h-4 mr-1" /> Reprovar
                 </Button>
               </div>
