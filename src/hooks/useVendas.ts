@@ -80,9 +80,29 @@ export function useCreateVenda() {
       if (error) throw error;
       return data as Venda;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ['vendas'] });
       queryClient.invalidateQueries({ queryKey: ['team-vendas'] });
+
+      // Send email notification
+      try {
+        const { data: profile } = await supabase.from('profiles').select('nome_completo').eq('id', user!.id).single();
+        await supabase.functions.invoke('send-notification', {
+          body: {
+            type: 'venda_registrada',
+            data: {
+              user_id: user!.id,
+              user_name: profile?.nome_completo || user!.email,
+              nome_titular: data.nome_titular,
+              modalidade: data.modalidade,
+              vidas: data.vidas,
+              valor: data.valor,
+            },
+          },
+        });
+      } catch (e) {
+        console.error('Notification error:', e);
+      }
     },
   });
 }
@@ -101,9 +121,28 @@ export function useUpdateVendaStatus() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['vendas'] });
       queryClient.invalidateQueries({ queryKey: ['team-vendas'] });
+
+      // Send email notification
+      try {
+        const { data: ownerProfile } = await supabase.from('profiles').select('email, nome_completo').eq('id', data.user_id).single();
+        await supabase.functions.invoke('send-notification', {
+          body: {
+            type: 'venda_status_atualizado',
+            data: {
+              user_id: data.user_id,
+              user_email: ownerProfile?.email,
+              nome_titular: data.nome_titular,
+              status: data.status,
+              observacoes: data.observacoes,
+            },
+          },
+        });
+      } catch (e) {
+        console.error('Notification error:', e);
+      }
     },
   });
 }
