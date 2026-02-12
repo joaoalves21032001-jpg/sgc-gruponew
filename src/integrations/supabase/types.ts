@@ -16,29 +16,53 @@ export type Database = {
     Tables: {
       access_requests: {
         Row: {
+          cargo: string | null
+          cpf: string | null
           created_at: string
           email: string
+          endereco: string | null
           id: string
           mensagem: string | null
+          motivo_recusa: string | null
+          nivel_acesso: string | null
           nome: string
+          numero_emergencia_1: string | null
+          numero_emergencia_2: string | null
+          rg: string | null
           status: string
           telefone: string | null
         }
         Insert: {
+          cargo?: string | null
+          cpf?: string | null
           created_at?: string
           email: string
+          endereco?: string | null
           id?: string
           mensagem?: string | null
+          motivo_recusa?: string | null
+          nivel_acesso?: string | null
           nome: string
+          numero_emergencia_1?: string | null
+          numero_emergencia_2?: string | null
+          rg?: string | null
           status?: string
           telefone?: string | null
         }
         Update: {
+          cargo?: string | null
+          cpf?: string | null
           created_at?: string
           email?: string
+          endereco?: string | null
           id?: string
           mensagem?: string | null
+          motivo_recusa?: string | null
+          nivel_acesso?: string | null
           nome?: string
+          numero_emergencia_1?: string | null
+          numero_emergencia_2?: string | null
+          rg?: string | null
           status?: string
           telefone?: string | null
         }
@@ -54,6 +78,7 @@ export type Database = {
           id: string
           ligacoes: number
           mensagens: number
+          status: string
           updated_at: string
           user_id: string
         }
@@ -66,6 +91,7 @@ export type Database = {
           id?: string
           ligacoes?: number
           mensagens?: number
+          status?: string
           updated_at?: string
           user_id: string
         }
@@ -78,6 +104,7 @@ export type Database = {
           id?: string
           ligacoes?: number
           mensagens?: number
+          status?: string
           updated_at?: string
           user_id?: string
         }
@@ -351,7 +378,12 @@ export type Database = {
         | "PME Multi"
         | "Empresarial"
         | "Adesão"
-      venda_status: "analise" | "pendente" | "aprovado" | "recusado"
+      venda_status:
+        | "analise"
+        | "pendente"
+        | "aprovado"
+        | "recusado"
+        | "devolvido"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -487,7 +519,13 @@ export const Constants = {
         "Empresarial",
         "Adesão",
       ],
-      venda_status: ["analise", "pendente", "aprovado", "recusado"],
+      venda_status: [
+        "analise",
+        "pendente",
+        "aprovado",
+        "recusado",
+        "devolvido",
+      ],
     },
   },
 } as const

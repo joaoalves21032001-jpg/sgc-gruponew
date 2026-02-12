@@ -4,17 +4,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Shield, UserPlus, Info } from 'lucide-react';
+import { maskCPF, maskRG, maskPhone } from '@/lib/masks';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 import logo from '@/assets/logo-grupo-new.png';
+
+const CARGOS = ['Consultor de Vendas', 'Supervisor', 'Gerente', 'Diretor'];
 
 const Login = () => {
   const [loading, setLoading] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
-  const [requestForm, setRequestForm] = useState({ nome: '', email: '', telefone: '', mensagem: '' });
+  const [requestForm, setRequestForm] = useState({
+    nome: '', email: '', telefone: '', mensagem: '',
+    cpf: '', rg: '', endereco: '', cargo: 'Consultor de Vendas',
+    nivel_acesso: 'consultor', numero_emergencia_1: '', numero_emergencia_2: '',
+  });
   const [submitting, setSubmitting] = useState(false);
 
   const handleGoogleLogin = async () => {
@@ -36,8 +44,9 @@ const Login = () => {
   };
 
   const handleAccessRequest = async () => {
-    if (!requestForm.nome.trim() || !requestForm.email.trim()) {
-      toast.error('Preencha nome e e-mail.');
+    if (!requestForm.nome.trim() || !requestForm.email.trim() || !requestForm.telefone.trim() ||
+        !requestForm.cpf.trim() || !requestForm.rg.trim() || !requestForm.endereco.trim()) {
+      toast.error('Preencha todos os campos obrigatórios.');
       return;
     }
     setSubmitting(true);
@@ -48,12 +57,20 @@ const Login = () => {
       if (error) throw error;
       toast.success('Solicitação enviada! O administrador será notificado.');
       setShowRequest(false);
-      setRequestForm({ nome: '', email: '', telefone: '', mensagem: '' });
+      setRequestForm({
+        nome: '', email: '', telefone: '', mensagem: '',
+        cpf: '', rg: '', endereco: '', cargo: 'Consultor de Vendas',
+        nivel_acesso: 'consultor', numero_emergencia_1: '', numero_emergencia_2: '',
+      });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao enviar solicitação.');
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const setField = (key: string, value: string) => {
+    setRequestForm(prev => ({ ...prev, [key]: value }));
   };
 
   return (
@@ -72,7 +89,6 @@ const Login = () => {
           <div>
             <img src={logoWhite} alt="Grupo New" className="h-10 opacity-90" />
           </div>
-
           <div className="max-w-md">
             <h1 className="text-4xl font-extrabold text-white font-display leading-[1.1] tracking-tight">
               Sistema de Gestão Comercial
@@ -97,7 +113,6 @@ const Login = () => {
               </div>
             </div>
           </div>
-
           <p className="text-xs text-white/30">
             © {new Date().getFullYear()} Grupo New — Todos os direitos reservados.
           </p>
@@ -110,7 +125,6 @@ const Login = () => {
           <div className="lg:hidden mb-8">
             <img src={logo} alt="Grupo New" className="h-12 mx-auto" />
           </div>
-
           <div className="text-center space-y-2">
             <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4 shadow-brand">
               <Shield className="w-7 h-7 text-white" />
@@ -173,7 +187,7 @@ const Login = () => {
 
       {/* Access Request Dialog */}
       <Dialog open={showRequest} onOpenChange={setShowRequest}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display text-lg flex items-center gap-2">
               <UserPlus className="w-5 h-5 text-primary" />
@@ -183,34 +197,83 @@ const Login = () => {
               Preencha seus dados. O administrador, supervisor e gerente serão notificados.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome Completo *</label>
-                <Tooltip><TooltipTrigger tabIndex={-1}><Info className="w-3 h-3 text-muted-foreground/50 hover:text-primary transition-colors" /></TooltipTrigger><TooltipContent className="max-w-[280px] text-xs">Seu nome completo para identificação no sistema.</TooltipContent></Tooltip>
+          <div className="space-y-5 py-2">
+            {/* Dados Pessoais */}
+            <div>
+              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Dados Pessoais</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome Completo *</label>
+                  <Input value={requestForm.nome} onChange={(e) => setField('nome', e.target.value)} placeholder="Seu nome completo" className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail (Google) *</label>
+                  <Input type="email" value={requestForm.email} onChange={(e) => setField('email', e.target.value)} placeholder="seu.email@gmail.com" className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Celular *</label>
+                  <Input value={requestForm.telefone} onChange={(e) => setField('telefone', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CPF *</label>
+                  <Input value={requestForm.cpf} onChange={(e) => setField('cpf', maskCPF(e.target.value))} placeholder="000.000.000-00" className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">RG *</label>
+                  <Input value={requestForm.rg} onChange={(e) => setField('rg', maskRG(e.target.value))} placeholder="00.000.000-0" className="h-10" />
+                </div>
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Endereço *</label>
+                  <Input value={requestForm.endereco} onChange={(e) => setField('endereco', e.target.value)} placeholder="Rua, número, bairro, cidade - UF" className="h-10" />
+                </div>
               </div>
-              <Input value={requestForm.nome} onChange={(e) => setRequestForm({ ...requestForm, nome: e.target.value })} placeholder="Seu nome completo" className="h-11" />
             </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail *</label>
-                <Tooltip><TooltipTrigger tabIndex={-1}><Info className="w-3 h-3 text-muted-foreground/50 hover:text-primary transition-colors" /></TooltipTrigger><TooltipContent className="max-w-[280px] text-xs">E-mail Google que você usará para acessar o SGC.</TooltipContent></Tooltip>
+
+            {/* Contatos de Emergência */}
+            <div>
+              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Contatos de Emergência</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Emergência 1 (Opcional)</label>
+                  <Input value={requestForm.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Emergência 2 (Opcional)</label>
+                  <Input value={requestForm.numero_emergencia_2} onChange={(e) => setField('numero_emergencia_2', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                </div>
               </div>
-              <Input type="email" value={requestForm.email} onChange={(e) => setRequestForm({ ...requestForm, email: e.target.value })} placeholder="seu.email@exemplo.com" className="h-11" />
             </div>
-            <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Telefone</label>
-                <Tooltip><TooltipTrigger tabIndex={-1}><Info className="w-3 h-3 text-muted-foreground/50 hover:text-primary transition-colors" /></TooltipTrigger><TooltipContent className="max-w-[280px] text-xs">Telefone para contato caso o administrador precise entrar em contato.</TooltipContent></Tooltip>
+
+            {/* Cargo & Acesso */}
+            <div>
+              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Cargo & Acesso</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cargo</label>
+                  <Select value={requestForm.cargo} onValueChange={(v) => setField('cargo', v)}>
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CARGOS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nível de Acesso</label>
+                  <Select value={requestForm.nivel_acesso} onValueChange={(v) => setField('nivel_acesso', v)}>
+                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="consultor">Usuário</SelectItem>
+                      <SelectItem value="administrador">Administrador</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <Input value={requestForm.telefone} onChange={(e) => setRequestForm({ ...requestForm, telefone: e.target.value })} placeholder="+55 (11) 90000-0000" className="h-11" />
             </div>
+
+            {/* Mensagem */}
             <div className="space-y-1.5">
-              <div className="flex items-center gap-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mensagem (opcional)</label>
-                <Tooltip><TooltipTrigger tabIndex={-1}><Info className="w-3 h-3 text-muted-foreground/50 hover:text-primary transition-colors" /></TooltipTrigger><TooltipContent className="max-w-[280px] text-xs">Descreva o motivo da solicitação ou qualquer informação adicional.</TooltipContent></Tooltip>
-              </div>
-              <Textarea value={requestForm.mensagem} onChange={(e) => setRequestForm({ ...requestForm, mensagem: e.target.value })} placeholder="Informe o motivo da solicitação..." rows={3} />
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mensagem (Opcional)</label>
+              <Textarea value={requestForm.mensagem} onChange={(e) => setField('mensagem', e.target.value)} placeholder="Informações adicionais..." rows={2} />
             </div>
           </div>
           <DialogFooter className="gap-2">
