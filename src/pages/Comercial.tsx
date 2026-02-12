@@ -1,5 +1,5 @@
-import { useState, useRef } from 'react';
-import { format, isToday } from 'date-fns';
+import { useState, useRef, useMemo } from 'react';
+import { format, isToday, parse, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Phone, MessageSquare, FileText, CheckCircle2, RotateCcw, Info, Save,
@@ -60,7 +60,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   );
 }
 
-/* ─── Excel helpers ─── */
+/* ─── CSV helpers ─── */
 function generateCSV(headers: string[], filename: string) {
   const bom = '\uFEFF';
   const csvContent = bom + headers.join(';') + '\n';
@@ -91,6 +91,44 @@ function downloadVendasModelo() {
   toast.success('Modelo de vendas baixado!');
 }
 
+interface ParsedAtividade {
+  data: string;
+  ligacoes: number;
+  mensagens: number;
+  cotacoes_coletadas: number;
+  cotacoes_enviadas: number;
+  cotacoes_respondidas: number;
+  cotacoes_nao_respondidas: number;
+  follow_up: number;
+}
+
+function parseCSVAtividades(text: string): ParsedAtividade[] {
+  const lines = text.trim().split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const rows: ParsedAtividade[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(';').map(c => c.trim());
+    if (cols.length < 8) continue;
+    // Parse dd/mm/yyyy to yyyy-mm-dd
+    const dateParts = cols[0].split('/');
+    let dataStr = cols[0];
+    if (dateParts.length === 3) {
+      dataStr = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+    }
+    rows.push({
+      data: dataStr,
+      ligacoes: parseInt(cols[1]) || 0,
+      mensagens: parseInt(cols[2]) || 0,
+      cotacoes_coletadas: parseInt(cols[3]) || 0,
+      cotacoes_enviadas: parseInt(cols[4]) || 0,
+      cotacoes_respondidas: parseInt(cols[5]) || 0,
+      cotacoes_nao_respondidas: parseInt(cols[6]) || 0,
+      follow_up: parseInt(cols[7]) || 0,
+    });
+  }
+  return rows;
+}
+
 /* ═══════════════════════════════════════════════ */
 /*              TAB: ATIVIDADES                    */
 /* ═══════════════════════════════════════════════ */
@@ -119,6 +157,9 @@ function AtividadesTab() {
   const createAtividade = useCreateAtividade();
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
+  const [bulkData, setBulkData] = useState<ParsedAtividade[]>([]);
+  const [bulkSaving, setBulkSaving] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<AtividadesForm>({
     ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '',
@@ -174,35 +215,48 @@ function AtividadesTab() {
   const handleBulkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    toast.info(`Arquivo "${file.name}" selecionado. Processamento em massa em desenvolvimento.`);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const parsed = parseCSVAtividades(text);
+      if (parsed.length === 0) {
+        toast.error('Nenhum registro válido encontrado no arquivo.');
+        return;
+      }
+      setBulkData(parsed);
+      setShowBulkConfirm(true);
+    };
+    reader.readAsText(file);
     if (uploadRef.current) uploadRef.current.value = '';
+  };
+
+  const confirmBulkSave = async () => {
+    setBulkSaving(true);
+    try {
+      for (const row of bulkData) {
+        await createAtividade.mutateAsync({
+          data: row.data,
+          ligacoes: row.ligacoes,
+          mensagens: row.mensagens,
+          cotacoes_enviadas: row.cotacoes_enviadas,
+          cotacoes_fechadas: row.cotacoes_respondidas,
+          follow_up: row.follow_up,
+        });
+      }
+      toast.success(`${bulkData.length} registro(s) importado(s) com sucesso!`);
+      setShowBulkConfirm(false);
+      setBulkData([]);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao importar atividades.');
+    } finally {
+      setBulkSaving(false);
+    }
   };
 
   const update = (key: keyof AtividadesForm, value: string) => setForm(prev => ({ ...prev, [key]: value }));
 
   return (
-    <div className="space-y-6">
-      {/* ── REGISTER BUTTON - TOP PROMINENT ── */}
-      <div className="gradient-hero rounded-xl p-5 flex items-center justify-between shadow-brand">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
-            <Save className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <p className="text-white font-bold font-display text-sm">Registrar Atividades do Dia</p>
-            <p className="text-white/50 text-xs">Preencha todos os campos e clique para registrar</p>
-          </div>
-        </div>
-        <Button
-          onClick={handleSave}
-          disabled={!canSave}
-          className="bg-white text-primary hover:bg-white/90 font-bold px-8 h-12 shadow-elevated text-sm"
-        >
-          <Save className="w-4 h-4 mr-2" />
-          REGISTRAR
-        </Button>
-      </div>
-
+    <div className="space-y-6 pb-24">
       {/* ── Data ── */}
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
         <SectionHeader icon={CalendarIcon} title="Data de Lançamento" subtitle="Preenchida automaticamente com a data atual" />
@@ -300,14 +354,19 @@ function AtividadesTab() {
         </div>
       </div>
 
-      {/* ── Bottom Register Button ── */}
-      <div className="flex justify-end">
-        <Button onClick={handleSave} disabled={!canSave} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-10 h-12 shadow-brand text-sm tracking-wide">
-          <Save className="w-4 h-4 mr-2" /> REGISTRAR ATIVIDADES
+      {/* ── Floating Register Button ── */}
+      <div className="fixed bottom-6 right-6 z-40">
+        <Button
+          onClick={handleSave}
+          disabled={!canSave}
+          size="lg"
+          className="gradient-hero text-white font-bold px-8 h-14 shadow-brand text-sm tracking-wide rounded-full hover:scale-105 transition-transform"
+        >
+          <Save className="w-5 h-5 mr-2" /> REGISTRAR ATIVIDADES
         </Button>
       </div>
 
-      {/* Modal de Confirmação */}
+      {/* Modal de Confirmação - Manual */}
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -336,6 +395,44 @@ function AtividadesTab() {
             <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
             <Button onClick={confirmSave} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
               <CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação - Importação em massa */}
+      <Dialog open={showBulkConfirm} onOpenChange={setShowBulkConfirm}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Confirmar Importação em Massa</DialogTitle>
+            <DialogDescription>Revise os {bulkData.length} registro(s) antes de confirmar.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[50vh] overflow-y-auto space-y-3 py-2">
+            {bulkData.map((row, i) => (
+              <div key={i} className="p-3 bg-muted/30 rounded-lg border border-border/20 space-y-1">
+                <p className="text-xs font-bold text-foreground">
+                  📅 {row.data.split('-').reverse().join('/')}
+                </p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+                  <span className="text-muted-foreground">Ligações: <strong className="text-foreground">{row.ligacoes}</strong></span>
+                  <span className="text-muted-foreground">Mensagens: <strong className="text-foreground">{row.mensagens}</strong></span>
+                  <span className="text-muted-foreground">Cot. Coletadas: <strong className="text-foreground">{row.cotacoes_coletadas}</strong></span>
+                  <span className="text-muted-foreground">Cot. Enviadas: <strong className="text-foreground">{row.cotacoes_enviadas}</strong></span>
+                  <span className="text-muted-foreground">Cot. Respondidas: <strong className="text-foreground">{row.cotacoes_respondidas}</strong></span>
+                  <span className="text-muted-foreground">Cot. Não Resp.: <strong className="text-foreground">{row.cotacoes_nao_respondidas}</strong></span>
+                  <span className="text-muted-foreground">Follow-up: <strong className="text-foreground">{row.follow_up}</strong></span>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setShowBulkConfirm(false); setBulkData([]); }}>Cancelar</Button>
+            <Button onClick={confirmBulkSave} disabled={bulkSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+              {bulkSaving ? (
+                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <><CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar {bulkData.length} registro(s)</>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -455,10 +552,8 @@ function NovaVendaTab() {
       return true;
     }
     if (step === 3) {
-      // Check titular docs
       const titularOk = titularRequiredDocs.filter(d => d.required).every(d => titularDocs[d.label]);
       if (!titularOk) return false;
-      // Check each beneficiary docs
       for (const b of beneficiarios) {
         const bDocs = getRequiredDocsForPerson(modalidade as Modalidade, b.is_conjuge, possuiPlanoAnterior, false);
         const bOk = bDocs.filter(d => d.required).every(d => b.docs[d.label]);
@@ -503,12 +598,10 @@ function NovaVendaTab() {
         observacoes: possuiPlanoAnterior ? 'Portabilidade de carência' : undefined,
       });
 
-      // Upload titular docs
       if (user) {
         for (const [label, file] of Object.entries(titularDocs)) {
           if (file) await uploadVendaDocumento(venda.id, user.id, file, `Titular - ${label}`);
         }
-        // Upload beneficiary docs
         for (const b of beneficiarios) {
           for (const [label, file] of Object.entries(b.docs)) {
             if (file) await uploadVendaDocumento(venda.id, user.id, file, `${b.nome} - ${label}`);
@@ -518,7 +611,6 @@ function NovaVendaTab() {
 
       setShowConfirm(false);
       toast.success('Venda enviada para análise!');
-      // Reset
       setStep(0);
       setModalidade('');
       setFormData({ nome: '', email: '', telefone: '', endereco: '', cnpj: '' });
@@ -659,7 +751,6 @@ function NovaVendaTab() {
           <div className="space-y-6">
             <SectionHeader icon={FileText} title="Documentos Obrigatórios" subtitle="Documentos marcados com * são obrigatórios" />
             
-            {/* Titular docs */}
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
                 <User className="w-3.5 h-3.5 text-primary" /> Titular: {formData.nome}
@@ -675,7 +766,6 @@ function NovaVendaTab() {
               ))}
             </div>
 
-            {/* Each beneficiary docs */}
             {beneficiarios.map((b, bIdx) => {
               const bDocs = getRequiredDocsForPerson(modalidade as Modalidade, b.is_conjuge, possuiPlanoAnterior, false);
               return (
@@ -774,7 +864,7 @@ function NovaVendaTab() {
         )}
       </div>
 
-      {/* Modal de Confirmação */}
+      {/* Modal de Confirmação Venda */}
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
