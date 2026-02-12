@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Shield, Search, Flag, Trash2, Pencil, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Shield, Search, Flag, Trash2, Pencil, CheckCircle2, XCircle, Clock, CalendarIcon } from 'lucide-react';
 
 interface CorrectionRequest {
   id: string;
@@ -65,6 +65,9 @@ const AdminCorrecoes = () => {
   const { data: corrections, isLoading } = useCorrections();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('todos');
+  const [filterTipo, setFilterTipo] = useState<string>('todos');
+  const [filterDate, setFilterDate] = useState('');
   const [editItem, setEditItem] = useState<CorrectionRequest | null>(null);
   const [editStatus, setEditStatus] = useState('pendente');
   const [editResposta, setEditResposta] = useState('');
@@ -86,11 +89,16 @@ const AdminCorrecoes = () => {
     );
   }
 
-  const filtered = corrections?.filter(c =>
-    (userNames?.[c.user_id] || '').toLowerCase().includes(search.toLowerCase()) ||
-    c.motivo.toLowerCase().includes(search.toLowerCase()) ||
-    c.tipo.toLowerCase().includes(search.toLowerCase())
-  ) ?? [];
+  const filtered = corrections?.filter(c => {
+    const matchesSearch = (userNames?.[c.user_id] || '').toLowerCase().includes(search.toLowerCase()) ||
+      c.motivo.toLowerCase().includes(search.toLowerCase()) ||
+      c.tipo.toLowerCase().includes(search.toLowerCase()) ||
+      c.registro_id.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = filterStatus === 'todos' || c.status === filterStatus;
+    const matchesTipo = filterTipo === 'todos' || c.tipo === filterTipo;
+    const matchesDate = !filterDate || c.created_at.startsWith(filterDate);
+    return matchesSearch && matchesStatus && matchesTipo && matchesDate;
+  }) ?? [];
 
   const handleEdit = (item: CorrectionRequest) => {
     setEditItem(item);
@@ -107,8 +115,6 @@ const AdminCorrecoes = () => {
         .update({ status: editStatus, admin_resposta: editResposta.trim() || null } as any)
         .eq('id', editItem.id);
       if (error) throw error;
-
-      // If status is resolvido and admin wants to delete the original record
       toast.success('Solicitação atualizada!');
       queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
       setEditItem(null);
@@ -122,17 +128,13 @@ const AdminCorrecoes = () => {
   const handleDeleteRecord = async (item: CorrectionRequest) => {
     setSaving(true);
     try {
-      // Delete the original record
       const table = item.tipo === 'atividade' ? 'atividades' : 'vendas';
       const { error: delError } = await supabase.from(table).delete().eq('id', item.registro_id);
       if (delError) throw delError;
-
-      // Update correction status
       await supabase
         .from('correction_requests')
         .update({ status: 'resolvido', admin_resposta: 'Registro excluído pelo administrador.' } as any)
         .eq('id', item.id);
-
       toast.success('Registro excluído e solicitação resolvida!');
       queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
       queryClient.invalidateQueries({ queryKey: ['atividades'] });
@@ -145,21 +147,63 @@ const AdminCorrecoes = () => {
     }
   };
 
+  const pendingCount = corrections?.filter(c => c.status === 'pendente').length ?? 0;
+
   return (
     <div className="space-y-6 animate-fade-in-up">
-      <div>
-        <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Solicitações de Correção</h1>
-        <p className="text-sm text-muted-foreground mt-1">Gerencie as solicitações de correção enviadas pelos usuários</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Solicitações de Correção</h1>
+          <p className="text-sm text-muted-foreground mt-1">Gerencie as solicitações de correção enviadas pelos usuários</p>
+        </div>
+        {pendingCount > 0 && (
+          <Badge className="bg-warning/10 text-warning border-warning/20 text-sm px-3 py-1">
+            {pendingCount} pendente{pendingCount > 1 ? 's' : ''}
+          </Badge>
+        )}
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por usuário, tipo ou motivo..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10 h-11 bg-card border-border/40"
-        />
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por usuário, tipo, motivo ou ID..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10 h-11 bg-card border-border/40"
+          />
+        </div>
+        <Select value={filterStatus} onValueChange={setFilterStatus}>
+          <SelectTrigger className="w-[140px] h-11 border-border/40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos</SelectItem>
+            <SelectItem value="pendente">Pendentes</SelectItem>
+            <SelectItem value="resolvido">Resolvidos</SelectItem>
+            <SelectItem value="rejeitado">Rejeitados</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterTipo} onValueChange={setFilterTipo}>
+          <SelectTrigger className="w-[140px] h-11 border-border/40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos Tipos</SelectItem>
+            <SelectItem value="atividade">Atividade</SelectItem>
+            <SelectItem value="venda">Venda</SelectItem>
+          </SelectContent>
+        </Select>
+        <div className="relative">
+          <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="pl-10 h-11 w-[180px] bg-card border-border/40"
+          />
+        </div>
       </div>
 
       <div className="grid gap-3">
