@@ -19,14 +19,32 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { maskCPF, maskRG, maskPhone } from '@/lib/masks';
 import {
   UserPlus, Users, Mail, Phone, CreditCard, FileText,
-  MapPin, AlertTriangle, Shield, Building, Camera, Search
+  MapPin, AlertTriangle, Shield, Building, Camera, Search, Info
 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Profile } from '@/hooks/useProfile';
+
+function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-1.5">
+        <Label className="text-xs">{label}{required ? ' *' : ''}</Label>
+        <Tooltip>
+          <TooltipTrigger tabIndex={-1}>
+            <Info className="w-3 h-3 text-muted-foreground/50 hover:text-primary transition-colors" />
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[280px] text-xs">{tooltip}</TooltipContent>
+        </Tooltip>
+      </div>
+      {children}
+    </div>
+  );
+}
 
 const CARGOS = ['Consultor de Vendas', 'Supervisor', 'Gerente', 'Diretor'];
 const ROLES: Array<{ value: 'consultor' | 'supervisor' | 'gerente' | 'administrador'; label: string }> = [
@@ -190,6 +208,18 @@ const AdminUsuarios = () => {
         await supabase.from('user_roles').update({ role: form.role }).eq('user_id', editingId);
 
         toast.success('Usuário atualizado com sucesso!');
+
+        // Notify about user update
+        try {
+          await supabase.functions.invoke('send-notification', {
+            body: {
+              type: 'novo_usuario',
+              data: { nome: form.nome_completo, email: form.email, cargo: form.cargo },
+            },
+          });
+        } catch (e) {
+          console.error('Notification error:', e);
+        }
       } else {
         // For new users: the profile is auto-created via the trigger when they first sign in with Google.
         // Admin pre-registers by creating a profile entry for the email.
@@ -301,33 +331,28 @@ const AdminUsuarios = () => {
                 <Users className="w-3.5 h-3.5" /> Dados Pessoais
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Nome Completo *</Label>
+                <FieldWithTooltip label="Nome Completo" tooltip="Nome completo do colaborador conforme documento oficial." required>
                   <Input value={form.nome_completo} onChange={(e) => setField('nome_completo', e.target.value)} className="h-10" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Apelido *</Label>
+                </FieldWithTooltip>
+                <FieldWithTooltip label="Apelido" tooltip="Nome pelo qual o colaborador é conhecido no dia a dia." required>
                   <Input value={form.apelido} onChange={(e) => setField('apelido', e.target.value)} className="h-10" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">E-mail (Google) *</Label>
+                </FieldWithTooltip>
+                <FieldWithTooltip label="E-mail (Google)" tooltip="Conta Google que será usada para login no sistema. Não pode ser alterada após o cadastro." required>
                   <Input type="email" value={form.email} onChange={(e) => setField('email', e.target.value)} disabled={!!editingId} className="h-10" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Celular *</Label>
+                </FieldWithTooltip>
+                <FieldWithTooltip label="Celular" tooltip="Número de celular pessoal com DDD. Formato: +55 (11) 90000-0000." required>
                   <Input value={form.celular} onChange={(e) => setField('celular', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">CPF *</Label>
+                </FieldWithTooltip>
+                <FieldWithTooltip label="CPF" tooltip="Cadastro de Pessoa Física. Formato: 000.000.000-00." required>
                   <Input value={form.cpf} onChange={(e) => setField('cpf', maskCPF(e.target.value))} placeholder="000.000.000-00" className="h-10" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">RG *</Label>
+                </FieldWithTooltip>
+                <FieldWithTooltip label="RG" tooltip="Registro Geral (identidade). Formato: 000.000.000-0." required>
                   <Input value={form.rg} onChange={(e) => setField('rg', maskRG(e.target.value))} placeholder="000.000.000-0" className="h-10" />
-                </div>
-                <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs">Endereço *</Label>
-                  <Input value={form.endereco} onChange={(e) => setField('endereco', e.target.value)} className="h-10" />
+                </FieldWithTooltip>
+                <div className="sm:col-span-2">
+                  <FieldWithTooltip label="Endereço" tooltip="Endereço completo do colaborador (rua, número, bairro, cidade, estado)." required>
+                    <Input value={form.endereco} onChange={(e) => setField('endereco', e.target.value)} className="h-10" />
+                  </FieldWithTooltip>
                 </div>
               </div>
             </div>
@@ -338,14 +363,12 @@ const AdminUsuarios = () => {
                 <AlertTriangle className="w-3.5 h-3.5" /> Contatos de Emergência
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Emergência 1 *</Label>
+                <FieldWithTooltip label="Emergência 1" tooltip="Número de um contato de emergência (familiar ou próximo). Formato: +55 (11) 90000-0000." required>
                   <Input value={form.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Emergência 2 *</Label>
+                </FieldWithTooltip>
+                <FieldWithTooltip label="Emergência 2" tooltip="Segundo contato de emergência. Deve ser diferente do primeiro." required>
                   <Input value={form.numero_emergencia_2} onChange={(e) => setField('numero_emergencia_2', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
-                </div>
+                </FieldWithTooltip>
               </div>
             </div>
 
@@ -355,34 +378,29 @@ const AdminUsuarios = () => {
                 <Building className="w-3.5 h-3.5" /> Cargo & Hierarquia
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label className="text-xs">ID/Código *</Label>
+                <FieldWithTooltip label="ID/Código" tooltip="Código interno do colaborador na empresa. Ex: GN001." required>
                   <Input value={form.codigo} onChange={(e) => setField('codigo', e.target.value)} className="h-10" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Cargo *</Label>
+                </FieldWithTooltip>
+                <FieldWithTooltip label="Cargo" tooltip="Cargo oficial do colaborador na empresa." required>
                   <Select value={form.cargo} onValueChange={(v) => setField('cargo', v)}>
                     <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {CARGOS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Nível de Acesso *</Label>
+                </FieldWithTooltip>
+                <FieldWithTooltip label="Nível de Acesso" tooltip="Define as permissões do usuário: Consultor (básico), Supervisor (visualiza equipe), Gerente (gestão), Administrador (total)." required>
                   <Select value={form.role} onValueChange={(v) => setField('role', v)}>
                     <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Meta Faturamento (R$)</Label>
+                </FieldWithTooltip>
+                <FieldWithTooltip label="Meta Faturamento (R$)" tooltip="Meta mensal de faturamento do colaborador em reais. Usado para cálculo de desempenho e gamificação.">
                   <Input type="number" value={form.meta_faturamento} onChange={(e) => setField('meta_faturamento', e.target.value)} className="h-10" />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Supervisor</Label>
+                </FieldWithTooltip>
+                <FieldWithTooltip label="Supervisor" tooltip="Supervisor direto do colaborador. Receberá notificações das atividades e vendas.">
                   <Select value={form.supervisor_id} onValueChange={(v) => setField('supervisor_id', v)}>
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                     <SelectContent>
@@ -390,9 +408,8 @@ const AdminUsuarios = () => {
                       {supervisors.map(s => <SelectItem key={s.id} value={s.id}>{s.nome_completo}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Gerente</Label>
+                </FieldWithTooltip>
+                <FieldWithTooltip label="Gerente" tooltip="Gerente responsável pela equipe. Também receberá notificações de vendas e atividades.">
                   <Select value={form.gerente_id} onValueChange={(v) => setField('gerente_id', v)}>
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                     <SelectContent>
@@ -400,7 +417,7 @@ const AdminUsuarios = () => {
                       {gerentes.map(g => <SelectItem key={g.id} value={g.id}>{g.nome_completo}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
+                </FieldWithTooltip>
               </div>
             </div>
 

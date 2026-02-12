@@ -70,9 +70,30 @@ export function useCreateAtividade() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
       queryClient.invalidateQueries({ queryKey: ['atividades'] });
       queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
+
+      // Send email notification (fire and forget)
+      try {
+        const { data: profile } = await supabase.from('profiles').select('nome_completo').eq('id', user!.id).single();
+        await supabase.functions.invoke('send-notification', {
+          body: {
+            type: 'atividade_registrada',
+            data: {
+              user_id: user!.id,
+              user_name: profile?.nome_completo || user!.email,
+              data: data.data,
+              ligacoes: data.ligacoes,
+              mensagens: data.mensagens,
+              cotacoes_enviadas: data.cotacoes_enviadas,
+              follow_up: data.follow_up,
+            },
+          },
+        });
+      } catch (e) {
+        console.error('Notification error:', e);
+      }
     },
   });
 }
