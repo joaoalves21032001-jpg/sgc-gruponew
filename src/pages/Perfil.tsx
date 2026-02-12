@@ -9,22 +9,22 @@ import { Separator } from '@/components/ui/separator';
 
 function SectionHeader({ icon: Icon, title }: { icon: React.ElementType; title: string }) {
   return (
-    <div className="flex items-center gap-3 mb-4">
-      <div className="w-8 h-8 rounded-lg gradient-brand flex items-center justify-center shrink-0">
-        <Icon className="w-4 h-4 text-primary-foreground" />
+    <div className="flex items-center gap-3 mb-6">
+      <div className="w-10 h-10 rounded-full gradient-brand flex items-center justify-center shrink-0">
+        <Icon className="w-5 h-5 text-primary-foreground" />
       </div>
-      <h3 className="text-sm font-semibold text-foreground font-display uppercase tracking-wider">{title}</h3>
+      <h3 className="text-sm font-bold text-foreground font-display uppercase tracking-widest">{title}</h3>
     </div>
   );
 }
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
-    <div className="flex items-start gap-3 py-3 border-b border-border/30 last:border-0">
-      <Icon className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+    <div className="flex items-start gap-3 py-4 border-b border-border/20 last:border-0">
+      <Icon className="w-4 h-4 text-primary mt-1 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] text-muted-foreground uppercase tracking-wider">{label}</p>
-        <p className="text-sm font-medium text-foreground mt-0.5">{value}</p>
+        <p className="text-[11px] text-muted-foreground uppercase tracking-widest font-medium">{label}</p>
+        <p className="text-[15px] font-semibold text-foreground mt-1 tracking-tight">{value}</p>
       </div>
     </div>
   );
@@ -41,16 +41,16 @@ const Perfil = () => {
 
       {/* Header Card */}
       <div className="bg-card rounded-2xl shadow-card border border-border/40 overflow-hidden">
-        <div className="gradient-brand p-6 flex items-center gap-5">
-          <div className={`w-18 h-18 rounded-full border-[3px] ${patente?.borderClass ?? 'border-sidebar-border'} bg-sidebar-accent flex items-center justify-center`} style={{ width: 72, height: 72 }}>
-            <span className="text-sidebar-foreground font-bold text-2xl">
+        <div className="gradient-brand p-8 flex items-center gap-6">
+          <div className={`w-20 h-20 rounded-full border-[3px] ${patente?.borderClass ?? 'border-sidebar-border'} bg-sidebar-accent flex items-center justify-center shrink-0`}>
+            <span className="text-sidebar-foreground font-bold text-3xl">
               {currentUser.apelido.charAt(0).toUpperCase()}
             </span>
           </div>
           <div>
             <h2 className="text-xl font-bold text-primary-foreground font-display">{currentUser.nome_completo}</h2>
-            <p className="text-sm text-primary-foreground/70">{currentUser.cargo}</p>
-            <p className="text-xs text-primary-foreground/50 mt-0.5">ID: {currentUser.codigo}</p>
+            <p className="text-sm text-primary-foreground/70 mt-0.5">{currentUser.cargo}</p>
+            <p className="text-xs text-primary-foreground/50 mt-1 font-mono">ID: {currentUser.codigo}</p>
           </div>
         </div>
 
@@ -65,11 +65,11 @@ const Perfil = () => {
           </div>
         )}
 
-        <div className="p-6 space-y-6">
+        <div className="p-6 space-y-8">
           {/* Dados Pessoais */}
           <div>
             <SectionHeader icon={User} title="Dados Pessoais" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10">
               <InfoRow icon={User} label="Nome Completo" value={currentUser.nome_completo} />
               <InfoRow icon={Hash} label="ID Consultor" value={currentUser.codigo} />
               <InfoRow icon={Mail} label="E-mail" value={currentUser.email} />
@@ -82,45 +82,45 @@ const Perfil = () => {
             </div>
           </div>
 
-          <Separator className="bg-border/30" />
+          <Separator className="bg-border/20" />
 
           {/* Contatos de Emergência */}
           <div>
             <SectionHeader icon={AlertTriangle} title="Contatos de Emergência" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10">
               <InfoRow icon={Phone} label="Emergência 1" value={currentUser.numero_emergencia_1} />
               <InfoRow icon={Phone} label="Emergência 2" value={currentUser.numero_emergencia_2} />
             </div>
           </div>
 
-          <Separator className="bg-border/30" />
+          <Separator className="bg-border/20" />
 
           {/* Cargo & Acesso */}
           <div>
             <SectionHeader icon={Briefcase} title="Cargo & Acesso" />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-10">
               <InfoRow icon={Building} label="Cargo" value={currentUser.cargo} />
               <InfoRow icon={Shield} label="Nível de Acesso" value={nivelLabel} />
             </div>
           </div>
 
-          <Separator className="bg-border/30" />
+          <Separator className="bg-border/20" />
 
           {/* Hierarquia */}
           <div>
             <SectionHeader icon={Users} title="Hierarquia" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-4 bg-accent/30 rounded-xl border border-border/30 space-y-1.5">
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Supervisor</p>
-                <p className="text-sm font-semibold text-foreground">{currentUser.supervisor_nome}</p>
+              <div className="p-5 bg-accent/30 rounded-xl border border-border/30 space-y-2">
+                <p className="text-[11px] text-muted-foreground uppercase tracking-widest font-medium">Supervisor</p>
+                <p className="text-sm font-bold text-foreground">{currentUser.supervisor_nome}</p>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Mail className="w-3 h-3" />
                   {currentUser.supervisor_email}
                 </div>
               </div>
-              <div className="p-4 bg-accent/30 rounded-xl border border-border/30 space-y-1.5">
-                <p className="text-[11px] text-muted-foreground uppercase tracking-wider">Gerência</p>
-                <p className="text-sm font-semibold text-foreground">{currentUser.gerente_nome}</p>
+              <div className="p-5 bg-accent/30 rounded-xl border border-border/30 space-y-2">
+                <p className="text-[11px] text-muted-foreground uppercase tracking-widest font-medium">Gerência</p>
+                <p className="text-sm font-bold text-foreground">{currentUser.gerente_nome}</p>
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Mail className="w-3 h-3" />
                   {currentUser.gerente_email}
