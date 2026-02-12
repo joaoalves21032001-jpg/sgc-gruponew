@@ -55,7 +55,7 @@ const Index = () => {
       <div>
         <div className="flex items-center gap-3">
           <h1 className="text-[28px] font-bold font-display text-foreground leading-none">
-            {displayName ? `Olá, ${displayName}` : 'Meu Painel'}
+            {displayName ? `Olá, ${displayName}` : 'Meu Progresso'}
           </h1>
           {percentMeta >= 80 && <PatenteBadge percentMeta={percentMeta} size="md" />}
         </div>
