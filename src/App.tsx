@@ -12,6 +12,7 @@ import Perfil from "./pages/Perfil";
 import Login from "./pages/Login";
 import MfaSetup from "./pages/MfaSetup";
 import AdminUsuarios from "./pages/AdminUsuarios";
+import AdminCorrecoes from "./pages/AdminCorrecoes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -57,6 +58,7 @@ const App = () => (
               <Route path="/gestao" element={<Gestao />} />
               <Route path="/perfil" element={<Perfil />} />
               <Route path="/admin/usuarios" element={<AdminUsuarios />} />
+              <Route path="/admin/correcoes" element={<AdminCorrecoes />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

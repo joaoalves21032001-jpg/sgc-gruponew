@@ -9,6 +9,7 @@ import {
   UserCircle,
   ChevronLeft,
   ChevronRight,
+  Flag,
 } from 'lucide-react';
 import { useProfile, useUserRole } from '@/hooks/useProfile';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
@@ -23,6 +24,7 @@ const navItems = [
   { to: '/comercial', icon: Briefcase, label: 'Comercial' },
   { to: '/gestao', icon: BarChart3, label: 'Gestão', adminOnly: true },
   { to: '/admin/usuarios', icon: UserCog, label: 'Usuários', adminOnly: true },
+  { to: '/admin/correcoes', icon: Flag, label: 'Correções', adminOnly: true },
 ];
 
 export function AppSidebar() {
