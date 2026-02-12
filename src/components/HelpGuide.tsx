@@ -4,7 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
   BookOpen, LayoutDashboard, Briefcase, BarChart3, UserCircle,
-  ClipboardList, ShoppingCart, FileText, Shield, ChevronRight
+  ClipboardList, ShoppingCart, FileText, Shield, ChevronRight, Upload, Flag, Trophy
 } from 'lucide-react';
 
 interface HelpGuideProps {
@@ -17,10 +17,11 @@ const sections = [
     icon: LayoutDashboard,
     title: 'Dashboard',
     content: [
-      'O Dashboard exibe um resumo das suas atividades e vendas.',
-      'Os cards mostram KPIs como ligações, cotações e vendas do mês.',
-      'Os gráficos apresentam seu desempenho ao longo do tempo.',
+      'O Dashboard exibe um resumo das suas atividades e vendas do mês.',
+      'Os cards mostram KPIs como ligações, cotações e vendas.',
       'A patente é atualizada automaticamente com base no % da meta atingida.',
+      'Patentes: Bronze (80-89%), Prata (90-99%), Ouro (100%+), Platina (150%+), Diamante (200%+).',
+      'Se sua meta estiver abaixo de 80%, você verá uma frase motivacional de apoio.',
     ],
   },
   {
@@ -30,11 +31,24 @@ const sections = [
       'Acesse Comercial → aba Atividades.',
       'Preencha TODOS os campos numéricos (mesmo que seja 0).',
       'As taxas de conversão são calculadas automaticamente.',
-      'Clique no botão REGISTRAR ATIVIDADES (barra verde no topo ou botão azul no final).',
-      'Um resumo será exibido para confirmação antes do envio.',
-      'O supervisor e gerente receberão notificação automática.',
-      'Para lançamento retroativo, é obrigatória uma justificativa.',
-      'Também é possível importar atividades em massa via arquivo CSV.',
+      'Clique em REGISTRAR ATIVIDADES para salvar.',
+      'Para lançamento retroativo (data passada), é obrigatória uma justificativa.',
+      'Supervisor e gerente receberão notificação automática por e-mail.',
+    ],
+  },
+  {
+    icon: Upload,
+    title: 'Importar Atividades via CSV',
+    content: [
+      '1. Clique em "Modelo" para baixar a planilha padrão.',
+      '2. Preencha seguindo o formato: dd/mm/aaaa para datas, valores numéricos inteiros.',
+      '3. Exemplo de linha: 12/02/2026;15;20;8;6;4;2;3',
+      '4. Separe as colunas com ponto e vírgula (;) ou vírgula (,).',
+      '5. Salve o arquivo como CSV (UTF-8).',
+      '6. Clique em "Upload" e selecione o arquivo.',
+      '7. Um resumo será exibido para conferência antes de confirmar.',
+      '8. Datas retroativas exigirão justificativa individual para cada dia.',
+      'Colunas: Data, Ligações, Mensagens, Cotações Coletadas, Cotações Enviadas, Cotações Respondidas, Cotações Não Respondidas, Follow-up.',
     ],
   },
   {
@@ -43,34 +57,70 @@ const sections = [
     content: [
       'Acesse Comercial → aba Nova Venda.',
       'Siga o wizard de 5 etapas:',
-      '1. Modalidade — Selecione o tipo de plano (PF, Familiar, PME, Empresarial).',
-      '2. Dados do Titular — Preencha nome, e-mail, telefone, endereço e valor do contrato.',
-      '3. Beneficiários — Adicione as vidas com nome, e-mail e telefone individuais.',
-      '4. Documentos — Anexe os documentos obrigatórios para o titular e cada beneficiário.',
-      '5. Revisão — Confira todos os dados e finalize.',
-      'Documentos obrigatórios variam por modalidade. Os marcados com * são obrigatórios.',
+      '1. Modalidade — Selecione o tipo de plano.',
+      '2. Dados do Titular — Preencha nome, e-mail, telefone, endereço e valor.',
+      '3. Beneficiários — Adicione as vidas do plano.',
+      '4. Documentos — Anexe os documentos obrigatórios.',
+      '5. Revisão — Confira e finalize.',
+    ],
+  },
+  {
+    icon: Upload,
+    title: 'Importar Vendas via CSV',
+    content: [
+      '1. Clique em "Modelo" na seção Importar vendas em massa.',
+      '2. Preencha: Nome Titular;Modalidade;Vidas;Valor;Observações.',
+      '3. Modalidades válidas: PF, Familiar, PME Multi, Empresarial, Adesão.',
+      '4. Exemplo: João Silva;PF;1;1500;Observação opcional',
+      '5. Após o upload, será exibido um resumo com todos os dados.',
+      '6. Para cada venda, faça upload dos documentos obrigatórios antes de confirmar.',
+      '7. Documentos variam por modalidade (Doc com foto, comprovante de endereço, CNPJ, etc.).',
     ],
   },
   {
     icon: FileText,
     title: 'Documentos por Modalidade',
     content: [
-      'Pessoa Física: Doc com foto, comprovante de endereço, e-mail, telefone.',
+      'Pessoa Física: Doc com foto, comprovante de endereço.',
       'Familiar: Todos os membros devem enviar docs. Cônjuges precisam de certidão de casamento.',
-      'PME (1 vida): Doc com foto, CNPJ, comprovante de endereço, e-mail, telefone.',
+      'PME (1 vida): Doc com foto, CNPJ, comprovante de endereço.',
       'PME (multi vidas): Todos devem enviar docs individuais + CNPJ.',
       'Empresarial (10+): Docs individuais + CNPJ + comprovação de vínculo (FGTS/eSocial/CTPS).',
-      'Com plano anterior: Carteirinha, carta de permanência (PDF), 3 boletos e 3 comprovantes (opcionais).',
+      'Com plano anterior: Carteirinha, carta de permanência (PDF), 3 boletos e 3 comprovantes.',
+    ],
+  },
+  {
+    icon: Flag,
+    title: 'Reportar Registro Indevido',
+    content: [
+      'Acesse Comercial → aba Atividades → seção "Reportar Registro Indevido".',
+      'Selecione o tipo (atividade ou venda) e o registro específico.',
+      'Descreva o motivo da correção necessária.',
+      'O administrador será notificado e poderá editar ou excluir o registro.',
+      'Acompanhe o status da solicitação na mesma página.',
+    ],
+  },
+  {
+    icon: Trophy,
+    title: 'Sistema de Gamificação',
+    content: [
+      '💎 Diamante (≥200%): "Desempenho lendário! Você é a referência do time."',
+      '🔘 Platina (≥150%): "Incrível! Você superou todas as expectativas."',
+      '🥇 Ouro (≥100%): "Meta batida! Excelente trabalho, continue assim."',
+      '🥈 Prata (90-99%): "Está muito perto! Faltam poucos detalhes."',
+      '🥉 Bronze (80-89%): "Continue acelerando, o ouro é logo ali."',
+      'Abaixo de 80%: "Foco total! Cada esforço conta." (sem alerta visual)',
+      'Gestores também visualizam flags de risco: 🟡 Amarelo, 🟠 Laranja, 🔴 Vermelho.',
     ],
   },
   {
     icon: BarChart3,
-    title: 'Gestão (Supervisores/Gerentes)',
+    title: 'Gestão (Administradores)',
     content: [
-      'Visível apenas para supervisores, gerentes e administradores.',
-      'Kanban de vendas com drag-and-drop para alterar status.',
-      'Ranking de consultores por meta atingida.',
-      'Gráficos comparativos de equipe.',
+      'Visível apenas para administradores.',
+      'Kanban de vendas com filtros por consultor, status e busca.',
+      'Ranking de consultores por meta atingida com patentes e flags de risco.',
+      'Gráficos comparativos de faturamento e conversão da equipe.',
     ],
   },
   {
@@ -89,7 +139,6 @@ const sections = [
       'O login é feito exclusivamente com conta Google.',
       'A autenticação em dois fatores (MFA) via Google Authenticator é obrigatória.',
       'Você pode marcar seu navegador como seguro por até 31 dias.',
-      'Após esse período, o MFA será solicitado novamente.',
     ],
   },
 ];

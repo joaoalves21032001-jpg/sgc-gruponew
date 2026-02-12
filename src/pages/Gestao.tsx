@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Users, AlertTriangle, TrendingUp, CheckCircle2, X, Filter, BarChart3, Target, ArrowUpRight, ArrowDownRight, Trophy, Phone, FileText, MessageSquare } from 'lucide-react';
+import { Users, AlertTriangle, TrendingUp, CheckCircle2, X, Filter, BarChart3, Target, ArrowUpRight, ArrowDownRight, Trophy, Phone, FileText, MessageSquare, CalendarIcon, Search } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { PatenteBadge } from '@/components/PatenteBadge';
 import { FlagRiscoBadge } from '@/components/FlagRiscoBadge';
@@ -9,6 +9,7 @@ import { useTeamAtividades } from '@/hooks/useAtividades';
 import { getFlagRisco, getPatente } from '@/lib/gamification';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,6 +35,8 @@ const Gestao = () => {
   const [obs, setObs] = useState('');
   const [filtroConsultor, setFiltroConsultor] = useState<string>('todos');
   const [filtroPeriodo, setFiltroPeriodo] = useState<string>('mes');
+  const [filtroStatus, setFiltroStatus] = useState<string>('todos');
+  const [searchVenda, setSearchVenda] = useState('');
 
   const consultores = profiles ?? [];
 
@@ -65,10 +68,18 @@ const Gestao = () => {
   const totalCotFechadas = Object.values(userStats).reduce((sum, s) => sum + s.cotacoes_fechadas, 0);
   const taxaConversaoEquipe = totalCotEnviadas > 0 ? Math.round((totalCotFechadas / totalCotEnviadas) * 100) : 0;
 
+  // Filter vendas for kanban
+  const filteredVendas = vendas.filter(v => {
+    const matchesConsultor = filtroConsultor === 'todos' || v.user_id === filtroConsultor;
+    const matchesStatus = filtroStatus === 'todos' || v.status === filtroStatus;
+    const matchesSearch = !searchVenda || v.nome_titular.toLowerCase().includes(searchVenda.toLowerCase());
+    return matchesConsultor && matchesStatus && matchesSearch;
+  });
+
   const kanbanColumns = [
-    { status: 'analise', label: 'Em Análise', items: vendas.filter(v => v.status === 'analise') },
-    { status: 'pendente', label: 'Pendência', items: vendas.filter(v => v.status === 'pendente') },
-    { status: 'aprovado', label: 'Aprovado', items: vendas.filter(v => v.status === 'aprovado') },
+    { status: 'analise', label: 'Em Análise', items: filteredVendas.filter(v => v.status === 'analise') },
+    { status: 'pendente', label: 'Pendência', items: filteredVendas.filter(v => v.status === 'pendente') },
+    { status: 'aprovado', label: 'Aprovado', items: filteredVendas.filter(v => v.status === 'aprovado') },
   ];
 
   const ranking = useMemo(() => {
@@ -122,12 +133,12 @@ const Gestao = () => {
 
   return (
     <div className="space-y-8 animate-fade-in-up">
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Painel de Gestão</h1>
           <p className="text-sm text-muted-foreground mt-1">Visão geral da equipe e vendas</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
             <SelectTrigger className="w-[140px] h-9 text-xs border-border/40">
               <Filter className="w-3 h-3 mr-1" />
@@ -149,6 +160,18 @@ const Gestao = () => {
               {consultores.map(c => (
                 <SelectItem key={c.id} value={c.id}>{c.apelido || c.nome_completo}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+            <SelectTrigger className="w-[140px] h-9 text-xs border-border/40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos Status</SelectItem>
+              <SelectItem value="analise">Em Análise</SelectItem>
+              <SelectItem value="pendente">Pendente</SelectItem>
+              <SelectItem value="aprovado">Aprovado</SelectItem>
+              <SelectItem value="recusado">Recusado</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -233,7 +256,7 @@ const Gestao = () => {
         </div>
       </div>
 
-      {/* Ranking */}
+      {/* Ranking with Flags */}
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
         <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em] flex items-center gap-2 mb-5">
           <Trophy className="w-4 h-4 text-primary" /> Ranking de Desempenho
@@ -241,15 +264,19 @@ const Gestao = () => {
         <div className="space-y-2">
           {ranking.map((c, idx) => {
             const patente = getPatente(c.percentMeta);
+            // Gestores see risk flags; mesesAbaixo would come from historical data, using 0 for now
+            const mesesAbaixo = c.percentMeta < 100 ? 1 : 0; // Simplified: would need historical tracking
             return (
               <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-lg bg-muted/30 border border-border/20 hover:border-primary/15 transition-colors">
                 <div className="w-8 h-8 rounded-full bg-primary/8 flex items-center justify-center text-sm font-bold text-primary shrink-0 font-display">
                   {idx + 1}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-sm font-semibold text-foreground">{c.nome_completo}</p>
                     {patente && <PatenteBadge percentMeta={c.percentMeta} size="sm" />}
+                    {/* Risk flags visible to gestores/admins */}
+                    <FlagRiscoBadge percentAtual={c.percentMeta} mesesAbaixo={mesesAbaixo} />
                   </div>
                   <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
                     <span>R$ {(c.stats.faturamento / 1000).toFixed(1)}k</span>
@@ -272,9 +299,20 @@ const Gestao = () => {
         </div>
       </div>
 
-      {/* Kanban */}
+      {/* Kanban with search */}
       <div>
-        <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em] mb-4">Kanban de Vendas</h3>
+        <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+          <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em]">Kanban de Vendas</h3>
+          <div className="relative max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+            <Input
+              placeholder="Buscar venda..."
+              value={searchVenda}
+              onChange={(e) => setSearchVenda(e.target.value)}
+              className="pl-9 h-8 text-xs bg-card border-border/40"
+            />
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {kanbanColumns.map((col) => (
             <div key={col.status} className="space-y-3">

@@ -84,18 +84,48 @@ function generateCSV(headers: string[], filename: string) {
 }
 
 function downloadAtividadesModelo() {
-  generateCSV(
-    ['Data (dd/mm/aaaa)', 'Ligações', 'Mensagens', 'Cotações Coletadas', 'Cotações Enviadas', 'Cotações Respondidas', 'Cotações Não Respondidas', 'Follow-up'],
-    'modelo_atividades.csv'
-  );
+  const bom = '\uFEFF';
+  const headers = ['Data (dd/mm/aaaa)', 'Ligações', 'Mensagens', 'Cotações Coletadas', 'Cotações Enviadas', 'Cotações Respondidas', 'Cotações Não Respondidas', 'Follow-up'];
+  const today = new Date();
+  const dd = String(today.getDate()).padStart(2, '0');
+  const mm = String(today.getMonth() + 1).padStart(2, '0');
+  const yyyy = today.getFullYear();
+  const sampleDate = `${dd}/${mm}/${yyyy}`;
+  const sampleRows = [
+    `${sampleDate};15;20;8;6;4;2;3`,
+    `${sampleDate};10;12;5;3;2;1;2`,
+  ];
+  const csvContent = bom + headers.join(';') + '\n' + sampleRows.join('\n') + '\n';
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'modelo_atividades.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
   toast.success('Modelo de atividades baixado!');
 }
 
 function downloadVendasModelo() {
-  generateCSV(
-    ['Nome Titular', 'Modalidade (PF/Familiar/PME Multi/Empresarial/Adesão)', 'Vidas', 'Valor Contrato', 'Observações'],
-    'modelo_vendas.csv'
-  );
+  const bom = '\uFEFF';
+  const headers = ['Nome Titular', 'Modalidade (PF/Familiar/PME Multi/Empresarial/Adesão)', 'Vidas', 'Valor Contrato', 'Observações'];
+  const sampleRows = [
+    'João Silva;PF;1;1500.00;',
+    'Maria Santos;Familiar;3;3200.00;Portabilidade',
+    'Empresa ABC;PME Multi;5;8000.00;CNPJ obrigatório',
+  ];
+  const csvContent = bom + headers.join(';') + '\n' + sampleRows.join('\n') + '\n';
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'modelo_vendas.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
   toast.success('Modelo de vendas baixado!');
 }
 
