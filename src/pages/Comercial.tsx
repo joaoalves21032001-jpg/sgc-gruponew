@@ -21,7 +21,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { currentUser } from '@/lib/mock-data';
+import { useProfile, useSupervisorProfile } from '@/hooks/useProfile';
+import { useCreateAtividade } from '@/hooks/useAtividades';
+import { useCreateVenda, uploadVendaDocumento } from '@/hooks/useVendas';
+import { useAuth } from '@/contexts/AuthContext';
 
 /* ─── Shared Components ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
@@ -79,6 +82,9 @@ function calcRate(a: string, b: string): string {
 }
 
 function AtividadesTab() {
+  const { data: profile } = useProfile();
+  const { data: supervisor } = useSupervisorProfile(profile?.supervisor_id);
+  const createAtividade = useCreateAtividade();
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const [showConfirm, setShowConfirm] = useState(false);
   const [form, setForm] = useState<AtividadesForm>({
@@ -124,9 +130,22 @@ function AtividadesTab() {
     setShowConfirm(true);
   };
 
-  const confirmSave = () => {
-    setShowConfirm(false);
-    toast.success('Atividades registradas com sucesso! E-mail enviado ao supervisor e gerente.');
+  const confirmSave = async () => {
+    try {
+      await createAtividade.mutateAsync({
+        data: format(dataLancamento, 'yyyy-MM-dd'),
+        ligacoes: parseInt(form.ligacoes) || 0,
+        mensagens: parseInt(form.mensagens) || 0,
+        cotacoes_enviadas: parseInt(form.cotacoes_enviadas) || 0,
+        cotacoes_fechadas: parseInt(form.cotacoes_respondidas) || 0,
+        follow_up: parseInt(form.follow_up) || 0,
+      });
+      setShowConfirm(false);
+      toast.success('Atividades registradas com sucesso!');
+      setForm({ ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '', cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '' });
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao registrar atividades.');
+    }
   };
 
   const update = (key: keyof AtividadesForm, value: string) => setForm(prev => ({ ...prev, [key]: value }));
@@ -163,7 +182,7 @@ function AtividadesTab() {
               <AlertCircle className="w-4 h-4 text-warning shrink-0" />
               <p className="text-sm font-medium text-foreground">Lançamento retroativo detectado</p>
             </div>
-            <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada automaticamente para <strong>{currentUser.supervisor_nome}</strong> e <strong>{currentUser.gerente_nome}</strong>, com você em cópia.</p>
+            <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada automaticamente para <strong>{supervisor?.nome_completo || 'Supervisor'}</strong>, com você em cópia.</p>
             <Textarea
               placeholder="Justifique o motivo do lançamento fora da data correta..."
               value={form.justificativa}
@@ -242,19 +261,17 @@ function AtividadesTab() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 bg-accent/30 rounded-xl border border-border/30 space-y-2">
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Supervisor</p>
-            <p className="text-sm font-semibold text-foreground">{currentUser.supervisor_nome}</p>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Mail className="w-3 h-3" />
-              {currentUser.supervisor_email}
-            </div>
+            <p className="text-sm font-semibold text-foreground">{supervisor?.nome_completo || '—'}</p>
+            {supervisor?.email && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Mail className="w-3 h-3" />
+                {supervisor.email}
+              </div>
+            )}
           </div>
           <div className="p-4 bg-accent/30 rounded-xl border border-border/30 space-y-2">
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Gerente</p>
-            <p className="text-sm font-semibold text-foreground">{currentUser.gerente_nome}</p>
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Mail className="w-3 h-3" />
-              {currentUser.gerente_email}
-            </div>
+            <p className="text-sm font-semibold text-foreground">—</p>
           </div>
         </div>
       </div>
@@ -296,8 +313,7 @@ function AtividadesTab() {
             <Separator className="my-2" />
             <div className="p-2.5 bg-primary/5 rounded-lg border border-primary/10">
               <p className="text-xs text-muted-foreground mb-1">Notificação automática</p>
-              <p className="text-xs text-foreground">Supervisor: {currentUser.supervisor_nome} ({currentUser.supervisor_email})</p>
-              <p className="text-xs text-foreground">Gerente: {currentUser.gerente_nome} ({currentUser.gerente_email})</p>
+              <p className="text-xs text-foreground">Supervisor: {supervisor?.nome_completo || '—'} ({supervisor?.email || '—'})</p>
             </div>
           </div>
           <DialogFooter className="gap-2">
@@ -353,6 +369,10 @@ function StepIndicator({ steps, current }: { steps: string[]; current: number })
 }
 
 function NovaVendaTab() {
+  const { user } = useAuth();
+  const { data: profile } = useProfile();
+  const { data: supervisor } = useSupervisorProfile(profile?.supervisor_id);
+  const createVenda = useCreateVenda();
   const [step, setStep] = useState(0);
   const [modalidade, setModalidade] = useState<Modalidade | ''>('');
   const [possuiPlanoAnterior, setPossuiPlanoAnterior] = useState(false);
@@ -426,9 +446,31 @@ function NovaVendaTab() {
     setShowConfirm(true);
   };
 
-  const confirmVenda = () => {
-    setShowConfirm(false);
-    toast.success('Venda enviada para análise! E-mail de notificação enviado ao supervisor e gerente.');
+  const confirmVenda = async () => {
+    try {
+      const modalidadeMap: Record<string, string> = {
+        pf: 'PF', familiar: 'Familiar', pme_1: 'PME Multi', pme_multi: 'PME Multi', empresarial_10: 'Empresarial'
+      };
+      const venda = await createVenda.mutateAsync({
+        nome_titular: formData.nome,
+        modalidade: modalidadeMap[modalidade] || 'PF',
+        vidas: beneficiarios.length || 1,
+        valor: parseFloat(valorVenda) || undefined,
+        observacoes: possuiPlanoAnterior ? 'Portabilidade de carência' : undefined,
+      });
+
+      // Upload documents
+      for (const doc of docUploads) {
+        if (doc.file && user) {
+          await uploadVendaDocumento(venda.id, user.id, doc.file, doc.label);
+        }
+      }
+
+      setShowConfirm(false);
+      toast.success('Venda enviada para análise!');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao registrar venda.');
+    }
   };
 
   return (
@@ -632,8 +674,7 @@ function NovaVendaTab() {
 
             <div className="p-3 bg-primary/5 rounded-lg border border-primary/10">
               <p className="text-xs text-muted-foreground mb-1">Notificação automática ao finalizar</p>
-              <p className="text-xs text-foreground">Supervisor: {currentUser.supervisor_nome} ({currentUser.supervisor_email})</p>
-              <p className="text-xs text-foreground">Gerente: {currentUser.gerente_nome} ({currentUser.gerente_email})</p>
+              <p className="text-xs text-foreground">Supervisor: {supervisor?.nome_completo || '—'} ({supervisor?.email || '—'})</p>
             </div>
 
             <div className="flex items-center gap-2 p-3 bg-warning/10 border border-warning/20 rounded-lg">
