@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { format, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Phone, MessageSquare, FileText, CheckCircle2, RotateCcw, MapPin, Info, Save,
+  Phone, MessageSquare, FileText, CheckCircle2, RotateCcw, Info, Save,
   ChevronRight, ChevronLeft, Upload, AlertCircle, CalendarIcon, DollarSign,
   ClipboardList, ShoppingCart, FileUp, Trash2, Plus, TrendingUp, Download,
   Mail, User, XCircle, MessageCircle, BarChart3
@@ -25,6 +25,7 @@ import { useProfile, useSupervisorProfile } from '@/hooks/useProfile';
 import { useCreateAtividade } from '@/hooks/useAtividades';
 import { useCreateVenda, uploadVendaDocumento } from '@/hooks/useVendas';
 import { useAuth } from '@/contexts/AuthContext';
+import { maskPhone } from '@/lib/masks';
 
 /* ─── Shared Components ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
@@ -59,6 +60,37 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   );
 }
 
+/* ─── Excel helpers ─── */
+function generateCSV(headers: string[], filename: string) {
+  const bom = '\uFEFF';
+  const csvContent = bom + headers.join(';') + '\n';
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function downloadAtividadesModelo() {
+  generateCSV(
+    ['Data (dd/mm/aaaa)', 'Ligações', 'Mensagens', 'Cotações Coletadas', 'Cotações Enviadas', 'Cotações Respondidas', 'Cotações Não Respondidas', 'Follow-up'],
+    'modelo_atividades.csv'
+  );
+  toast.success('Modelo de atividades baixado!');
+}
+
+function downloadVendasModelo() {
+  generateCSV(
+    ['Nome Titular', 'Modalidade (PF/Familiar/PME Multi/Empresarial)', 'Vidas', 'Valor Contrato', 'Possui Plano Anterior (Sim/Não)', 'Observações'],
+    'modelo_vendas.csv'
+  );
+  toast.success('Modelo de vendas baixado!');
+}
+
 /* ═══════════════════════════════════════════════ */
 /*              TAB: ATIVIDADES                    */
 /* ═══════════════════════════════════════════════ */
@@ -87,6 +119,7 @@ function AtividadesTab() {
   const createAtividade = useCreateAtividade();
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const [showConfirm, setShowConfirm] = useState(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<AtividadesForm>({
     ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '',
     cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '',
@@ -101,7 +134,7 @@ function AtividadesTab() {
     { key: 'cotacoes_enviadas', label: 'Cotações Enviadas', icon: MessageCircle, tooltip: 'Propostas comerciais efetivamente enviadas ao cliente.' },
     { key: 'cotacoes_respondidas', label: 'Cotações Respondidas', icon: CheckCircle2, tooltip: 'Cotações que o cliente respondeu (positiva ou negativamente).' },
     { key: 'cotacoes_nao_respondidas', label: 'Cotações Não Respondidas', icon: XCircle, tooltip: 'Cotações enviadas que ainda não obtiveram retorno do cliente.' },
-    { key: 'follow_up', label: 'Follow-up', icon: RotateCcw, tooltip: 'Retornos agendados com clientes. Tempo pré-estabelecido para retorno.' },
+    { key: 'follow_up', label: 'Follow-up', icon: RotateCcw, tooltip: 'Retornos agendados com clientes.' },
   ];
 
   const metricKeys = metrics.map(m => m.key);
@@ -111,12 +144,8 @@ function AtividadesTab() {
   const conversionRates = [
     { label: 'Ligações → Cotações Coletadas', value: calcRate(form.ligacoes, form.cotacoes_coletadas) },
     { label: 'Ligações → Cotações Enviadas', value: calcRate(form.ligacoes, form.cotacoes_enviadas) },
-    { label: 'Ligações → Respondidas', value: calcRate(form.ligacoes, form.cotacoes_respondidas) },
-    { label: 'Mensagens → Cotações Coletadas', value: calcRate(form.mensagens, form.cotacoes_coletadas) },
-    { label: 'Mensagens → Cotações Enviadas', value: calcRate(form.mensagens, form.cotacoes_enviadas) },
-    { label: 'Mensagens → Respondidas', value: calcRate(form.mensagens, form.cotacoes_respondidas) },
-    { label: 'Cotações Coletadas → Enviadas', value: calcRate(form.cotacoes_coletadas, form.cotacoes_enviadas) },
     { label: 'Cotações Enviadas → Respondidas', value: calcRate(form.cotacoes_enviadas, form.cotacoes_respondidas) },
+    { label: 'Mensagens → Cotações Coletadas', value: calcRate(form.mensagens, form.cotacoes_coletadas) },
   ];
 
   const handleSave = () => {
@@ -142,10 +171,38 @@ function AtividadesTab() {
     }
   };
 
+  const handleBulkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    toast.info(`Arquivo "${file.name}" selecionado. Processamento em massa em desenvolvimento.`);
+    if (uploadRef.current) uploadRef.current.value = '';
+  };
+
   const update = (key: keyof AtividadesForm, value: string) => setForm(prev => ({ ...prev, [key]: value }));
 
   return (
     <div className="space-y-6">
+      {/* ── REGISTER BUTTON - TOP PROMINENT ── */}
+      <div className="gradient-hero rounded-xl p-5 flex items-center justify-between shadow-brand">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
+            <Save className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="text-white font-bold font-display text-sm">Registrar Atividades do Dia</p>
+            <p className="text-white/50 text-xs">Preencha todos os campos e clique para registrar</p>
+          </div>
+        </div>
+        <Button
+          onClick={handleSave}
+          disabled={!canSave}
+          className="bg-white text-primary hover:bg-white/90 font-bold px-8 h-12 shadow-elevated text-sm"
+        >
+          <Save className="w-4 h-4 mr-2" />
+          REGISTRAR
+        </Button>
+      </div>
+
       {/* ── Data ── */}
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
         <SectionHeader icon={CalendarIcon} title="Data de Lançamento" subtitle="Preenchida automaticamente com a data atual" />
@@ -157,14 +214,7 @@ function AtividadesTab() {
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="single"
-              selected={dataLancamento}
-              onSelect={(d) => d && setDataLancamento(d)}
-              disabled={(date) => date > new Date()}
-              initialFocus
-              className={cn("p-3 pointer-events-auto")}
-            />
+            <Calendar mode="single" selected={dataLancamento} onSelect={(d) => d && setDataLancamento(d)} disabled={(date) => date > new Date()} initialFocus className="p-3 pointer-events-auto" />
           </PopoverContent>
         </Popover>
 
@@ -174,34 +224,21 @@ function AtividadesTab() {
               <AlertCircle className="w-4 h-4 text-warning shrink-0" />
               <p className="text-sm font-medium text-foreground">Lançamento retroativo detectado</p>
             </div>
-            <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada automaticamente para <strong>{supervisor?.nome_completo || 'Supervisor'}</strong>.</p>
-            <Textarea
-              placeholder="Justifique o motivo do lançamento fora da data correta..."
-              value={form.justificativa}
-              onChange={(e) => update('justificativa', e.target.value)}
-              rows={3}
-              className="border-warning/30 focus:border-warning"
-            />
+            <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada para <strong>{supervisor?.nome_completo || 'Supervisor'}</strong>.</p>
+            <Textarea placeholder="Justifique o motivo do lançamento fora da data correta..." value={form.justificativa} onChange={(e) => update('justificativa', e.target.value)} rows={3} className="border-warning/30 focus:border-warning" />
           </div>
         )}
       </div>
 
       {/* ── Campos de Atividade ── */}
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
-        <SectionHeader icon={ClipboardList} title="Registrar Atividades" subtitle="Todos os campos são obrigatórios, mesmo que o valor seja 0" />
+        <SectionHeader icon={ClipboardList} title="Atividades do Dia" subtitle="Todos os campos são obrigatórios, mesmo que o valor seja 0" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {metrics.map((m) => (
             <FieldWithTooltip key={m.key} label={m.label} tooltip={m.tooltip} required>
               <div className="relative">
                 <m.icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/50" />
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="0"
-                  value={form[m.key]}
-                  onChange={(e) => update(m.key, e.target.value)}
-                  className="pl-10 h-11 border-border/40 focus:border-primary bg-muted/30 focus:bg-card transition-all"
-                />
+                <Input type="number" min={0} placeholder="0" value={form[m.key]} onChange={(e) => update(m.key, e.target.value)} className="pl-10 h-11 border-border/40 focus:border-primary bg-muted/30 focus:bg-card transition-all" />
               </div>
             </FieldWithTooltip>
           ))}
@@ -215,7 +252,7 @@ function AtividadesTab() {
                 <BarChart3 className="w-4 h-4 text-primary" />
                 <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em]">Desempenho do Dia</h3>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {conversionRates.map((r) => (
                   <div key={r.label} className="flex items-center justify-between p-3 bg-muted/40 rounded-lg border border-border/20">
                     <span className="text-[11px] text-muted-foreground leading-tight">{r.label}</span>
@@ -227,38 +264,34 @@ function AtividadesTab() {
           </>
         )}
 
-        {/* Import planilha inline */}
+        {/* Import */}
         <Separator className="my-6 bg-border/20" />
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-muted/40 rounded-lg border border-border/20">
           <FileUp className="w-5 h-5 text-primary shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-foreground">Importar atividades em massa</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Preencha o modelo de planilha e faça o upload para registrar múltiplos dias de uma vez.</p>
+            <p className="text-xs text-muted-foreground mt-0.5">Preencha o modelo CSV e faça o upload.</p>
           </div>
           <div className="flex gap-2 shrink-0">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={downloadAtividadesModelo}>
               <Download className="w-3.5 h-3.5" /> Modelo
             </Button>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40">
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => uploadRef.current?.click()}>
               <Upload className="w-3.5 h-3.5" /> Upload
             </Button>
+            <input ref={uploadRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleBulkUpload} />
           </div>
         </div>
       </div>
 
       {/* ── Hierarquia ── */}
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
-        <SectionHeader icon={User} title="Hierarquia" subtitle="Informações de envio automático — não editável" />
+        <SectionHeader icon={User} title="Hierarquia" subtitle="Notificação automática enviada ao supervisor e gerente" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 bg-muted/40 rounded-lg border border-border/20 space-y-1.5">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Supervisor</p>
             <p className="text-sm font-bold text-foreground">{supervisor?.nome_completo || '—'}</p>
-            {supervisor?.email && (
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Mail className="w-3 h-3" />
-                {supervisor.email}
-              </div>
-            )}
+            {supervisor?.email && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Mail className="w-3 h-3" />{supervisor.email}</div>}
           </div>
           <div className="p-4 bg-muted/40 rounded-lg border border-border/20 space-y-1.5">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Gerente</p>
@@ -267,16 +300,10 @@ function AtividadesTab() {
         </div>
       </div>
 
-      {/* Botão Registrar - mais proeminente */}
+      {/* ── Bottom Register Button ── */}
       <div className="flex justify-end">
-        <Button
-          onClick={handleSave}
-          disabled={!canSave}
-          size="lg"
-          className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-10 h-12 shadow-brand text-sm tracking-wide"
-        >
-          <Save className="w-4 h-4 mr-2" />
-          REGISTRAR ATIVIDADES
+        <Button onClick={handleSave} disabled={!canSave} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-10 h-12 shadow-brand text-sm tracking-wide">
+          <Save className="w-4 h-4 mr-2" /> REGISTRAR ATIVIDADES
         </Button>
       </div>
 
@@ -285,9 +312,7 @@ function AtividadesTab() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display text-lg">Confirmar Registro</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              Revise o resumo das atividades antes de confirmar. Um e-mail será enviado para o supervisor e gerente.
-            </DialogDescription>
+            <DialogDescription>Revise o resumo antes de confirmar. Supervisor e gerente serão notificados.</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 text-sm py-2 max-h-[50vh] overflow-y-auto">
             <div className="flex justify-between p-2.5 bg-muted/40 rounded-lg">
@@ -306,16 +331,11 @@ function AtividadesTab() {
                 <p className="text-xs text-foreground">{form.justificativa}</p>
               </div>
             )}
-            <Separator className="my-2 bg-border/20" />
-            <div className="p-2.5 bg-primary/5 rounded-lg border border-primary/10">
-              <p className="text-xs text-muted-foreground mb-1">Notificação automática</p>
-              <p className="text-xs text-foreground">Supervisor: {supervisor?.nome_completo || '—'} ({supervisor?.email || '—'})</p>
-            </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
             <Button onClick={confirmSave} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-              <CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar Registro
+              <CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -330,18 +350,46 @@ function AtividadesTab() {
 
 type Modalidade = 'pf' | 'familiar' | 'pme_1' | 'pme_multi' | 'empresarial_10';
 
-interface Beneficiario {
+interface BeneficiarioData {
   nome: string;
+  email: string;
+  telefone: string;
   tipo: string;
   is_conjuge: boolean;
-}
-
-interface DocUpload {
-  label: string;
-  file: File | null;
+  docs: Record<string, File | null>;
 }
 
 const STEPS = ['Modalidade', 'Dados Titular', 'Beneficiários', 'Documentos', 'Revisão'];
+
+function getRequiredDocsForPerson(modalidade: Modalidade, isConjuge: boolean, possuiPlanoAnterior: boolean, isTitular: boolean) {
+  const docs: { label: string; required: boolean }[] = [
+    { label: 'Documento com foto', required: true },
+    { label: 'Comprovante de endereço', required: true },
+  ];
+
+  if (isConjuge) {
+    docs.push({ label: 'Certidão de casamento', required: true });
+  }
+
+  if (['pme_1', 'pme_multi', 'empresarial_10'].includes(modalidade) && isTitular) {
+    docs.push({ label: 'Numeração do CNPJ', required: true });
+  }
+
+  if (modalidade === 'empresarial_10') {
+    docs.push({ label: 'Comprovação de vínculo (FGTS/eSocial/CTPS/Holerite)', required: true });
+  }
+
+  if (possuiPlanoAnterior) {
+    docs.push(
+      { label: 'Foto Carteirinha do plano anterior', required: true },
+      { label: 'Carta de permanência (PDF)', required: true },
+      { label: 'Últimos 3 boletos pagos', required: false },
+      { label: 'Últimos 3 comprovantes', required: false },
+    );
+  }
+
+  return docs;
+}
 
 function StepIndicator({ steps, current }: { steps: string[]; current: number }) {
   return (
@@ -372,74 +420,74 @@ function NovaVendaTab() {
   const [step, setStep] = useState(0);
   const [modalidade, setModalidade] = useState<Modalidade | ''>('');
   const [possuiPlanoAnterior, setPossuiPlanoAnterior] = useState(false);
-  const [valorVenda, setValorVenda] = useState('');
-  const [formData, setFormData] = useState({ nome: '', cpf_cnpj: '', email: '', telefone: '', endereco: '' });
-  const [beneficiarios, setBeneficiarios] = useState<Beneficiario[]>([]);
-  const [newBenef, setNewBenef] = useState<Beneficiario>({ nome: '', tipo: 'dependente', is_conjuge: false });
-  const [docUploads, setDocUploads] = useState<DocUpload[]>([]);
+  const [valorContrato, setValorContrato] = useState('');
+  const [formData, setFormData] = useState({ nome: '', email: '', telefone: '', endereco: '', cnpj: '' });
+  const [beneficiarios, setBeneficiarios] = useState<BeneficiarioData[]>([]);
+  const [newBenef, setNewBenef] = useState<BeneficiarioData>({ nome: '', email: '', telefone: '', tipo: 'dependente', is_conjuge: false, docs: {} });
+  const [titularDocs, setTitularDocs] = useState<Record<string, File | null>>({});
   const [showConfirm, setShowConfirm] = useState(false);
+  const uploadRefVendas = useRef<HTMLInputElement>(null);
 
-  const isEmpresa = ['pme_1', 'pme_multi', 'empresarial_10'].includes(modalidade);
+  const isEmpresa = ['pme_1', 'pme_multi', 'empresarial_10'].includes(modalidade as string);
+  const needsBeneficiarios = ['familiar', 'pme_multi', 'empresarial_10'].includes(modalidade as string);
 
   const addBeneficiario = () => {
     if (!newBenef.nome.trim()) { toast.error('Informe o nome do beneficiário.'); return; }
+    if (!newBenef.email.trim()) { toast.error('Informe o e-mail do beneficiário.'); return; }
+    if (!newBenef.telefone.trim()) { toast.error('Informe o telefone do beneficiário.'); return; }
     setBeneficiarios([...beneficiarios, { ...newBenef }]);
-    setNewBenef({ nome: '', tipo: 'dependente', is_conjuge: false });
+    setNewBenef({ nome: '', email: '', telefone: '', tipo: 'dependente', is_conjuge: false, docs: {} });
   };
 
   const removeBeneficiario = (idx: number) => setBeneficiarios(beneficiarios.filter((_, i) => i !== idx));
 
+  const titularRequiredDocs = modalidade ? getRequiredDocsForPerson(modalidade as Modalidade, false, possuiPlanoAnterior, true) : [];
+
   const canNext = () => {
     if (step === 0) return modalidade !== '';
-    if (step === 1) return formData.nome && formData.cpf_cnpj && formData.email && formData.telefone && formData.endereco && valorVenda;
+    if (step === 1) {
+      const base = formData.nome && formData.email && formData.telefone && formData.endereco && valorContrato;
+      if (isEmpresa) return base && formData.cnpj;
+      return base;
+    }
+    if (step === 2) {
+      if (needsBeneficiarios && beneficiarios.length === 0) return false;
+      return true;
+    }
     if (step === 3) {
-      const docs = getDocumentos();
-      const requiredDocs = docs.filter(d => d.required);
-      return requiredDocs.every(d => docUploads.some(u => u.label === d.label && u.file));
+      // Check titular docs
+      const titularOk = titularRequiredDocs.filter(d => d.required).every(d => titularDocs[d.label]);
+      if (!titularOk) return false;
+      // Check each beneficiary docs
+      for (const b of beneficiarios) {
+        const bDocs = getRequiredDocsForPerson(modalidade as Modalidade, b.is_conjuge, possuiPlanoAnterior, false);
+        const bOk = bDocs.filter(d => d.required).every(d => b.docs[d.label]);
+        if (!bOk) return false;
+      }
+      return true;
     }
     return true;
   };
 
-  const getDocumentos = () => {
-    const docs: { label: string; tip: string; required: boolean }[] = [
-      { label: 'Documento com Foto (RG/CNH)', tip: 'RG, CNH ou outro documento oficial com foto nítida do titular.', required: true },
-      { label: 'Comprovante de Endereço', tip: 'Conta de luz, água ou telefone dos últimos 3 meses.', required: true },
-    ];
-    if (possuiPlanoAnterior) {
-      docs.push(
-        { label: 'Carteirinha do Plano Anterior', tip: 'Foto da carteirinha do plano de saúde anterior.', required: true },
-        { label: 'Carta de Permanência (PDF)', tip: 'Documento emitido pelo RH ou operadora anterior comprovando tempo de plano.', required: true },
-        { label: 'Últimos 3 Boletos/Comprovantes', tip: 'Comprovantes de pagamento dos últimos 3 meses do plano anterior.', required: false },
-      );
-    }
-    if (isEmpresa) docs.push({ label: 'Cartão CNPJ', tip: 'Comprovante de inscrição e situação cadastral da empresa na Receita Federal.', required: true });
-    if (modalidade === 'empresarial_10') docs.push({ label: 'Comprovação de Vínculo (FGTS/Holerite/CTPS)', tip: 'Documento comprovando vínculo empregatício.', required: true });
-    if (beneficiarios.some(b => b.is_conjuge)) docs.push({ label: 'Certidão de Casamento', tip: 'Documento exigido para cônjuges incluídos no plano.', required: true });
-    return docs;
+  const handleTitularDocUpload = (label: string, file: File) => {
+    setTitularDocs(prev => ({ ...prev, [label]: file }));
   };
 
-  const handleDocUpload = (label: string, file: File) => {
-    setDocUploads(prev => {
-      const idx = prev.findIndex(d => d.label === label);
-      if (idx >= 0) {
-        const updated = [...prev];
-        updated[idx] = { label, file };
-        return updated;
-      }
-      return [...prev, { label, file }];
+  const handleBenefDocUpload = (bIdx: number, label: string, file: File) => {
+    setBeneficiarios(prev => {
+      const updated = [...prev];
+      updated[bIdx] = { ...updated[bIdx], docs: { ...updated[bIdx].docs, [label]: file } };
+      return updated;
     });
   };
 
-  const getDocFile = (label: string) => docUploads.find(d => d.label === label)?.file;
+  const handleFinalize = () => setShowConfirm(true);
 
-  const handleFinalize = () => {
-    const docs = getDocumentos();
-    const missing = docs.filter(d => d.required && !docUploads.some(u => u.label === d.label && u.file));
-    if (missing.length > 0) {
-      toast.error(`Documentos obrigatórios faltando: ${missing.map(d => d.label).join(', ')}`);
-      return;
-    }
-    setShowConfirm(true);
+  const handleBulkUploadVendas = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    toast.info(`Arquivo "${file.name}" selecionado. Processamento em massa em desenvolvimento.`);
+    if (uploadRefVendas.current) uploadRefVendas.current.value = '';
   };
 
   const confirmVenda = async () => {
@@ -450,19 +498,34 @@ function NovaVendaTab() {
       const venda = await createVenda.mutateAsync({
         nome_titular: formData.nome,
         modalidade: modalidadeMap[modalidade] || 'PF',
-        vidas: beneficiarios.length || 1,
-        valor: parseFloat(valorVenda) || undefined,
+        vidas: (beneficiarios.length || 0) + 1,
+        valor: parseFloat(valorContrato) || undefined,
         observacoes: possuiPlanoAnterior ? 'Portabilidade de carência' : undefined,
       });
 
-      for (const doc of docUploads) {
-        if (doc.file && user) {
-          await uploadVendaDocumento(venda.id, user.id, doc.file, doc.label);
+      // Upload titular docs
+      if (user) {
+        for (const [label, file] of Object.entries(titularDocs)) {
+          if (file) await uploadVendaDocumento(venda.id, user.id, file, `Titular - ${label}`);
+        }
+        // Upload beneficiary docs
+        for (const b of beneficiarios) {
+          for (const [label, file] of Object.entries(b.docs)) {
+            if (file) await uploadVendaDocumento(venda.id, user.id, file, `${b.nome} - ${label}`);
+          }
         }
       }
 
       setShowConfirm(false);
       toast.success('Venda enviada para análise!');
+      // Reset
+      setStep(0);
+      setModalidade('');
+      setFormData({ nome: '', email: '', telefone: '', endereco: '', cnpj: '' });
+      setBeneficiarios([]);
+      setTitularDocs({});
+      setValorContrato('');
+      setPossuiPlanoAnterior(false);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao registrar venda.');
     }
@@ -475,8 +538,8 @@ function NovaVendaTab() {
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
         {step === 0 && (
           <div className="space-y-5">
-            <SectionHeader icon={ShoppingCart} title="Selecione a Modalidade" subtitle="Escolha o tipo de plano para esta venda" />
-            <FieldWithTooltip label="Modalidade do Plano" tooltip="Cada modalidade possui documentação específica obrigatória." required>
+            <SectionHeader icon={ShoppingCart} title="Selecione a Modalidade" subtitle="Cada modalidade possui documentação específica" />
+            <FieldWithTooltip label="Modalidade do Plano" tooltip="Escolha o tipo de plano para esta venda." required>
               <Select value={modalidade} onValueChange={(v) => setModalidade(v as Modalidade)}>
                 <SelectTrigger className="h-11 border-border/40"><SelectValue placeholder="Escolha a modalidade..." /></SelectTrigger>
                 <SelectContent>
@@ -501,12 +564,13 @@ function NovaVendaTab() {
                 <p className="text-xs text-muted-foreground mt-0.5">Baixe o modelo, preencha e faça upload.</p>
               </div>
               <div className="flex gap-2 shrink-0">
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40">
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={downloadVendasModelo}>
                   <Download className="w-3.5 h-3.5" /> Modelo
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40">
+                <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => uploadRefVendas.current?.click()}>
                   <Upload className="w-3.5 h-3.5" /> Upload
                 </Button>
+                <input ref={uploadRefVendas} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleBulkUploadVendas} />
               </div>
             </div>
           </div>
@@ -514,29 +578,31 @@ function NovaVendaTab() {
 
         {step === 1 && (
           <div className="space-y-5">
-            <SectionHeader icon={User} title={isEmpresa ? 'Dados da Empresa' : 'Dados do Titular'} />
+            <SectionHeader icon={User} title={isEmpresa ? 'Dados da Empresa / Titular' : 'Dados do Titular'} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FieldWithTooltip label={isEmpresa ? 'Razão Social' : 'Nome Completo'} tooltip={isEmpresa ? 'Razão social conforme cartão CNPJ.' : 'Nome completo conforme documento.'} required>
-                <Input value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })} placeholder={isEmpresa ? 'Ex: Empresa XYZ Ltda' : 'Ex: João da Silva'} className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
+              <FieldWithTooltip label={isEmpresa ? 'Razão Social / Nome' : 'Nome Completo'} tooltip="Nome conforme documento." required>
+                <Input value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })} className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
               </FieldWithTooltip>
-              <FieldWithTooltip label={isEmpresa ? 'CNPJ' : 'CPF'} tooltip={isEmpresa ? 'CNPJ com 14 dígitos.' : 'CPF com 11 dígitos.'} required>
-                <Input value={formData.cpf_cnpj} onChange={(e) => setFormData({ ...formData, cpf_cnpj: e.target.value })} placeholder={isEmpresa ? '00.000.000/0000-00' : '000.000.000-00'} className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
-              </FieldWithTooltip>
-              <FieldWithTooltip label="E-mail de Contato" tooltip="E-mail principal para comunicação." required>
+              <FieldWithTooltip label="E-mail" tooltip="E-mail principal para comunicação." required>
                 <Input type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="email@exemplo.com" className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
               </FieldWithTooltip>
               <FieldWithTooltip label="Telefone" tooltip="Telefone com DDD." required>
-                <Input value={formData.telefone} onChange={(e) => setFormData({ ...formData, telefone: e.target.value })} placeholder="(11) 99999-9999" className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
+                <Input value={formData.telefone} onChange={(e) => setFormData({ ...formData, telefone: maskPhone(e.target.value) })} placeholder="+55 (11) 90000-0000" className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
               </FieldWithTooltip>
+              {isEmpresa && (
+                <FieldWithTooltip label="CNPJ" tooltip="CNPJ da empresa." required>
+                  <Input value={formData.cnpj} onChange={(e) => setFormData({ ...formData, cnpj: e.target.value })} placeholder="00.000.000/0000-00" className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
+                </FieldWithTooltip>
+              )}
               <div className="sm:col-span-2">
                 <FieldWithTooltip label="Endereço Completo" tooltip="Endereço com rua, número, bairro, cidade e CEP." required>
-                  <Input value={formData.endereco} onChange={(e) => setFormData({ ...formData, endereco: e.target.value })} placeholder="Rua, número, bairro, cidade - UF, CEP" className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
+                  <Input value={formData.endereco} onChange={(e) => setFormData({ ...formData, endereco: e.target.value })} className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
                 </FieldWithTooltip>
               </div>
-              <FieldWithTooltip label="Valor do Contrato (R$)" tooltip="Valor total do contrato para contabilização de faturamento." required>
+              <FieldWithTooltip label="Valor do Contrato (R$)" tooltip="Valor total do contrato." required>
                 <div className="relative">
                   <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/50" />
-                  <Input type="number" min={0} step={0.01} value={valorVenda} onChange={(e) => setValorVenda(e.target.value)} placeholder="0,00" className="pl-10 h-11 bg-muted/30 border-border/40 focus:bg-card" />
+                  <Input type="number" min={0} step={0.01} value={valorContrato} onChange={(e) => setValorContrato(e.target.value)} placeholder="0,00" className="pl-10 h-11 bg-muted/30 border-border/40 focus:bg-card" />
                 </div>
               </FieldWithTooltip>
             </div>
@@ -545,17 +611,17 @@ function NovaVendaTab() {
 
         {step === 2 && (
           <div className="space-y-5">
-            <SectionHeader icon={User} title="Beneficiários" subtitle="Adicione as vidas que farão parte deste plano" />
+            <SectionHeader icon={User} title="Beneficiários" subtitle={needsBeneficiarios ? 'Adicione todas as vidas que farão parte do plano' : 'Opcional para esta modalidade'} />
             {beneficiarios.length > 0 && (
               <div className="space-y-2">
                 {beneficiarios.map((b, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3.5 rounded-lg border border-border/30 bg-muted/20 hover:border-primary/20 transition-colors">
+                  <div key={i} className="flex items-center gap-3 p-3.5 rounded-lg border border-border/30 bg-muted/20">
                     <div className="w-8 h-8 rounded-full bg-primary/8 flex items-center justify-center text-xs font-bold text-primary">{i + 1}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-foreground truncate">{b.nome}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{b.tipo}{b.is_conjuge ? ' • Cônjuge' : ''}</p>
+                      <p className="text-xs text-muted-foreground">{b.email} • {b.telefone}{b.is_conjuge ? ' • Cônjuge' : ''}</p>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => removeBeneficiario(i)} className="text-destructive hover:text-destructive shrink-0 h-8 w-8">
+                    <Button variant="ghost" size="icon" onClick={() => removeBeneficiario(i)} className="text-destructive h-8 w-8">
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
@@ -564,21 +630,22 @@ function NovaVendaTab() {
             )}
             <div className="border border-dashed border-primary/20 rounded-lg p-5 bg-primary/[0.02] space-y-3">
               <p className="text-[10px] font-bold text-primary uppercase tracking-[0.12em]">Novo Beneficiário</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <Input placeholder="Nome completo" value={newBenef.nome} onChange={(e) => setNewBenef({ ...newBenef, nome: e.target.value })} className="h-10 bg-muted/30 border-border/40" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input placeholder="Nome completo *" value={newBenef.nome} onChange={(e) => setNewBenef({ ...newBenef, nome: e.target.value })} className="h-10 bg-muted/30 border-border/40" />
+                <Input type="email" placeholder="E-mail *" value={newBenef.email} onChange={(e) => setNewBenef({ ...newBenef, email: e.target.value })} className="h-10 bg-muted/30 border-border/40" />
+                <Input placeholder="Telefone *" value={newBenef.telefone} onChange={(e) => setNewBenef({ ...newBenef, telefone: maskPhone(e.target.value) })} className="h-10 bg-muted/30 border-border/40" />
                 <Select value={newBenef.tipo} onValueChange={(v) => setNewBenef({ ...newBenef, tipo: v })}>
                   <SelectTrigger className="h-10 border-border/40"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="titular">Titular</SelectItem>
                     <SelectItem value="dependente">Dependente</SelectItem>
                     <SelectItem value="socio">Sócio</SelectItem>
                     <SelectItem value="funcionario">Funcionário</SelectItem>
                   </SelectContent>
                 </Select>
-                <div className="flex items-center gap-2">
-                  <Switch checked={newBenef.is_conjuge} onCheckedChange={(v) => setNewBenef({ ...newBenef, is_conjuge: v })} />
-                  <Label className="text-xs">Cônjuge?</Label>
-                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Switch checked={newBenef.is_conjuge} onCheckedChange={(v) => setNewBenef({ ...newBenef, is_conjuge: v })} />
+                <Label className="text-xs">Cônjuge?</Label>
               </div>
               <Button variant="outline" size="sm" onClick={addBeneficiario} className="gap-1.5 border-border/40">
                 <Plus className="w-3.5 h-3.5" /> Adicionar
@@ -588,40 +655,42 @@ function NovaVendaTab() {
         )}
 
         {step === 3 && (
-          <div className="space-y-5">
-            <SectionHeader icon={FileText} title="Documentos Obrigatórios" subtitle="Todos os documentos marcados com * são obrigatórios para aprovação" />
-            {getDocumentos().map((doc) => {
-              const uploaded = getDocFile(doc.label);
+          <div className="space-y-6">
+            <SectionHeader icon={FileText} title="Documentos Obrigatórios" subtitle="Documentos marcados com * são obrigatórios" />
+            
+            {/* Titular docs */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                <User className="w-3.5 h-3.5 text-primary" /> Titular: {formData.nome}
+              </h3>
+              {titularRequiredDocs.map((doc) => (
+                <DocUploadRow
+                  key={doc.label}
+                  label={doc.label}
+                  required={doc.required}
+                  file={titularDocs[doc.label] || null}
+                  onUpload={(file) => handleTitularDocUpload(doc.label, file)}
+                />
+              ))}
+            </div>
+
+            {/* Each beneficiary docs */}
+            {beneficiarios.map((b, bIdx) => {
+              const bDocs = getRequiredDocsForPerson(modalidade as Modalidade, b.is_conjuge, possuiPlanoAnterior, false);
               return (
-                <div key={doc.label} className={cn(
-                  "flex items-center gap-3 p-4 rounded-lg border transition-colors",
-                  uploaded ? "border-success/30 bg-success/5" : doc.required ? "border-border/30 bg-muted/20" : "border-border/20 bg-muted/10"
-                )}>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-medium text-foreground">{doc.label}</span>
-                      {doc.required && <span className="text-xs text-destructive font-bold">*</span>}
-                      <Tooltip>
-                        <TooltipTrigger tabIndex={-1}><Info className="w-3.5 h-3.5 text-muted-foreground/50" /></TooltipTrigger>
-                        <TooltipContent className="max-w-[260px] text-xs">{doc.tip}</TooltipContent>
-                      </Tooltip>
-                    </div>
-                    {uploaded && <p className="text-xs text-success mt-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {uploaded.name}</p>}
-                  </div>
-                  <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleDocUpload(doc.label, file);
-                      }}
+                <div key={bIdx} className="space-y-3 pt-4 border-t border-border/20">
+                  <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+                    <User className="w-3.5 h-3.5 text-primary" /> {b.nome} {b.is_conjuge ? '(Cônjuge)' : `(${b.tipo})`}
+                  </h3>
+                  {bDocs.map((doc) => (
+                    <DocUploadRow
+                      key={doc.label}
+                      label={doc.label}
+                      required={doc.required}
+                      file={b.docs[doc.label] || null}
+                      onUpload={(file) => handleBenefDocUpload(bIdx, doc.label, file)}
                     />
-                    <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-border/40 bg-card text-sm font-medium hover:bg-muted transition-colors cursor-pointer">
-                      <Upload className="w-3.5 h-3.5" /> {uploaded ? 'Trocar' : 'Upload'}
-                    </span>
-                  </label>
+                  ))}
                 </div>
               );
             })}
@@ -634,40 +703,51 @@ function NovaVendaTab() {
             <div className="space-y-2 text-sm">
               {[
                 ['Modalidade', modalidade?.replace(/_/g, ' ').toUpperCase() || '—'],
-                [isEmpresa ? 'Razão Social' : 'Titular', formData.nome || '—'],
-                [isEmpresa ? 'CNPJ' : 'CPF', formData.cpf_cnpj || '—'],
+                ['Titular', formData.nome || '—'],
                 ['E-mail', formData.email || '—'],
                 ['Telefone', formData.telefone || '—'],
                 ['Endereço', formData.endereco || '—'],
-                ['Valor do Contrato', valorVenda ? `R$ ${parseFloat(valorVenda).toFixed(2)}` : '—'],
-                ['Beneficiários', `${beneficiarios.length} vida(s)`],
+                ...(isEmpresa ? [['CNPJ', formData.cnpj || '—']] : []),
+                ['Valor do Contrato', valorContrato ? `R$ ${parseFloat(valorContrato).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'],
+                ['Total de Vidas', `${(beneficiarios.length || 0) + 1}`],
                 ['Portabilidade', possuiPlanoAnterior ? 'Sim' : 'Não'],
               ].map(([label, value]) => (
-                <div key={label} className="flex justify-between p-3 bg-muted/30 rounded-lg">
+                <div key={label as string} className="flex justify-between p-3 bg-muted/30 rounded-lg">
                   <span className="text-muted-foreground">{label}</span>
                   <span className="font-medium text-foreground">{value}</span>
                 </div>
               ))}
             </div>
 
+            {beneficiarios.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Beneficiários</p>
+                {beneficiarios.map((b, i) => (
+                  <div key={i} className="flex justify-between p-2.5 bg-muted/30 rounded-lg text-sm">
+                    <span className="text-muted-foreground">{b.nome}</span>
+                    <span className="text-xs text-foreground">{b.email} • {b.telefone}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="space-y-2">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Documentos Anexados</p>
-              {getDocumentos().map(doc => {
-                const uploaded = getDocFile(doc.label);
-                return (
-                  <div key={doc.label} className="flex items-center justify-between p-2.5 bg-muted/30 rounded-lg text-sm">
-                    <span className="text-muted-foreground">{doc.label} {doc.required && '*'}</span>
-                    <span className={cn("font-medium", uploaded ? "text-success" : "text-destructive")}>
-                      {uploaded ? `✓ ${uploaded.name}` : 'Não enviado'}
-                    </span>
-                  </div>
-                );
-              })}
+              <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg text-sm">
+                <span className="text-muted-foreground">Titular</span>
+                <span className="font-medium text-success">{Object.values(titularDocs).filter(Boolean).length} doc(s)</span>
+              </div>
+              {beneficiarios.map((b, i) => (
+                <div key={i} className="flex justify-between p-2.5 bg-muted/30 rounded-lg text-sm">
+                  <span className="text-muted-foreground">{b.nome}</span>
+                  <span className="font-medium text-success">{Object.values(b.docs).filter(Boolean).length} doc(s)</span>
+                </div>
+              ))}
             </div>
 
             <div className="p-3 bg-primary/[0.03] rounded-lg border border-primary/10">
               <p className="text-xs text-muted-foreground mb-1">Notificação automática ao finalizar</p>
-              <p className="text-xs text-foreground">Supervisor: {supervisor?.nome_completo || '—'} ({supervisor?.email || '—'})</p>
+              <p className="text-xs text-foreground">Supervisor: {supervisor?.nome_completo || '—'}</p>
             </div>
 
             <div className="flex items-center gap-2 p-3 bg-warning/8 border border-warning/15 rounded-lg">
@@ -687,41 +767,31 @@ function NovaVendaTab() {
             Próximo <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         ) : (
-          <Button onClick={handleFinalize} className="bg-success hover:bg-success/90 text-success-foreground font-bold h-11 shadow-brand">
+          <Button onClick={handleFinalize} disabled={!canNext()} className="bg-success hover:bg-success/90 text-success-foreground font-bold h-11 shadow-brand">
             <CheckCircle2 className="w-4 h-4 mr-1" /> Finalizar Venda
           </Button>
         )}
       </div>
 
-      {/* Modal de Confirmação da Venda */}
+      {/* Modal de Confirmação */}
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-display text-lg">Confirmar Envio da Venda</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              A venda será enviada para análise. O supervisor e gerente serão notificados.
-            </DialogDescription>
+            <DialogDescription>A venda será enviada para análise. Supervisor e gerente serão notificados.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 text-sm py-2 max-h-[50vh] overflow-y-auto">
+          <div className="space-y-2 text-sm py-2">
             <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg">
               <span className="text-muted-foreground">Titular</span>
               <span className="font-medium text-foreground">{formData.nome}</span>
             </div>
             <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg">
-              <span className="text-muted-foreground">Modalidade</span>
-              <span className="font-medium text-foreground">{modalidade?.replace(/_/g, ' ').toUpperCase()}</span>
-            </div>
-            <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg">
               <span className="text-muted-foreground">Valor do Contrato</span>
-              <span className="font-medium text-foreground">R$ {parseFloat(valorVenda || '0').toFixed(2)}</span>
+              <span className="font-medium text-foreground">R$ {parseFloat(valorContrato || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
             </div>
             <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg">
-              <span className="text-muted-foreground">Vidas</span>
-              <span className="font-medium text-foreground">{beneficiarios.length}</span>
-            </div>
-            <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg">
-              <span className="text-muted-foreground">Documentos</span>
-              <span className="font-medium text-foreground">{docUploads.filter(d => d.file).length} anexados</span>
+              <span className="text-muted-foreground">Total Vidas</span>
+              <span className="font-medium text-foreground">{(beneficiarios.length || 0) + 1}</span>
             </div>
           </div>
           <DialogFooter className="gap-2">
@@ -732,6 +802,30 @@ function NovaVendaTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/* ─── Doc Upload Row ─── */
+function DocUploadRow({ label, required, file, onUpload }: { label: string; required: boolean; file: File | null; onUpload: (f: File) => void }) {
+  return (
+    <div className={cn(
+      "flex items-center gap-3 p-3.5 rounded-lg border transition-colors",
+      file ? "border-success/30 bg-success/5" : required ? "border-border/30 bg-muted/20" : "border-border/20 bg-muted/10"
+    )}>
+      <div className="flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium text-foreground">{label}</span>
+          {required && <span className="text-xs text-destructive font-bold">*</span>}
+        </div>
+        {file && <p className="text-xs text-success mt-1 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {file.name}</p>}
+      </div>
+      <label className="cursor-pointer">
+        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); }} />
+        <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-border/40 bg-card text-sm font-medium hover:bg-muted transition-colors cursor-pointer">
+          <Upload className="w-3.5 h-3.5" /> {file ? 'Trocar' : 'Upload'}
+        </span>
+      </label>
     </div>
   );
 }
