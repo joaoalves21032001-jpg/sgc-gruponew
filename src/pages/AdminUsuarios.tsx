@@ -143,8 +143,8 @@ const AdminUsuarios = () => {
       role: 'consultor', // will be fetched separately if needed
       numero_emergencia_1: profile.numero_emergencia_1 || '',
       numero_emergencia_2: profile.numero_emergencia_2 || '',
-      supervisor_id: profile.supervisor_id || '',
-      gerente_id: profile.gerente_id || '',
+      supervisor_id: profile.supervisor_id || 'none',
+      gerente_id: profile.gerente_id || 'none',
       meta_faturamento: profile.meta_faturamento?.toString() || '',
     });
     setAvatarPreview(profile.avatar_url);
@@ -194,8 +194,8 @@ const AdminUsuarios = () => {
           codigo: form.codigo,
           numero_emergencia_1: form.numero_emergencia_1,
           numero_emergencia_2: form.numero_emergencia_2,
-          supervisor_id: form.supervisor_id || null,
-          gerente_id: form.gerente_id || null,
+          supervisor_id: form.supervisor_id && form.supervisor_id !== 'none' ? form.supervisor_id : null,
+          gerente_id: form.gerente_id && form.gerente_id !== 'none' ? form.gerente_id : null,
           meta_faturamento: form.meta_faturamento ? parseFloat(form.meta_faturamento) : null,
           avatar_url: avatarUrl,
         }).eq('id', editingId);
@@ -402,7 +402,7 @@ const AdminUsuarios = () => {
                   <Select value={form.supervisor_id} onValueChange={(v) => setField('supervisor_id', v)}>
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
+                      <SelectItem value="none">Nenhum</SelectItem>
                       {supervisors.map(s => <SelectItem key={s.id} value={s.id}>{s.nome_completo}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -411,7 +411,7 @@ const AdminUsuarios = () => {
                   <Select value={form.gerente_id} onValueChange={(v) => setField('gerente_id', v)}>
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Nenhum</SelectItem>
+                      <SelectItem value="none">Nenhum</SelectItem>
                       {gerentes.map(g => <SelectItem key={g.id} value={g.id}>{g.nome_completo}</SelectItem>)}
                     </SelectContent>
                   </Select>

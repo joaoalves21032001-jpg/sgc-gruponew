@@ -1,11 +1,11 @@
 import { useState, useRef, useMemo } from 'react';
-import { format, isToday, parse, isValid } from 'date-fns';
+import { format, isToday, isBefore, startOfDay, parse, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Phone, MessageSquare, FileText, CheckCircle2, RotateCcw, Info, Save,
   ChevronRight, ChevronLeft, Upload, AlertCircle, CalendarIcon, DollarSign,
   ClipboardList, ShoppingCart, FileUp, Trash2, Plus, TrendingUp, Download,
-  Mail, User, XCircle, MessageCircle, BarChart3
+  Mail, User, XCircle, MessageCircle, BarChart3, Flag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,10 +22,11 @@ import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useProfile, useSupervisorProfile } from '@/hooks/useProfile';
-import { useCreateAtividade } from '@/hooks/useAtividades';
-import { useCreateVenda, uploadVendaDocumento } from '@/hooks/useVendas';
+import { useCreateAtividade, useMyAtividades } from '@/hooks/useAtividades';
+import { useCreateVenda, useMyVendas, uploadVendaDocumento } from '@/hooks/useVendas';
 import { useAuth } from '@/contexts/AuthContext';
 import { maskPhone } from '@/lib/masks';
+import { supabase } from '@/integrations/supabase/client';
 
 /* ─── Shared Components ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
@@ -61,6 +62,13 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 }
 
 /* ─── CSV helpers ─── */
+function detectSeparator(text: string): string {
+  const firstLine = text.split('\n')[0] || '';
+  const semicolons = (firstLine.match(/;/g) || []).length;
+  const commas = (firstLine.match(/,/g) || []).length;
+  return semicolons >= commas ? ';' : ',';
+}
+
 function generateCSV(headers: string[], filename: string) {
   const bom = '\uFEFF';
   const csvContent = bom + headers.join(';') + '\n';
@@ -85,7 +93,7 @@ function downloadAtividadesModelo() {
 
 function downloadVendasModelo() {
   generateCSV(
-    ['Nome Titular', 'Modalidade (PF/Familiar/PME Multi/Empresarial)', 'Vidas', 'Valor Contrato', 'Possui Plano Anterior (Sim/Não)', 'Observações'],
+    ['Nome Titular', 'Modalidade (PF/Familiar/PME Multi/Empresarial/Adesão)', 'Vidas', 'Valor Contrato', 'Observações'],
     'modelo_vendas.csv'
   );
   toast.success('Modelo de vendas baixado!');
@@ -103,17 +111,20 @@ interface ParsedAtividade {
 }
 
 function parseCSVAtividades(text: string): ParsedAtividade[] {
-  const lines = text.trim().split('\n').filter(l => l.trim());
+  // Remove BOM if present
+  const cleanText = text.replace(/^\uFEFF/, '');
+  const sep = detectSeparator(cleanText);
+  const lines = cleanText.trim().split('\n').filter(l => l.trim());
   if (lines.length < 2) return [];
   const rows: ParsedAtividade[] = [];
   for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(';').map(c => c.trim());
+    const cols = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
     if (cols.length < 8) continue;
     // Parse dd/mm/yyyy to yyyy-mm-dd
     const dateParts = cols[0].split('/');
     let dataStr = cols[0];
     if (dateParts.length === 3) {
-      dataStr = `${dateParts[2]}-${dateParts[1]}-${dateParts[0]}`;
+      dataStr = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
     }
     rows.push({
       data: dataStr,
@@ -124,6 +135,44 @@ function parseCSVAtividades(text: string): ParsedAtividade[] {
       cotacoes_respondidas: parseInt(cols[5]) || 0,
       cotacoes_nao_respondidas: parseInt(cols[6]) || 0,
       follow_up: parseInt(cols[7]) || 0,
+    });
+  }
+  return rows;
+}
+
+interface ParsedVenda {
+  nome_titular: string;
+  modalidade: string;
+  vidas: number;
+  valor: number | null;
+  observacoes: string | null;
+}
+
+function parseCSVVendas(text: string): ParsedVenda[] {
+  const cleanText = text.replace(/^\uFEFF/, '');
+  const sep = detectSeparator(cleanText);
+  const lines = cleanText.trim().split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const rows: ParsedVenda[] = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
+    if (cols.length < 3) continue;
+    const modalidadeRaw = (cols[1] || '').trim();
+    const modalidadeMap: Record<string, string> = {
+      'pf': 'PF', 'pessoa física': 'PF', 'familiar': 'Familiar',
+      'pme multi': 'PME Multi', 'pme': 'PME Multi',
+      'empresarial': 'Empresarial', 'adesão': 'Adesão', 'adesao': 'Adesão',
+    };
+    const modalidade = modalidadeMap[modalidadeRaw.toLowerCase()] || modalidadeRaw;
+    const validModalidades = ['PF', 'Familiar', 'PME Multi', 'Empresarial', 'Adesão'];
+    if (!validModalidades.includes(modalidade)) continue;
+    
+    rows.push({
+      nome_titular: cols[0] || '',
+      modalidade,
+      vidas: parseInt(cols[2]) || 1,
+      valor: cols[3] ? parseFloat(cols[3].replace(',', '.')) : null,
+      observacoes: cols[4] || null,
     });
   }
   return rows;
@@ -152,14 +201,23 @@ function calcRate(a: string, b: string): string {
 }
 
 function AtividadesTab() {
+  const { user } = useAuth();
   const { data: profile } = useProfile();
   const { data: supervisor } = useSupervisorProfile(profile?.supervisor_id);
+  const { data: myAtividades } = useMyAtividades();
+  const { data: myVendas } = useMyVendas();
   const createAtividade = useCreateAtividade();
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const [showConfirm, setShowConfirm] = useState(false);
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
   const [bulkData, setBulkData] = useState<ParsedAtividade[]>([]);
+  const [bulkJustificativa, setBulkJustificativa] = useState('');
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [showReportDialog, setShowReportDialog] = useState(false);
+  const [reportType, setReportType] = useState<'atividade' | 'venda'>('atividade');
+  const [reportRegistroId, setReportRegistroId] = useState('');
+  const [reportMotivo, setReportMotivo] = useState('');
+  const [reportSaving, setReportSaving] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<AtividadesForm>({
     ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '',
@@ -167,6 +225,12 @@ function AtividadesTab() {
   });
 
   const isRetroativo = !isToday(dataLancamento);
+
+  // Check if bulk import has past dates
+  const bulkHasPastDates = bulkData.some(row => {
+    const d = new Date(row.data + 'T12:00:00');
+    return isBefore(startOfDay(d), startOfDay(new Date()));
+  });
 
   const metrics: { key: keyof AtividadesForm; label: string; icon: React.ElementType; tooltip: string }[] = [
     { key: 'ligacoes', label: 'Ligações Realizadas', icon: Phone, tooltip: 'Total de ligações de prospecção e follow-up realizadas no dia selecionado.' },
@@ -224,13 +288,18 @@ function AtividadesTab() {
         return;
       }
       setBulkData(parsed);
+      setBulkJustificativa('');
       setShowBulkConfirm(true);
     };
-    reader.readAsText(file);
+    reader.readAsText(file, 'UTF-8');
     if (uploadRef.current) uploadRef.current.value = '';
   };
 
   const confirmBulkSave = async () => {
+    if (bulkHasPastDates && !bulkJustificativa.trim()) {
+      toast.error('Justificativa obrigatória para datas retroativas.');
+      return;
+    }
     setBulkSaving(true);
     try {
       for (const row of bulkData) {
@@ -250,6 +319,31 @@ function AtividadesTab() {
       toast.error(err.message || 'Erro ao importar atividades.');
     } finally {
       setBulkSaving(false);
+    }
+  };
+
+  const handleReportSubmit = async () => {
+    if (!reportRegistroId || !reportMotivo.trim()) {
+      toast.error('Selecione um registro e informe o motivo.');
+      return;
+    }
+    setReportSaving(true);
+    try {
+      const { error } = await supabase.from('correction_requests').insert({
+        user_id: user!.id,
+        tipo: reportType,
+        registro_id: reportRegistroId,
+        motivo: reportMotivo.trim(),
+      } as any);
+      if (error) throw error;
+      toast.success('Solicitação de correção enviada ao administrador!');
+      setShowReportDialog(false);
+      setReportMotivo('');
+      setReportRegistroId('');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao enviar solicitação.');
+    } finally {
+      setReportSaving(false);
     }
   };
 
@@ -333,9 +427,17 @@ function AtividadesTab() {
             <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => uploadRef.current?.click()}>
               <Upload className="w-3.5 h-3.5" /> Upload
             </Button>
-            <input ref={uploadRef} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleBulkUpload} />
+            <input ref={uploadRef} type="file" accept=".csv" className="hidden" onChange={handleBulkUpload} />
           </div>
         </div>
+      </div>
+
+      {/* ── Reportar Registro Indevido ── */}
+      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+        <SectionHeader icon={Flag} title="Reportar Registro Indevido" subtitle="Notifique o administrador sobre um registro incorreto para correção" />
+        <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => setShowReportDialog(true)}>
+          <Flag className="w-3.5 h-3.5" /> Reportar Registro
+        </Button>
       </div>
 
       {/* ── Hierarquia ── */}
@@ -424,15 +526,79 @@ function AtividadesTab() {
                 </div>
               </div>
             ))}
+
+            {bulkHasPastDates && (
+              <div className="p-4 bg-warning/8 border border-warning/20 rounded-lg space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-warning shrink-0" />
+                  <p className="text-sm font-medium text-foreground">Datas retroativas detectadas</p>
+                </div>
+                <p className="text-xs text-muted-foreground">Justificativa obrigatória para registros com data anterior a hoje.</p>
+                <Textarea
+                  placeholder="Justifique o motivo do lançamento retroativo..."
+                  value={bulkJustificativa}
+                  onChange={(e) => setBulkJustificativa(e.target.value)}
+                  rows={3}
+                  className="border-warning/30 focus:border-warning"
+                />
+              </div>
+            )}
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => { setShowBulkConfirm(false); setBulkData([]); }}>Cancelar</Button>
-            <Button onClick={confirmBulkSave} disabled={bulkSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+            <Button onClick={confirmBulkSave} disabled={bulkSaving || (bulkHasPastDates && !bulkJustificativa.trim())} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
               {bulkSaving ? (
                 <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
                 <><CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar {bulkData.length} registro(s)</>
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Reportar Registro */}
+      <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Reportar Registro Indevido</DialogTitle>
+            <DialogDescription>Selecione o tipo e o registro que deseja reportar ao administrador.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <FieldWithTooltip label="Tipo de Registro" tooltip="Escolha se o problema é em uma atividade ou venda." required>
+              <Select value={reportType} onValueChange={(v) => { setReportType(v as 'atividade' | 'venda'); setReportRegistroId(''); }}>
+                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="atividade">Atividade</SelectItem>
+                  <SelectItem value="venda">Venda</SelectItem>
+                </SelectContent>
+              </Select>
+            </FieldWithTooltip>
+            <FieldWithTooltip label="Registro" tooltip="Selecione o registro específico que está incorreto." required>
+              <Select value={reportRegistroId} onValueChange={setReportRegistroId}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  {reportType === 'atividade' && myAtividades?.map(a => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.data.split('-').reverse().join('/')} — Lig: {a.ligacoes}, Msg: {a.mensagens}
+                    </SelectItem>
+                  ))}
+                  {reportType === 'venda' && myVendas?.map(v => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.nome_titular} — {v.modalidade} ({v.status})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </FieldWithTooltip>
+            <FieldWithTooltip label="Motivo" tooltip="Descreva o que está incorreto no registro e qual a correção necessária." required>
+              <Textarea value={reportMotivo} onChange={(e) => setReportMotivo(e.target.value)} placeholder="Descreva o problema..." rows={3} />
+            </FieldWithTooltip>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowReportDialog(false)}>Cancelar</Button>
+            <Button onClick={handleReportSubmit} disabled={reportSaving || !reportRegistroId || !reportMotivo.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+              {reportSaving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Flag className="w-4 h-4 mr-1" /> Enviar Solicitação</>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -524,6 +690,9 @@ function NovaVendaTab() {
   const [titularDocs, setTitularDocs] = useState<Record<string, File | null>>({});
   const [showConfirm, setShowConfirm] = useState(false);
   const uploadRefVendas = useRef<HTMLInputElement>(null);
+  const [showBulkVendas, setShowBulkVendas] = useState(false);
+  const [bulkVendas, setBulkVendas] = useState<ParsedVenda[]>([]);
+  const [bulkVendasSaving, setBulkVendasSaving] = useState(false);
 
   const isEmpresa = ['pme_1', 'pme_multi', 'empresarial_10'].includes(modalidade as string);
   const needsBeneficiarios = ['familiar', 'pme_multi', 'empresarial_10', 'adesao'].includes(modalidade as string);
@@ -581,8 +750,41 @@ function NovaVendaTab() {
   const handleBulkUploadVendas = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    toast.info(`Arquivo "${file.name}" selecionado. Processamento em massa em desenvolvimento.`);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string;
+      const parsed = parseCSVVendas(text);
+      if (parsed.length === 0) {
+        toast.error('Nenhum registro válido encontrado no arquivo.');
+        return;
+      }
+      setBulkVendas(parsed);
+      setShowBulkVendas(true);
+    };
+    reader.readAsText(file, 'UTF-8');
     if (uploadRefVendas.current) uploadRefVendas.current.value = '';
+  };
+
+  const confirmBulkVendas = async () => {
+    setBulkVendasSaving(true);
+    try {
+      for (const row of bulkVendas) {
+        await createVenda.mutateAsync({
+          nome_titular: row.nome_titular,
+          modalidade: row.modalidade,
+          vidas: row.vidas,
+          valor: row.valor || undefined,
+          observacoes: row.observacoes || undefined,
+        });
+      }
+      toast.success(`${bulkVendas.length} venda(s) importada(s) com sucesso!`);
+      setShowBulkVendas(false);
+      setBulkVendas([]);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao importar vendas.');
+    } finally {
+      setBulkVendasSaving(false);
+    }
   };
 
   const confirmVenda = async () => {
@@ -663,7 +865,7 @@ function NovaVendaTab() {
                 <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => uploadRefVendas.current?.click()}>
                   <Upload className="w-3.5 h-3.5" /> Upload
                 </Button>
-                <input ref={uploadRefVendas} type="file" accept=".csv,.xlsx,.xls" className="hidden" onChange={handleBulkUploadVendas} />
+                <input ref={uploadRefVendas} type="file" accept=".csv" className="hidden" onChange={handleBulkUploadVendas} />
               </div>
             </div>
           </div>
@@ -889,6 +1091,39 @@ function NovaVendaTab() {
             <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
             <Button onClick={confirmVenda} className="bg-success hover:bg-success/90 text-success-foreground font-semibold">
               <CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar Venda
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Importação em Massa - Vendas */}
+      <Dialog open={showBulkVendas} onOpenChange={setShowBulkVendas}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Confirmar Importação de Vendas</DialogTitle>
+            <DialogDescription>Revise as {bulkVendas.length} venda(s) antes de confirmar.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[50vh] overflow-y-auto space-y-3 py-2">
+            {bulkVendas.map((row, i) => (
+              <div key={i} className="p-3 bg-muted/30 rounded-lg border border-border/20 space-y-1">
+                <p className="text-xs font-bold text-foreground">{row.nome_titular}</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
+                  <span className="text-muted-foreground">Modalidade: <strong className="text-foreground">{row.modalidade}</strong></span>
+                  <span className="text-muted-foreground">Vidas: <strong className="text-foreground">{row.vidas}</strong></span>
+                  <span className="text-muted-foreground">Valor: <strong className="text-foreground">{row.valor ? `R$ ${row.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'}</strong></span>
+                  {row.observacoes && <span className="text-muted-foreground col-span-2">Obs: <strong className="text-foreground">{row.observacoes}</strong></span>}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setShowBulkVendas(false); setBulkVendas([]); }}>Cancelar</Button>
+            <Button onClick={confirmBulkVendas} disabled={bulkVendasSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+              {bulkVendasSaving ? (
+                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <><CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar {bulkVendas.length} venda(s)</>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
