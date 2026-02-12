@@ -2,7 +2,7 @@ import {
   User, Mail, Phone, Shield, Award, Building, Hash, CreditCard,
   FileText, MapPin, AlertTriangle, Users, Briefcase
 } from 'lucide-react';
-import { useProfile, useUserRole, useSupervisorProfile } from '@/hooks/useProfile';
+import { useProfile, useUserRole, useSupervisorProfile, useGerenteProfile } from '@/hooks/useProfile';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
 import { PatenteBadge } from '@/components/PatenteBadge';
 import { Separator } from '@/components/ui/separator';
@@ -26,6 +26,7 @@ const Perfil = () => {
   const { data: profile, isLoading } = useProfile();
   const { data: role } = useUserRole();
   const { data: supervisor } = useSupervisorProfile(profile?.supervisor_id);
+  const { data: gerente } = useGerenteProfile(profile?.gerente_id);
 
   if (isLoading) {
     return (
@@ -141,7 +142,13 @@ const Perfil = () => {
               </div>
               <div className="p-4 bg-muted/50 rounded-lg border border-border/20 space-y-1.5">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Gerência</p>
-                <p className="text-sm font-bold text-foreground">—</p>
+                <p className="text-sm font-bold text-foreground">{gerente?.nome_completo || '—'}</p>
+                {gerente?.email && (
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Mail className="w-3 h-3" />
+                    {gerente.email}
+                  </div>
+                )}
               </div>
             </div>
           </div>
