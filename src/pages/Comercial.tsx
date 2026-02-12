@@ -348,7 +348,7 @@ function AtividadesTab() {
 /*                TAB: NOVA VENDA                  */
 /* ═══════════════════════════════════════════════ */
 
-type Modalidade = 'pf' | 'familiar' | 'pme_1' | 'pme_multi' | 'empresarial_10';
+type Modalidade = 'pf' | 'familiar' | 'pme_1' | 'pme_multi' | 'empresarial_10' | 'adesao';
 
 interface BeneficiarioData {
   nome: string;
@@ -429,7 +429,7 @@ function NovaVendaTab() {
   const uploadRefVendas = useRef<HTMLInputElement>(null);
 
   const isEmpresa = ['pme_1', 'pme_multi', 'empresarial_10'].includes(modalidade as string);
-  const needsBeneficiarios = ['familiar', 'pme_multi', 'empresarial_10'].includes(modalidade as string);
+  const needsBeneficiarios = ['familiar', 'pme_multi', 'empresarial_10', 'adesao'].includes(modalidade as string);
 
   const addBeneficiario = () => {
     if (!newBenef.nome.trim()) { toast.error('Informe o nome do beneficiário.'); return; }
@@ -493,7 +493,7 @@ function NovaVendaTab() {
   const confirmVenda = async () => {
     try {
       const modalidadeMap: Record<string, string> = {
-        pf: 'PF', familiar: 'Familiar', pme_1: 'PME Multi', pme_multi: 'PME Multi', empresarial_10: 'Empresarial'
+        pf: 'PF', familiar: 'Familiar', pme_1: 'PME Multi', pme_multi: 'PME Multi', empresarial_10: 'Empresarial', adesao: 'Adesão'
       };
       const venda = await createVenda.mutateAsync({
         nome_titular: formData.nome,
@@ -548,6 +548,7 @@ function NovaVendaTab() {
                   <SelectItem value="pme_1">PME (1 Vida)</SelectItem>
                   <SelectItem value="pme_multi">PME (Multi Vidas)</SelectItem>
                   <SelectItem value="empresarial_10">Empresarial (10+ vidas)</SelectItem>
+                  <SelectItem value="adesao">Adesão</SelectItem>
                 </SelectContent>
               </Select>
             </FieldWithTooltip>
