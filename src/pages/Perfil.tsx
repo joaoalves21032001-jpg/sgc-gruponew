@@ -124,10 +124,10 @@ const Perfil = () => {
 
           <Separator className="bg-border/20" />
 
-          {/* Hierarquia */}
+          {/* Líderes */}
           <div>
             <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-4 flex items-center gap-2">
-              <Users className="w-3.5 h-3.5" /> Hierarquia
+              <Users className="w-3.5 h-3.5" /> Líderes
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="p-4 bg-muted/50 rounded-lg border border-border/20 space-y-1.5">

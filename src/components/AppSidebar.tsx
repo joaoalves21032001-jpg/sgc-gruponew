@@ -12,6 +12,8 @@ import {
   UserPlus,
   ClipboardList,
   CheckSquare,
+  Bell,
+  Archive,
 } from 'lucide-react';
 import { useProfile, useUserRole } from '@/hooks/useProfile';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
@@ -19,6 +21,7 @@ import { PatenteBadge } from './PatenteBadge';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { HelpGuide } from './HelpGuide';
+import { useUnreadCount } from '@/hooks/useNotifications';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 
 type NavRole = 'all' | 'admin' | 'supervisor_up';
@@ -27,8 +30,10 @@ const navItems: { to: string; icon: any; label: string; access: NavRole }[] = [
   { to: '/', icon: LayoutDashboard, label: 'Meu Progresso', access: 'all' },
   { to: '/comercial', icon: Briefcase, label: 'Registro de Atividades', access: 'all' },
   { to: '/minhas-acoes', icon: ClipboardList, label: 'Minhas Ações', access: 'all' },
+  { to: '/notificacoes', icon: Bell, label: 'Notificações', access: 'all' },
   { to: '/aprovacoes', icon: CheckSquare, label: 'Aprovações', access: 'supervisor_up' },
   { to: '/gestao', icon: BarChart3, label: 'Dashboard', access: 'supervisor_up' },
+  { to: '/inventario', icon: Archive, label: 'Inventário', access: 'admin' },
   { to: '/admin/usuarios', icon: UserCog, label: 'Usuários', access: 'admin' },
   { to: '/admin/solicitacoes', icon: UserPlus, label: 'Solicitações', access: 'admin' },
 ];
