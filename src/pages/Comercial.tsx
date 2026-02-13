@@ -377,7 +377,7 @@ function AtividadesTab() {
               <AlertCircle className="w-4 h-4 text-warning shrink-0" />
               <p className="text-sm font-medium text-foreground">Lançamento retroativo detectado</p>
             </div>
-            <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada para <strong>{supervisor?.nome_completo || 'Supervisor'}</strong>.</p>
+            <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada para o <strong>Supervisor</strong>, <strong>Gerente</strong> e <strong>Diretor</strong>.</p>
             <Textarea placeholder="Justifique o motivo do lançamento fora da data correta..." value={form.justificativa} onChange={(e) => update('justificativa', e.target.value)} rows={3} className="border-warning/30 focus:border-warning" />
           </div>
         )}
@@ -438,9 +438,9 @@ function AtividadesTab() {
       </div>
 
 
-      {/* ── Hierarquia ── */}
+      {/* ── Líderes ── */}
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
-        <SectionHeader icon={User} title="Hierarquia" subtitle="Notificação automática enviada ao supervisor e gerente" />
+        <SectionHeader icon={User} title="Líderes" subtitle="Notificação automática enviada ao supervisor e gerente" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 bg-muted/40 rounded-lg border border-border/20 space-y-1.5">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Supervisor</p>
