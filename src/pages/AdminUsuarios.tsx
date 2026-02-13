@@ -443,7 +443,7 @@ const AdminUsuarios = () => {
             {/* Role & Hierarchy */}
             <div>
               <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3 flex items-center gap-2">
-                <Building className="w-3.5 h-3.5" /> Cargo & Hierarquia
+                <Building className="w-3.5 h-3.5" /> Cargo & Líderes
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FieldWithTooltip label="ID/Código" tooltip="Gerado automaticamente pelo sistema. Ex: GN001.">
