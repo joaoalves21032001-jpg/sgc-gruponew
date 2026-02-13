@@ -110,6 +110,27 @@ export type Database = {
         }
         Relationships: []
       }
+      companhias: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       correction_requests: {
         Row: {
           admin_resposta: string | null
@@ -146,6 +167,57 @@ export type Database = {
         }
         Relationships: []
       }
+      leads: {
+        Row: {
+          boletos_path: string | null
+          cartao_cnpj_path: string | null
+          cnpj: string | null
+          comprovante_endereco_path: string | null
+          contato: string | null
+          cpf: string | null
+          created_at: string
+          doc_foto_path: string | null
+          email: string | null
+          endereco: string | null
+          id: string
+          nome: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          boletos_path?: string | null
+          cartao_cnpj_path?: string | null
+          cnpj?: string | null
+          comprovante_endereco_path?: string | null
+          contato?: string | null
+          cpf?: string | null
+          created_at?: string
+          doc_foto_path?: string | null
+          email?: string | null
+          endereco?: string | null
+          id?: string
+          nome: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          boletos_path?: string | null
+          cartao_cnpj_path?: string | null
+          cnpj?: string | null
+          comprovante_endereco_path?: string | null
+          contato?: string | null
+          cpf?: string | null
+          created_at?: string
+          doc_foto_path?: string | null
+          email?: string | null
+          endereco?: string | null
+          id?: string
+          nome?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       mfa_trusted_devices: {
         Row: {
           created_at: string
@@ -169,6 +241,101 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      modalidades: {
+        Row: {
+          created_at: string
+          documentos_obrigatorios: string[]
+          documentos_opcionais: string[]
+          id: string
+          nome: string
+          quantidade_vidas: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          documentos_obrigatorios?: string[]
+          documentos_opcionais?: string[]
+          id?: string
+          nome: string
+          quantidade_vidas?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          documentos_obrigatorios?: string[]
+          documentos_opcionais?: string[]
+          id?: string
+          nome?: string
+          quantidade_vidas?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          lida: boolean
+          link: string | null
+          tipo: string
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          lida?: boolean
+          link?: string | null
+          tipo?: string
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          lida?: boolean
+          link?: string | null
+          tipo?: string
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      produtos: {
+        Row: {
+          companhia_id: string
+          created_at: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          companhia_id: string
+          created_at?: string
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          companhia_id?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produtos_companhia_id_fkey"
+            columns: ["companhia_id"]
+            isOneToOne: false
+            referencedRelation: "companhias"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -310,7 +477,9 @@ export type Database = {
       vendas: {
         Row: {
           created_at: string
+          data_lancamento: string | null
           id: string
+          justificativa_retroativo: string | null
           modalidade: Database["public"]["Enums"]["venda_modalidade"]
           nome_titular: string
           observacoes: string | null
@@ -322,7 +491,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          data_lancamento?: string | null
           id?: string
+          justificativa_retroativo?: string | null
           modalidade: Database["public"]["Enums"]["venda_modalidade"]
           nome_titular: string
           observacoes?: string | null
@@ -334,7 +505,9 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          data_lancamento?: string | null
           id?: string
+          justificativa_retroativo?: string | null
           modalidade?: Database["public"]["Enums"]["venda_modalidade"]
           nome_titular?: string
           observacoes?: string | null
