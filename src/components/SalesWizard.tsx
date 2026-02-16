@@ -24,7 +24,7 @@ import { useProfile, useSupervisorProfile } from '@/hooks/useProfile';
 import { useCreateVenda, uploadVendaDocumento } from '@/hooks/useVendas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompanhias, useProdutos, useModalidades, useLeads } from '@/hooks/useInventario';
-import { maskPhone } from '@/lib/masks';
+import { maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
 
 /* ─── Shared ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
@@ -274,7 +274,7 @@ export default function SalesWizard() {
       if (!qtdVidas || parseInt(qtdVidas) < 1) return false;
       if (titulares.some(t => !t.nome || !t.idade || !t.produto_id)) return false;
       if (dependentes.some(d => !d.nome || !d.idade || !d.produto_id || !d.descricao)) return false;
-      if (!valorContrato) return false;
+      if (!valorContrato || unmaskCurrency(valorContrato) === 0) return false;
       if (isRetroativo && !justificativa.trim()) return false;
       return true;
     }
@@ -306,7 +306,7 @@ export default function SalesWizard() {
         nome_titular: titulares[0]?.nome || selectedLead?.nome || '',
         modalidade: modalidade as string,
         vidas: totalVidas,
-        valor: parseFloat(valorContrato) || undefined,
+        valor: unmaskCurrency(valorContrato) || undefined,
         observacoes: obsLinhas.filter(Boolean).join('\n') || undefined,
         data_lancamento: format(dataLancamento, 'yyyy-MM-dd'),
         justificativa_retroativo: isRetroativo ? justificativa : undefined,
@@ -726,8 +726,8 @@ export default function SalesWizard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FieldWithTooltip label="Valor (R$)" tooltip="Valor total do contrato." required>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/50" />
-                    <Input type="number" min={0} step={0.01} value={valorContrato} onChange={(e) => setValorContrato(e.target.value)} placeholder="0,00" className="pl-10 h-11 border-border/40" />
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-primary/50 font-medium">R$</span>
+                    <Input value={valorContrato} onChange={(e) => setValorContrato(maskCurrency(e.target.value))} placeholder="0,00" className="pl-10 h-11 border-border/40" />
                   </div>
                 </FieldWithTooltip>
                 <FieldWithTooltip label="Observações" tooltip="Linhas de observação adicionais.">
@@ -853,7 +853,7 @@ export default function SalesWizard() {
                 [isEmpresa ? 'CNPJ' : 'CPF', isEmpresa ? (selectedLead?.cnpj || '—') : (selectedLead?.cpf || '—')],
                 ['Co-Participação', coParticipacao === 'sem' ? 'Sem' : coParticipacao === 'parcial' ? 'Parcial' : 'Completa'],
                 ['Estagiários', estagiarios ? `Sim (${qtdEstagiarios || 0})` : 'Não'],
-                ['Valor', valorContrato ? `R$ ${parseFloat(valorContrato).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'],
+                ['Valor', valorContrato ? `R$ ${valorContrato}` : '—'],
                 ['Data de Lançamento', format(dataLancamento, 'dd/MM/yyyy')],
                 ...(isRetroativo ? [['Justificativa Retroativo', justificativa]] : []),
               ].map(([label, value]) => (
@@ -969,7 +969,7 @@ export default function SalesWizard() {
             </div>
             <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg">
               <span className="text-muted-foreground">Valor</span>
-              <span className="font-medium text-foreground">R$ {parseFloat(valorContrato || '0').toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+              <span className="font-medium text-foreground">R$ {valorContrato || '0,00'}</span>
             </div>
             <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg">
               <span className="text-muted-foreground">Total Vidas</span>
