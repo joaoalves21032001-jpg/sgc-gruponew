@@ -352,19 +352,23 @@ function LeadsTab() {
   const { data: role } = useUserRole();
   const isAdmin = role === 'administrador';
   const { data: leads = [], isLoading } = useLeads();
+  const { data: modalidadesList = [] } = useModalidades();
   const createMut = useCreateLead();
   const updateMut = useUpdateLead();
   const deleteMut = useDeleteLead();
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState<Lead | null>(null);
-  const [form, setForm] = useState({ tipo: 'pessoa_fisica' as string, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' });
+  const defaultTipo = modalidadesList.length > 0 ? modalidadesList[0].nome : 'PF';
+  const [form, setForm] = useState({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' });
   const [deleteItem, setDeleteItem] = useState<Lead | null>(null);
   const [saving, setSaving] = useState(false);
   const [docFoto, setDocFoto] = useState<File | null>(null);
   const [cartaoCnpj, setCartaoCnpj] = useState<File | null>(null);
   const [comprovanteEndereco, setComprovanteEndereco] = useState<File | null>(null);
   const [boletos, setBoletos] = useState<File | null>(null);
+
+  const isPessoaFisica = (tipo: string) => tipo === 'PF' || tipo === 'Familiar' || tipo === 'pessoa_fisica';
 
   const filtered = leads.filter(l => l.nome.toLowerCase().includes(search.toLowerCase()) || (l.email || '').toLowerCase().includes(search.toLowerCase()));
 
@@ -389,7 +393,7 @@ function LeadsTab() {
     if (!form.nome.trim()) { toast.error('Informe o nome.'); return; }
     setSaving(true);
     const payload: any = { tipo: form.tipo, nome: form.nome.trim(), contato: form.contato || null, email: form.email || null, endereco: form.endereco || null };
-    if (form.tipo === 'pessoa_fisica') { payload.cpf = form.cpf || null; payload.cnpj = null; }
+    if (isPessoaFisica(form.tipo)) { payload.cpf = form.cpf || null; payload.cnpj = null; }
     else { payload.cnpj = form.cnpj || null; payload.cpf = null; }
     try {
       let leadId: string;
@@ -414,7 +418,7 @@ function LeadsTab() {
 
       toast.success(editItem ? 'Lead atualizado!' : 'Lead criado!');
       setShowAdd(false); setEditItem(null);
-      setForm({ tipo: 'pessoa_fisica', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' });
+      setForm({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' });
       setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setBoletos(null);
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
@@ -454,7 +458,7 @@ function LeadsTab() {
           <Input placeholder="Buscar lead..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-10 bg-card border-border/40" />
         </div>
         {isAdmin && (
-          <Button onClick={() => { setShowAdd(true); setEditItem(null); setForm({ tipo: 'pessoa_fisica', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' }); setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setBoletos(null); }} className="gap-1.5 font-semibold shadow-brand">
+          <Button onClick={() => { setShowAdd(true); setEditItem(null); setForm({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' }); setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setBoletos(null); }} className="gap-1.5 font-semibold shadow-brand">
             <Plus className="w-4 h-4" /> Novo Lead
           </Button>
         )}
@@ -468,7 +472,7 @@ function LeadsTab() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-foreground truncate">{l.nome}</p>
-                    <Badge variant="outline" className="text-[10px]">{l.tipo === 'pessoa_fisica' ? 'PF' : 'Empresa'}</Badge>
+                    <Badge variant="outline" className="text-[10px]">{l.tipo}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{l.email || l.contato || '—'}{l.cpf ? ` • CPF: ${l.cpf}` : ''}{l.cnpj ? ` • CNPJ: ${l.cnpj}` : ''}</p>
                   <div className="flex items-center gap-2 mt-1">
@@ -497,8 +501,9 @@ function LeadsTab() {
               <Select value={form.tipo} onValueChange={v => setForm(p => ({ ...p, tipo: v }))}>
                 <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pessoa_fisica">Pessoa Física</SelectItem>
-                  <SelectItem value="empresa">Empresa</SelectItem>
+                  {modalidadesList.map((m) => (
+                    <SelectItem key={m.id} value={m.nome}>{m.nome === 'PF' ? 'Pessoa Física (PF)' : m.nome}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -516,7 +521,7 @@ function LeadsTab() {
                 <Input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} className="h-10" />
               </div>
             </div>
-            {form.tipo === 'pessoa_fisica' ? (
+            {isPessoaFisica(form.tipo) ? (
               <div>
                 <label className="text-xs font-semibold text-muted-foreground">CPF</label>
                 <Input value={form.cpf} onChange={e => setForm(p => ({ ...p, cpf: e.target.value }))} className="h-10" />
@@ -535,10 +540,10 @@ function LeadsTab() {
             {/* Document uploads */}
             <div className="border-t border-border/20 pt-3 space-y-3">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.08em]">Documentos <span className="font-normal">(todos opcionais)</span></p>
-              {form.tipo === 'pessoa_fisica' && (
+              {isPessoaFisica(form.tipo) && (
                 <FileUploadField label="Documento com Foto" file={docFoto} onFileChange={setDocFoto} existingPath={editItem?.doc_foto_path} />
               )}
-              {form.tipo === 'empresa' && (
+              {!isPessoaFisica(form.tipo) && (
                 <FileUploadField label="Cartão CNPJ" file={cartaoCnpj} onFileChange={setCartaoCnpj} existingPath={editItem?.cartao_cnpj_path} />
               )}
               <FileUploadField label="Comprovante de Endereço" file={comprovanteEndereco} onFileChange={setComprovanteEndereco} existingPath={editItem?.comprovante_endereco_path} />

@@ -170,7 +170,7 @@ export function useDeleteModalidade() {
 // ─── Leads ───
 export interface Lead {
   id: string;
-  tipo: 'pessoa_fisica' | 'empresa';
+  tipo: string;
   nome: string;
   contato: string | null;
   email: string | null;
