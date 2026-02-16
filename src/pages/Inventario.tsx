@@ -361,13 +361,28 @@ function LeadsTab() {
   const [form, setForm] = useState({ tipo: 'pessoa_fisica' as string, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' });
   const [deleteItem, setDeleteItem] = useState<Lead | null>(null);
   const [saving, setSaving] = useState(false);
+  const [docFoto, setDocFoto] = useState<File | null>(null);
+  const [cartaoCnpj, setCartaoCnpj] = useState<File | null>(null);
+  const [comprovanteEndereco, setComprovanteEndereco] = useState<File | null>(null);
+  const [boletos, setBoletos] = useState<File | null>(null);
 
   const filtered = leads.filter(l => l.nome.toLowerCase().includes(search.toLowerCase()) || (l.email || '').toLowerCase().includes(search.toLowerCase()));
 
   const openEdit = (l: Lead) => {
     setEditItem(l);
     setForm({ tipo: l.tipo, nome: l.nome, contato: l.contato || '', email: l.email || '', cpf: l.cpf || '', cnpj: l.cnpj || '', endereco: l.endereco || '' });
+    setDocFoto(null);
+    setCartaoCnpj(null);
+    setComprovanteEndereco(null);
+    setBoletos(null);
     setShowAdd(true);
+  };
+
+  const uploadFile = async (file: File, leadId: string, prefix: string): Promise<string> => {
+    const filePath = `${leadId}/${prefix}_${Date.now()}_${file.name}`;
+    const { error } = await supabase.storage.from('lead-documentos').upload(filePath, file);
+    if (error) throw error;
+    return filePath;
   };
 
   const handleSave = async () => {
@@ -377,17 +392,59 @@ function LeadsTab() {
     if (form.tipo === 'pessoa_fisica') { payload.cpf = form.cpf || null; payload.cnpj = null; }
     else { payload.cnpj = form.cnpj || null; payload.cpf = null; }
     try {
+      let leadId: string;
       if (editItem) {
+        leadId = editItem.id;
         await updateMut.mutateAsync({ id: editItem.id, ...payload });
-        toast.success('Lead atualizado!');
       } else {
-        await createMut.mutateAsync(payload);
-        toast.success('Lead criado!');
+        const result = await createMut.mutateAsync(payload);
+        leadId = result.id;
       }
-      setShowAdd(false); setEditItem(null); setForm({ tipo: 'pessoa_fisica', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' });
+
+      // Upload documents
+      const updates: any = {};
+      if (docFoto) updates.doc_foto_path = await uploadFile(docFoto, leadId, 'doc_foto');
+      if (cartaoCnpj) updates.cartao_cnpj_path = await uploadFile(cartaoCnpj, leadId, 'cartao_cnpj');
+      if (comprovanteEndereco) updates.comprovante_endereco_path = await uploadFile(comprovanteEndereco, leadId, 'comprovante');
+      if (boletos) updates.boletos_path = await uploadFile(boletos, leadId, 'boletos');
+
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('leads').update(updates as any).eq('id', leadId);
+      }
+
+      toast.success(editItem ? 'Lead atualizado!' : 'Lead criado!');
+      setShowAdd(false); setEditItem(null);
+      setForm({ tipo: 'pessoa_fisica', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' });
+      setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setBoletos(null);
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
   };
+
+  const FileUploadField = ({ label, file, onFileChange, existingPath }: { label: string; file: File | null; onFileChange: (f: File | null) => void; existingPath?: string | null }) => (
+    <div className="space-y-1">
+      <label className="text-xs font-semibold text-muted-foreground">{label} <span className="text-[10px] font-normal">(Opcional)</span></label>
+      <div className="flex items-center gap-2">
+        <label className="cursor-pointer flex-1">
+          <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => onFileChange(e.target.files?.[0] || null)} />
+          <span className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border/40 bg-card text-xs font-medium hover:bg-muted transition-colors cursor-pointer w-full">
+            <Upload className="w-3.5 h-3.5 text-primary shrink-0" />
+            {file ? (
+              <span className="text-success truncate">{file.name}</span>
+            ) : existingPath ? (
+              <span className="text-muted-foreground truncate">Arquivo existente ✓</span>
+            ) : (
+              <span className="text-muted-foreground">Selecionar arquivo...</span>
+            )}
+          </span>
+        </label>
+        {(file || existingPath) && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive shrink-0" onClick={() => onFileChange(null)}>
+            <X className="w-3.5 h-3.5" />
+          </Button>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -397,7 +454,7 @@ function LeadsTab() {
           <Input placeholder="Buscar lead..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-10 bg-card border-border/40" />
         </div>
         {isAdmin && (
-          <Button onClick={() => { setShowAdd(true); setEditItem(null); setForm({ tipo: 'pessoa_fisica', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' }); }} className="gap-1.5 font-semibold shadow-brand">
+          <Button onClick={() => { setShowAdd(true); setEditItem(null); setForm({ tipo: 'pessoa_fisica', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' }); setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setBoletos(null); }} className="gap-1.5 font-semibold shadow-brand">
             <Plus className="w-4 h-4" /> Novo Lead
           </Button>
         )}
@@ -414,6 +471,12 @@ function LeadsTab() {
                     <Badge variant="outline" className="text-[10px]">{l.tipo === 'pessoa_fisica' ? 'PF' : 'Empresa'}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground truncate">{l.email || l.contato || '—'}{l.cpf ? ` • CPF: ${l.cpf}` : ''}{l.cnpj ? ` • CNPJ: ${l.cnpj}` : ''}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    {l.doc_foto_path && <Badge variant="outline" className="text-[9px] bg-success/10 text-success border-success/20"><FileText className="w-2.5 h-2.5 mr-0.5" />Doc Foto</Badge>}
+                    {l.cartao_cnpj_path && <Badge variant="outline" className="text-[9px] bg-success/10 text-success border-success/20"><FileText className="w-2.5 h-2.5 mr-0.5" />CNPJ</Badge>}
+                    {l.comprovante_endereco_path && <Badge variant="outline" className="text-[9px] bg-success/10 text-success border-success/20"><FileText className="w-2.5 h-2.5 mr-0.5" />Endereço</Badge>}
+                    {l.boletos_path && <Badge variant="outline" className="text-[9px] bg-success/10 text-success border-success/20"><FileText className="w-2.5 h-2.5 mr-0.5" />Boletos</Badge>}
+                  </div>
                 </div>
                 {isAdmin && (
                   <div className="flex gap-1.5 shrink-0">
@@ -426,7 +489,7 @@ function LeadsTab() {
       </div>
 
       <Dialog open={showAdd} onOpenChange={v => { if (!v) { setShowAdd(false); setEditItem(null); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="font-display">{editItem ? 'Editar' : 'Novo'} Lead</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
@@ -467,6 +530,19 @@ function LeadsTab() {
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Endereço</label>
               <Input value={form.endereco} onChange={e => setForm(p => ({ ...p, endereco: e.target.value }))} className="h-10" />
+            </div>
+
+            {/* Document uploads */}
+            <div className="border-t border-border/20 pt-3 space-y-3">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.08em]">Documentos <span className="font-normal">(todos opcionais)</span></p>
+              {form.tipo === 'pessoa_fisica' && (
+                <FileUploadField label="Documento com Foto" file={docFoto} onFileChange={setDocFoto} existingPath={editItem?.doc_foto_path} />
+              )}
+              {form.tipo === 'empresa' && (
+                <FileUploadField label="Cartão CNPJ" file={cartaoCnpj} onFileChange={setCartaoCnpj} existingPath={editItem?.cartao_cnpj_path} />
+              )}
+              <FileUploadField label="Comprovante de Endereço" file={comprovanteEndereco} onFileChange={setComprovanteEndereco} existingPath={editItem?.comprovante_endereco_path} />
+              <FileUploadField label="3 Últimos Boletos/Comprovantes de pagamento" file={boletos} onFileChange={setBoletos} existingPath={editItem?.boletos_path} />
             </div>
           </div>
           <DialogFooter>
