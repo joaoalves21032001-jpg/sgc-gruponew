@@ -19,6 +19,7 @@ export interface Profile {
   gerente_id: string | null;
   avatar_url: string | null;
   meta_faturamento: number;
+  atividades_desabilitadas: boolean;
   created_at: string;
   updated_at: string;
 }

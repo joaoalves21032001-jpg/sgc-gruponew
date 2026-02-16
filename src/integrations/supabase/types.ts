@@ -340,6 +340,7 @@ export type Database = {
       profiles: {
         Row: {
           apelido: string | null
+          atividades_desabilitadas: boolean
           avatar_url: string | null
           cargo: string
           celular: string | null
@@ -361,6 +362,7 @@ export type Database = {
         }
         Insert: {
           apelido?: string | null
+          atividades_desabilitadas?: boolean
           avatar_url?: string | null
           cargo?: string
           celular?: string | null
@@ -382,6 +384,7 @@ export type Database = {
         }
         Update: {
           apelido?: string | null
+          atividades_desabilitadas?: boolean
           avatar_url?: string | null
           cargo?: string
           celular?: string | null
