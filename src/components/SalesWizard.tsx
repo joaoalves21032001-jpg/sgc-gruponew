@@ -101,6 +101,7 @@ interface DependenteData {
   altura: string;
   produto_id: string;
   descricao: string;
+  descricao_custom: string;
   is_conjuge: boolean;
 }
 
@@ -230,7 +231,7 @@ export default function SalesWizard() {
   const updateDependente = (idx: number, field: keyof DependenteData, value: string | boolean) => {
     setDependentes(prev => prev.map((d, i) => i === idx ? { ...d, [field]: value } : d));
   };
-  const addDependente = () => setDependentes(prev => [...prev, { nome: '', idade: '', peso: '', altura: '', produto_id: '', descricao: 'Filho(a)', is_conjuge: false }]);
+  const addDependente = () => setDependentes(prev => [...prev, { nome: '', idade: '', peso: '', altura: '', produto_id: '', descricao: 'Filho(a)', descricao_custom: '', is_conjuge: false }]);
   const removeDependente = (idx: number) => setDependentes(prev => prev.filter((_, i) => i !== idx));
 
   // Documents logic
@@ -687,12 +688,21 @@ export default function SalesWizard() {
                             updateDependente(i, 'descricao', v);
                             if (v === 'Cônjuge') updateDependente(i, 'is_conjuge', true);
                             else updateDependente(i, 'is_conjuge', false);
+                            if (v !== 'Outro') updateDependente(i, 'descricao_custom', '');
                           }}>
                             <SelectTrigger className="h-9 border-border/40"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {DESCRICAO_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
                             </SelectContent>
                           </Select>
+                          {d.descricao === 'Outro' && (
+                            <Input
+                              className="mt-1 h-9 border-border/40"
+                              placeholder="Especifique..."
+                              value={d.descricao_custom || ''}
+                              onChange={(e) => updateDependente(i, 'descricao_custom', e.target.value)}
+                            />
+                          )}
                         </div>
                         <div className="flex items-end pb-1">
                           <div className="flex items-center gap-2">
@@ -875,7 +885,7 @@ export default function SalesWizard() {
                     <span className="text-muted-foreground">{d.idade} anos</span>
                     <span className="text-muted-foreground">{d.peso} kg / {d.altura} cm</span>
                     <span className="text-muted-foreground">{getProductName(d.produto_id)}</span>
-                    <span className="text-muted-foreground">{d.descricao}</span>
+                    <span className="text-muted-foreground">{d.descricao === 'Outro' ? d.descricao_custom || 'Outro' : d.descricao}</span>
                   </div>
                 ))}
               </div>
