@@ -21,6 +21,20 @@ export function maskPhone(value: string): string {
   return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`;
 }
 
+export function maskCurrency(value: string): string {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return '';
+  const num = parseInt(digits, 10);
+  const formatted = (num / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatted;
+}
+
+export function unmaskCurrency(value: string): number {
+  const digits = value.replace(/\D/g, '');
+  if (!digits) return 0;
+  return parseInt(digits, 10) / 100;
+}
+
 export function unmask(value: string): string {
   return value.replace(/\D/g, '');
 }
