@@ -7,7 +7,7 @@ export interface Venda {
   user_id: string;
   nome_titular: string;
   modalidade: 'PF' | 'Familiar' | 'PME Multi' | 'Empresarial' | 'Adesão';
-  status: 'analise' | 'pendente' | 'aprovado' | 'recusado';
+  status: 'analise' | 'pendente' | 'aprovado' | 'recusado' | 'devolvido';
   vidas: number;
   valor: number | null;
   observacoes: string | null;

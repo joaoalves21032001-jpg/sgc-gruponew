@@ -45,6 +45,7 @@ export function AppSidebar() {
   const { signOut } = useAuth();
   const { data: profile } = useProfile();
   const { data: role } = useUserRole();
+  const unreadNotifications = useUnreadCount();
 
   const displayName = profile?.apelido || profile?.nome_completo?.split(' ')[0] || '...';
   const percentMeta = 0;
@@ -113,6 +114,7 @@ export function AppSidebar() {
         {navItems.map((item) => {
           if (!canAccess(item.access)) return null;
           const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
+          const unreadCount = item.to === '/notificacoes' ? unreadNotifications : 0;
           return (
             <NavLink
               key={item.to}
@@ -123,8 +125,22 @@ export function AppSidebar() {
                   : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
               } ${collapsed ? 'justify-center' : ''}`}
             >
-              <item.icon className={`w-[18px] h-[18px] shrink-0 ${isActive ? 'text-white' : ''}`} />
-              {!collapsed && <span>{item.label}</span>}
+              <div className="relative shrink-0">
+                <item.icon className={`w-[18px] h-[18px] ${isActive ? 'text-white' : ''}`} />
+                {item.to === '/notificacoes' && unreadCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </div>
+              {!collapsed && (
+                <span className="flex-1">{item.label}</span>
+              )}
+              {!collapsed && item.to === '/notificacoes' && unreadCount > 0 && (
+                <span className="ml-auto px-1.5 py-0.5 rounded-full bg-destructive text-[10px] font-bold text-white">
+                  {unreadCount}
+                </span>
+              )}
             </NavLink>
           );
         })}
