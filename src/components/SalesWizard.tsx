@@ -183,8 +183,8 @@ export default function SalesWizard() {
 
   // Filter leads based on modalidade
   const filteredLeads = useMemo(() => {
-    if (isEmpresa) return leads.filter(l => l.tipo === 'empresa');
-    return leads.filter(l => l.tipo === 'pessoa_fisica');
+    if (isEmpresa) return leads.filter(l => l.tipo !== 'PF' && l.tipo !== 'Familiar' && l.tipo !== 'pessoa_fisica');
+    return leads.filter(l => l.tipo === 'PF' || l.tipo === 'Familiar' || l.tipo === 'pessoa_fisica');
   }, [leads, isEmpresa]);
 
   // Selected lead
