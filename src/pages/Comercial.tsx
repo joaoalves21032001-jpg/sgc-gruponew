@@ -243,6 +243,7 @@ function AtividadesTab() {
   const [bulkData, setBulkData] = useState<ParsedAtividade[]>([]);
   const [bulkJustificativas, setBulkJustificativas] = useState<Record<string, string>>({});
   const [bulkSaving, setBulkSaving] = useState(false);
+  const [saving, setSaving] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<AtividadesForm>({
     ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '',
@@ -288,6 +289,7 @@ function AtividadesTab() {
   };
 
   const confirmSave = async () => {
+    setSaving(true);
     try {
       await createAtividade.mutateAsync({
         data: format(dataLancamento, 'yyyy-MM-dd'),
@@ -302,6 +304,8 @@ function AtividadesTab() {
       setForm({ ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '', cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '' });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao registrar atividades.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -493,8 +497,8 @@ function AtividadesTab() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
-            <Button onClick={confirmSave} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-              <CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar
+            <Button onClick={confirmSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+              {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar</>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -646,6 +650,9 @@ function NovaVendaTab() {
   const [newBenef, setNewBenef] = useState<BeneficiarioData>({ nome: '', email: '', telefone: '', tipo: 'dependente', is_conjuge: false, docs: {} });
   const [titularDocs, setTitularDocs] = useState<Record<string, File | null>>({});
   const [showConfirm, setShowConfirm] = useState(false);
+  const [vendaSaving, setVendaSaving] = useState(false);
+  const [dataLancamentoVenda, setDataLancamentoVenda] = useState<Date>(new Date());
+  const [justificativaVenda, setJustificativaVenda] = useState('');
   const uploadRefVendas = useRef<HTMLInputElement>(null);
   const [showBulkVendas, setShowBulkVendas] = useState(false);
   const [bulkVendas, setBulkVendas] = useState<ParsedVenda[]>([]);
@@ -671,8 +678,9 @@ function NovaVendaTab() {
     if (step === 0) return modalidade !== '';
     if (step === 1) {
       const base = formData.nome && formData.email && formData.telefone && formData.endereco && valorContrato;
-      if (isEmpresa) return base && formData.cnpj;
-      return base;
+      const retroOk = !isRetroativoVenda || justificativaVenda.trim().length > 0;
+      if (isEmpresa) return base && formData.cnpj && retroOk;
+      return base && retroOk;
     }
     if (step === 2) {
       if (needsBeneficiarios && beneficiarios.length === 0) return false;
@@ -774,7 +782,12 @@ function NovaVendaTab() {
     }
   };
 
+  const isRetroativoVenda = !isToday(dataLancamentoVenda);
+  const canFinalizeVenda = !isRetroativoVenda || justificativaVenda.trim().length > 0;
+
   const confirmVenda = async () => {
+    if (!canFinalizeVenda) { toast.error('Justificativa obrigatória para lançamento retroativo.'); return; }
+    setVendaSaving(true);
     try {
       const modalidadeMap: Record<string, string> = {
         pf: 'PF', familiar: 'Familiar', pme_1: 'PME Multi', pme_multi: 'PME Multi', empresarial_10: 'Empresarial', adesao: 'Adesão'
@@ -784,7 +797,9 @@ function NovaVendaTab() {
         modalidade: modalidadeMap[modalidade] || 'PF',
         vidas: (beneficiarios.length || 0) + 1,
         valor: parseFloat(valorContrato) || undefined,
-        observacoes: possuiPlanoAnterior ? 'Portabilidade de carência' : undefined,
+        observacoes: possuiPlanoAnterior ? 'Aproveitamento de Carência' : undefined,
+        data_lancamento: format(dataLancamentoVenda, 'yyyy-MM-dd'),
+        justificativa_retroativo: isRetroativoVenda ? justificativaVenda : undefined,
       });
 
       if (user) {
@@ -807,8 +822,12 @@ function NovaVendaTab() {
       setTitularDocs({});
       setValorContrato('');
       setPossuiPlanoAnterior(false);
+      setDataLancamentoVenda(new Date());
+      setJustificativaVenda('');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao registrar venda.');
+    } finally {
+      setVendaSaving(false);
     }
   };
 
@@ -835,7 +854,7 @@ function NovaVendaTab() {
             </FieldWithTooltip>
             <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
               <Switch checked={possuiPlanoAnterior} onCheckedChange={setPossuiPlanoAnterior} />
-              <Label className="text-sm text-foreground">Possui plano anterior (portabilidade de carência)?</Label>
+              <Label className="text-sm text-foreground">Possui plano anterior (Aproveitamento de Carência)?</Label>
             </div>
 
             <Separator className="my-4 bg-border/20" />
@@ -861,6 +880,32 @@ function NovaVendaTab() {
         {step === 1 && (
           <div className="space-y-5">
             <SectionHeader icon={User} title={isEmpresa ? 'Dados da Empresa / Titular' : 'Dados do Titular'} />
+            
+            {/* Data de Lançamento */}
+            <FieldWithTooltip label="Data de Lançamento" tooltip="Preenchida automaticamente com a data atual. Datas anteriores exigem justificativa." required>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-[260px] justify-start text-left font-normal h-11 border-border/40", !dataLancamentoVenda && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                    {dataLancamentoVenda ? format(dataLancamentoVenda, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'Selecione a data'}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar mode="single" selected={dataLancamentoVenda} onSelect={(d) => d && setDataLancamentoVenda(d)} disabled={(date) => date > new Date()} initialFocus className="p-3 pointer-events-auto" />
+                </PopoverContent>
+              </Popover>
+            </FieldWithTooltip>
+
+            {isRetroativoVenda && (
+              <div className="p-4 bg-warning/8 border border-warning/20 rounded-lg space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-warning shrink-0" />
+                  <p className="text-sm font-medium text-foreground">Lançamento retroativo detectado</p>
+                </div>
+                <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada para o <strong>Supervisor</strong>, <strong>Gerente</strong> e <strong>Diretor</strong>.</p>
+                <Textarea placeholder="Justifique o motivo do lançamento fora da data correta..." value={justificativaVenda} onChange={(e) => setJustificativaVenda(e.target.value)} rows={3} className="border-warning/30 focus:border-warning" />
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FieldWithTooltip label={isEmpresa ? 'Razão Social / Nome' : 'Nome Completo'} tooltip="Nome conforme documento." required>
                 <Input value={formData.nome} onChange={(e) => setFormData({ ...formData, nome: e.target.value })} className="h-11 bg-muted/30 border-border/40 focus:bg-card" />
@@ -990,7 +1035,9 @@ function NovaVendaTab() {
                 ...(isEmpresa ? [['CNPJ', formData.cnpj || '—']] : []),
                 ['Valor do Contrato', valorContrato ? `R$ ${parseFloat(valorContrato).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : '—'],
                 ['Total de Vidas', `${(beneficiarios.length || 0) + 1}`],
-                ['Portabilidade', possuiPlanoAnterior ? 'Sim' : 'Não'],
+                ['Aproveitamento de Carência', possuiPlanoAnterior ? 'Sim' : 'Não'],
+                ['Data de Lançamento', format(dataLancamentoVenda, 'dd/MM/yyyy')],
+                ...(isRetroativoVenda ? [['Justificativa Retroativo', justificativaVenda]] : []),
               ].map(([label, value]) => (
                 <div key={label as string} className="flex justify-between p-3 bg-muted/30 rounded-lg">
                   <span className="text-muted-foreground">{label}</span>
@@ -1076,8 +1123,8 @@ function NovaVendaTab() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
-            <Button onClick={confirmVenda} className="bg-success hover:bg-success/90 text-success-foreground font-semibold">
-              <CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar Venda
+            <Button onClick={confirmVenda} disabled={vendaSaving} className="bg-success hover:bg-success/90 text-success-foreground font-semibold">
+              {vendaSaving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar Venda</>}
             </Button>
           </DialogFooter>
         </DialogContent>
