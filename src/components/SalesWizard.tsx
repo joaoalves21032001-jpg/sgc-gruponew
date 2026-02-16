@@ -364,11 +364,11 @@ export default function SalesWizard() {
               <Select value={modalidade} onValueChange={(v) => handleModalidadeChange(v as VendaModalidade)}>
                 <SelectTrigger className="h-11 border-border/40"><SelectValue placeholder="Escolha a modalidade..." /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="PF">Pessoa Física (PF)</SelectItem>
-                  <SelectItem value="Familiar">Familiar</SelectItem>
-                  <SelectItem value="PME Multi">PME Multi</SelectItem>
-                  <SelectItem value="Empresarial">Empresarial</SelectItem>
-                  <SelectItem value="Adesão">Adesão</SelectItem>
+                  {modalidades.map((m) => (
+                    <SelectItem key={m.id} value={m.nome}>
+                      {m.nome === 'PF' ? 'Pessoa Física (PF)' : m.nome}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </FieldWithTooltip>
