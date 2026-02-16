@@ -967,8 +967,8 @@ export default function SalesWizard() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
-            <Button onClick={confirmVenda} disabled={vendaSaving} className="bg-success hover:bg-success/90 text-success-foreground font-semibold">
-              {vendaSaving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar Venda</>}
+            <Button onClick={confirmVenda} disabled={vendaSaving} className="bg-success hover:bg-success/90 text-success-foreground font-semibold min-w-[140px]">
+              {vendaSaving ? <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" /> Salvando...</> : <><CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar Venda</>}
             </Button>
           </DialogFooter>
         </DialogContent>

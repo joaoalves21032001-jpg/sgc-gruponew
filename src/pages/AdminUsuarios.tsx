@@ -71,13 +71,14 @@ interface FormData {
   supervisor_id: string;
   gerente_id: string;
   meta_faturamento: string;
+  atividades_desabilitadas: boolean;
 }
 
 const emptyForm: FormData = {
   email: '', nome_completo: '', apelido: '', celular: '', cpf: '', rg: '',
   endereco: '', cargo: 'Consultor de Vendas', codigo: '', role: 'consultor',
   numero_emergencia_1: '', numero_emergencia_2: '', supervisor_id: '', gerente_id: '',
-  meta_faturamento: '',
+  meta_faturamento: '', atividades_desabilitadas: false,
 };
 
 const AdminUsuarios = () => {
@@ -130,7 +131,7 @@ const AdminUsuarios = () => {
     }
   };
 
-  const setField = (key: keyof FormData, value: string) => {
+  const setField = (key: keyof FormData, value: string | boolean) => {
     setForm(prev => ({ ...prev, [key]: value }));
   };
 
@@ -160,6 +161,7 @@ const AdminUsuarios = () => {
       supervisor_id: profile.supervisor_id || 'none',
       gerente_id: profile.gerente_id || 'none',
       meta_faturamento: profile.meta_faturamento?.toString() || '',
+      atividades_desabilitadas: (profile as any).atividades_desabilitadas === true,
     });
     setAvatarPreview(profile.avatar_url);
     setAvatarFile(null);
@@ -177,7 +179,8 @@ const AdminUsuarios = () => {
       'endereco', 'cargo', 'numero_emergencia_1', 'numero_emergencia_2',
     ];
     for (const field of required) {
-      if (!form[field]?.trim()) {
+      const val = form[field];
+      if (typeof val === 'string' && !val.trim()) {
         toast.error(`Preencha o campo ${field.replace(/_/g, ' ')}.`);
         return;
       }
@@ -218,6 +221,7 @@ const AdminUsuarios = () => {
           gerente_id: form.gerente_id && form.gerente_id !== 'none' ? form.gerente_id : null,
           meta_faturamento: form.meta_faturamento ? parseFloat(form.meta_faturamento) : null,
           avatar_url: avatarUrl,
+          atividades_desabilitadas: form.atividades_desabilitadas,
         }).eq('id', editingId);
 
         if (error) throw error;
@@ -487,11 +491,27 @@ const AdminUsuarios = () => {
                   </Select>
                 </FieldWithTooltip>
               </div>
+
+              {/* Atividades Toggle (for Diretores) */}
+              {editingId && (
+                <div className="mt-4 flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
+                  <input
+                    type="checkbox"
+                    checked={form.atividades_desabilitadas}
+                    onChange={(e) => setField('atividades_desabilitadas', e.target.checked ? 'true' : 'false')}
+                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Desabilitar Registro de Atividades</p>
+                    <p className="text-xs text-muted-foreground">Diretores podem desabilitar a guia de atividades para este usuário.</p>
+                  </div>
+                </div>
+              )}
             </div>
 
-            <Button onClick={handleSave} disabled={saving} className="w-full h-12 font-semibold shadow-brand">
+            <Button onClick={handleSave} disabled={saving} className="w-full h-12 font-semibold shadow-brand min-w-[160px]">
               {saving ? (
-                <div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+                <><div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin mr-2" /> Salvando...</>
               ) : (
                 <>{editingId ? 'Salvar Alterações' : 'Cadastrar Usuário'}</>
               )}

@@ -21,7 +21,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { useProfile, useSupervisorProfile } from '@/hooks/useProfile';
+import { useProfile, useSupervisorProfile, useUserRole } from '@/hooks/useProfile';
 import { useCreateAtividade, useMyAtividades } from '@/hooks/useAtividades';
 import { useCreateVenda, useMyVendas, uploadVendaDocumento } from '@/hooks/useVendas';
 import { useAuth } from '@/contexts/AuthContext';
@@ -497,8 +497,8 @@ function AtividadesTab() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
-            <Button onClick={confirmSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-              {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar</>}
+            <Button onClick={confirmSave} disabled={saving} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold min-w-[120px]">
+              {saving ? <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" /> Salvando...</> : <><CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar</>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -553,9 +553,9 @@ function AtividadesTab() {
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => { setShowBulkConfirm(false); setBulkData([]); }}>Cancelar</Button>
-            <Button onClick={confirmBulkSave} disabled={bulkSaving || (bulkHasPastDates && !allBulkPastJustified)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+            <Button onClick={confirmBulkSave} disabled={bulkSaving || (bulkHasPastDates && !allBulkPastJustified)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold min-w-[140px]">
               {bulkSaving ? (
-                <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" /> Salvando...</>
               ) : (
                 <><CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar {bulkData.length} registro(s)</>
               )}
@@ -581,6 +581,11 @@ function NovaVendaTab() {
 /*              PÁGINA COMERCIAL                   */
 /* ═══════════════════════════════════════════════ */
 const Comercial = () => {
+  const { data: profileData } = useProfile();
+  const { data: roleData } = useUserRole();
+  const atividadesDesabilitadas = profileData?.atividades_desabilitadas === true;
+  const isAdmin = roleData === 'administrador';
+
   return (
     <div className="max-w-5xl space-y-6 animate-fade-in-up">
       <div>
@@ -588,19 +593,32 @@ const Comercial = () => {
         <p className="text-sm text-muted-foreground mt-1">Atividades diárias e registro de vendas</p>
       </div>
 
-      <Tabs defaultValue="atividades" className="space-y-6">
-        <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg">
-          <TabsTrigger value="atividades" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
-            <ClipboardList className="w-4 h-4" /> Atividades
-          </TabsTrigger>
-          <TabsTrigger value="nova-venda" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
-            <ShoppingCart className="w-4 h-4" /> Nova Venda
-          </TabsTrigger>
-        </TabsList>
+      {atividadesDesabilitadas ? (
+        /* If activities are disabled for this user, show only Nova Venda */
+        <div className="space-y-6">
+          <div className="bg-accent/50 rounded-xl p-3 border border-border/30 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+            <p className="text-xs text-muted-foreground">
+              A guia de registro de atividades está desabilitada para o seu perfil. Somente o registro de vendas está disponível.
+            </p>
+          </div>
+          <NovaVendaTab />
+        </div>
+      ) : (
+        <Tabs defaultValue="atividades" className="space-y-6">
+          <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg">
+            <TabsTrigger value="atividades" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
+              <ClipboardList className="w-4 h-4" /> Atividades
+            </TabsTrigger>
+            <TabsTrigger value="nova-venda" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
+              <ShoppingCart className="w-4 h-4" /> Nova Venda
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="atividades"><AtividadesTab /></TabsContent>
-        <TabsContent value="nova-venda"><NovaVendaTab /></TabsContent>
-      </Tabs>
+          <TabsContent value="atividades"><AtividadesTab /></TabsContent>
+          <TabsContent value="nova-venda"><NovaVendaTab /></TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 };
