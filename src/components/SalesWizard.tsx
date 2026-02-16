@@ -684,25 +684,27 @@ export default function SalesWizard() {
                         </div>
                         <div>
                           <label className="text-[10px] text-muted-foreground font-semibold">Descrição *</label>
-                          <Select value={d.descricao} onValueChange={(v) => {
-                            updateDependente(i, 'descricao', v);
-                            if (v === 'Cônjuge') updateDependente(i, 'is_conjuge', true);
-                            else updateDependente(i, 'is_conjuge', false);
-                            if (v !== 'Outro') updateDependente(i, 'descricao_custom', '');
-                          }}>
-                            <SelectTrigger className="h-9 border-border/40"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              {DESCRICAO_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
-                            </SelectContent>
-                          </Select>
-                          {d.descricao === 'Outro' && (
-                            <Input
-                              className="mt-1 h-9 border-border/40"
-                              placeholder="Especifique..."
-                              value={d.descricao_custom || ''}
-                              onChange={(e) => updateDependente(i, 'descricao_custom', e.target.value)}
-                            />
-                          )}
+                          <div className="flex gap-2">
+                            <Select value={d.descricao} onValueChange={(v) => {
+                              updateDependente(i, 'descricao', v);
+                              if (v === 'Cônjuge') updateDependente(i, 'is_conjuge', true);
+                              else updateDependente(i, 'is_conjuge', false);
+                              if (v !== 'Outro') updateDependente(i, 'descricao_custom', '');
+                            }}>
+                              <SelectTrigger className="h-9 border-border/40"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {DESCRICAO_OPTIONS.map(opt => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                            {d.descricao === 'Outro' && (
+                              <Input
+                                className="h-9 border-border/40"
+                                placeholder="Especifique..."
+                                value={d.descricao_custom || ''}
+                                onChange={(e) => updateDependente(i, 'descricao_custom', e.target.value)}
+                              />
+                            )}
+                          </div>
                         </div>
                         <div className="flex items-end pb-1">
                           <div className="flex items-center gap-2">
@@ -720,15 +722,14 @@ export default function SalesWizard() {
             <Separator className="bg-border/20" />
 
             {/* Valor e Observação */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FieldWithTooltip label="Valor (R$)" tooltip="Valor total do contrato." required>
-                <div className="relative">
-                  <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/50" />
-                  <Input type="number" min={0} step={0.01} value={valorContrato} onChange={(e) => setValorContrato(e.target.value)} placeholder="0,00" className="pl-10 h-11 border-border/40" />
-                </div>
-              </FieldWithTooltip>
-
-              <div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FieldWithTooltip label="Valor (R$)" tooltip="Valor total do contrato." required>
+                  <div className="relative">
+                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/50" />
+                    <Input type="number" min={0} step={0.01} value={valorContrato} onChange={(e) => setValorContrato(e.target.value)} placeholder="0,00" className="pl-10 h-11 border-border/40" />
+                  </div>
+                </FieldWithTooltip>
                 <FieldWithTooltip label="Observações" tooltip="Linhas de observação adicionais.">
                   <div className="space-y-2">
                     {obsLinhas.map((line, i) => (
