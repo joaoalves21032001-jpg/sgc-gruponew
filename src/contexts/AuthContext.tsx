@@ -77,11 +77,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkProfile();
   }, [user]);
 
-  // Check MFA status when user is set and has profile
-  useEffect(() => {
-    if (!user || hasProfile !== true) return;
-    checkMfaStatus();
-  }, [user, hasProfile]);
+  // MFA disabled for now
+  // useEffect(() => {
+  //   if (!user || hasProfile !== true) return;
+  //   checkMfaStatus();
+  // }, [user, hasProfile]);
 
   const checkMfaStatus = async () => {
     try {
