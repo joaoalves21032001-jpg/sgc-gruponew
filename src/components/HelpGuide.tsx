@@ -127,7 +127,7 @@ const sections = [
     icon: UserCircle,
     title: 'Meu Perfil',
     content: [
-      'Visualize seus dados pessoais, cargo e hierarquia.',
+      'Visualize seus dados pessoais, cargo e líderes.',
       'A edição de perfil é feita exclusivamente pelo administrador.',
       'Para alterações, solicite ao administrador do sistema.',
     ],
