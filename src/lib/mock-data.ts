@@ -15,7 +15,7 @@ export interface Consultor {
   endereco: string;
   numero_emergencia_1: string;
   numero_emergencia_2: string;
-  // Hierarquia
+  // Líderes
   supervisor_nome: string;
   supervisor_email: string;
   gerente_nome: string;
