@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Briefcase, BarChart3, HelpCircle, LogOut,
   UserCog, UserCircle, ChevronLeft, ChevronRight,
   ClipboardList, CheckSquare, Bell, Archive, Search, Activity,
-  GripVertical, Pin, PinOff
+  GripVertical, Pin, PinOff, Kanban
 } from 'lucide-react';
 import { useProfile, useUserRole } from '@/hooks/useProfile';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
@@ -29,6 +29,7 @@ const navItems: NavItem[] = [
   { to: '/', icon: LayoutDashboard, label: 'Meu Progresso', access: 'all', profileToggle: 'progresso_desabilitado' },
   { to: '/comercial', icon: Briefcase, label: 'Registro de Atividades', access: 'all', profileToggle: 'atividades_desabilitadas' },
   { to: '/minhas-acoes', icon: ClipboardList, label: 'Minhas Ações', access: 'all', profileToggle: 'acoes_desabilitadas' },
+  { to: '/crm', icon: Kanban, label: 'CRM', access: 'all' },
   { to: '/notificacoes', icon: Bell, label: 'Notificações', access: 'all' },
   { to: '/aprovacoes', icon: CheckSquare, label: 'Aprovações', access: 'supervisor_up' },
   { to: '/gestao', icon: BarChart3, label: 'Dashboard', access: 'supervisor_up' },
