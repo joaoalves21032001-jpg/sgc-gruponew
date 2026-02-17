@@ -81,6 +81,7 @@ const Aprovacoes = () => {
   const [rejectAccess, setRejectAccess] = useState<AccessRequest | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [savingAccess, setSavingAccess] = useState(false);
+  const [deleteAccess, setDeleteAccess] = useState<AccessRequest | null>(null);
 
   const isAdmin = role === 'administrador';
   const isSupervisorUp = role === 'supervisor' || role === 'gerente' || role === 'administrador';
@@ -416,6 +417,9 @@ const Aprovacoes = () => {
                               </Button>
                             </>
                           )}
+                          <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteAccess(req)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
                         </div>
                       </div>
                       {req.mensagem && (
@@ -540,6 +544,33 @@ const Aprovacoes = () => {
             <Button variant="outline" onClick={() => setRejectAccess(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleRejectAccess} disabled={savingAccess} className="gap-1">
               {savingAccess ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><XCircle className="w-4 h-4" /> Recusar</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Access Dialog ── */}
+      <Dialog open={!!deleteAccess} onOpenChange={(v) => { if (!v) setDeleteAccess(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg text-destructive">Excluir Solicitação</DialogTitle>
+            <DialogDescription>Tem certeza que deseja excluir a solicitação de <strong>{deleteAccess?.nome}</strong>?</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteAccess(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={async () => {
+              if (!deleteAccess) return;
+              setSavingAccess(true);
+              try {
+                const { error } = await supabase.from('access_requests').delete().eq('id', deleteAccess.id);
+                if (error) throw error;
+                toast.success('Solicitação excluída!');
+                queryClient.invalidateQueries({ queryKey: ['access-requests'] });
+                setDeleteAccess(null);
+              } catch (err: any) { toast.error(err.message); }
+              finally { setSavingAccess(false); }
+            }} disabled={savingAccess} className="gap-1">
+              {savingAccess ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Trash2 className="w-4 h-4" /> Excluir</>}
             </Button>
           </DialogFooter>
         </DialogContent>
