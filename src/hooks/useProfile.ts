@@ -20,6 +20,9 @@ export interface Profile {
   avatar_url: string | null;
   meta_faturamento: number;
   atividades_desabilitadas: boolean;
+  progresso_desabilitado: boolean;
+  acoes_desabilitadas: boolean;
+  disabled: boolean;
   created_at: string;
   updated_at: string;
 }
