@@ -572,6 +572,7 @@ function AtividadesTab() {
 /*       TAB: NOVA VENDA (uses SalesWizard)        */
 /* ═══════════════════════════════════════════════ */
 import SalesWizard from '@/components/SalesWizard';
+import EvolucaoTab from '@/components/EvolucaoTab';
 
 function NovaVendaTab() {
   return <SalesWizard />;
@@ -613,10 +614,14 @@ const Comercial = () => {
             <TabsTrigger value="nova-venda" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
               <ShoppingCart className="w-4 h-4" /> Nova Venda
             </TabsTrigger>
+            <TabsTrigger value="evolucao" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
+              <TrendingUp className="w-4 h-4" /> Evolução
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="atividades"><AtividadesTab /></TabsContent>
           <TabsContent value="nova-venda"><NovaVendaTab /></TabsContent>
+          <TabsContent value="evolucao"><EvolucaoTab /></TabsContent>
         </Tabs>
       )}
     </div>
