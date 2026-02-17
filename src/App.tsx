@@ -16,6 +16,7 @@ import AdminUsuarios from "./pages/AdminUsuarios";
 import MinhasAcoes from "./pages/MinhasAcoes";
 import Aprovacoes from "./pages/Aprovacoes";
 import Inventario from "./pages/Inventario";
+import CRM from "./pages/CRM";
 import Notificacoes from "./pages/Notificacoes";
 import AuditLogs from "./pages/AuditLogs";
 import NotFound from "./pages/NotFound";
@@ -98,6 +99,7 @@ const App = () => (
               <Route path="/minhas-acoes" element={<MinhasAcoes />} />
               <Route path="/aprovacoes" element={<Aprovacoes />} />
               <Route path="/gestao" element={<Gestao />} />
+              <Route path="/crm" element={<CRM />} />
               <Route path="/inventario" element={<Inventario />} />
               <Route path="/notificacoes" element={<Notificacoes />} />
               <Route path="/perfil" element={<Perfil />} />
