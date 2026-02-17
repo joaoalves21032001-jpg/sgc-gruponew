@@ -339,6 +339,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          acoes_desabilitadas: boolean
           apelido: string | null
           atividades_desabilitadas: boolean
           avatar_url: string | null
@@ -356,11 +357,13 @@ export type Database = {
           nome_completo: string
           numero_emergencia_1: string | null
           numero_emergencia_2: string | null
+          progresso_desabilitado: boolean
           rg: string | null
           supervisor_id: string | null
           updated_at: string
         }
         Insert: {
+          acoes_desabilitadas?: boolean
           apelido?: string | null
           atividades_desabilitadas?: boolean
           avatar_url?: string | null
@@ -378,11 +381,13 @@ export type Database = {
           nome_completo: string
           numero_emergencia_1?: string | null
           numero_emergencia_2?: string | null
+          progresso_desabilitado?: boolean
           rg?: string | null
           supervisor_id?: string | null
           updated_at?: string
         }
         Update: {
+          acoes_desabilitadas?: boolean
           apelido?: string | null
           atividades_desabilitadas?: boolean
           avatar_url?: string | null
@@ -400,6 +405,7 @@ export type Database = {
           nome_completo?: string
           numero_emergencia_1?: string | null
           numero_emergencia_2?: string | null
+          progresso_desabilitado?: boolean
           rg?: string | null
           supervisor_id?: string | null
           updated_at?: string
