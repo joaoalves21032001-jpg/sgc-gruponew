@@ -1,5 +1,11 @@
-import { useState } from 'react';
-import { Users, AlertTriangle, TrendingUp, CheckCircle2, X, Filter, BarChart3, Target, ArrowUpRight, ArrowDownRight, Trophy, Phone, FileText, MessageSquare, CalendarIcon, Search } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import {
+  Users, AlertTriangle, TrendingUp, CheckCircle2, X, Filter, BarChart3, Target,
+  ArrowUpRight, ArrowDownRight, Trophy, Phone, FileText, MessageSquare, CalendarIcon,
+  Search, Calendar
+} from 'lucide-react';
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, subDays, parseISO, isWithinInterval, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { StatCard } from '@/components/StatCard';
 import { PatenteBadge } from '@/components/PatenteBadge';
 import { FlagRiscoBadge } from '@/components/FlagRiscoBadge';
@@ -15,9 +21,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { useMemo } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
 
 const statusColors: Record<string, string> = {
   analise: 'bg-primary/8 text-primary border-primary/15',
@@ -25,6 +31,19 @@ const statusColors: Record<string, string> = {
   aprovado: 'bg-success/8 text-success border-success/15',
   recusado: 'bg-destructive/8 text-destructive border-destructive/15',
 };
+
+function getDateRange(periodo: string) {
+  const now = new Date();
+  switch (periodo) {
+    case 'semana': return { start: startOfWeek(now, { weekStartsOn: 1 }), end: now };
+    case 'mes': return { start: startOfMonth(now), end: now };
+    case 'trimestre': return { start: subMonths(startOfMonth(now), 2), end: now };
+    case '30d': return { start: subDays(now, 30), end: now };
+    case '60d': return { start: subDays(now, 60), end: now };
+    case '90d': return { start: subDays(now, 90), end: now };
+    default: return { start: startOfMonth(now), end: now };
+  }
+}
 
 const Gestao = () => {
   const { data: profiles, isLoading: loadingProfiles } = useTeamProfiles();
@@ -39,10 +58,30 @@ const Gestao = () => {
   const [searchVenda, setSearchVenda] = useState('');
 
   const consultores = profiles ?? [];
+  const dateRange = useMemo(() => getDateRange(filtroPeriodo), [filtroPeriodo]);
+
+  // Filter atividades and vendas by date range and consultor
+  const filteredAtividades = useMemo(() => {
+    return atividades.filter(a => {
+      const d = parseISO(a.data);
+      const inRange = isWithinInterval(d, dateRange);
+      const matchConsultor = filtroConsultor === 'todos' || a.user_id === filtroConsultor;
+      return inRange && matchConsultor;
+    });
+  }, [atividades, dateRange, filtroConsultor]);
+
+  const filteredVendasByPeriod = useMemo(() => {
+    return vendas.filter(v => {
+      const d = parseISO(v.created_at);
+      const inRange = isWithinInterval(d, dateRange);
+      const matchConsultor = filtroConsultor === 'todos' || v.user_id === filtroConsultor;
+      return inRange && matchConsultor;
+    });
+  }, [vendas, dateRange, filtroConsultor]);
 
   const userStats = useMemo(() => {
     const map: Record<string, { ligacoes: number; mensagens: number; cotacoes_enviadas: number; cotacoes_fechadas: number; follow_up: number; faturamento: number }> = {};
-    for (const a of atividades) {
+    for (const a of filteredAtividades) {
       if (!map[a.user_id]) map[a.user_id] = { ligacoes: 0, mensagens: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0, follow_up: 0, faturamento: 0 };
       map[a.user_id].ligacoes += a.ligacoes;
       map[a.user_id].mensagens += a.mensagens;
@@ -50,16 +89,16 @@ const Gestao = () => {
       map[a.user_id].cotacoes_fechadas += a.cotacoes_fechadas;
       map[a.user_id].follow_up += a.follow_up;
     }
-    for (const v of vendas) {
+    for (const v of filteredVendasByPeriod) {
       if (v.status === 'aprovado') {
         if (!map[v.user_id]) map[v.user_id] = { ligacoes: 0, mensagens: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0, follow_up: 0, faturamento: 0 };
         map[v.user_id].faturamento += v.valor ?? 0;
       }
     }
     return map;
-  }, [atividades, vendas]);
+  }, [filteredAtividades, filteredVendasByPeriod]);
 
-  const totalVidas = vendas.reduce((sum, v) => sum + v.vidas, 0);
+  const totalVidas = filteredVendasByPeriod.reduce((sum, v) => sum + v.vidas, 0);
   const totalFaturamento = Object.values(userStats).reduce((sum, s) => sum + s.faturamento, 0);
   const metaEquipe = consultores.reduce((sum, c) => sum + (c.meta_faturamento ?? 75000), 0);
   const percentMetaEquipe = metaEquipe > 0 ? Math.round((totalFaturamento / metaEquipe) * 100) : 0;
@@ -68,18 +107,17 @@ const Gestao = () => {
   const totalCotFechadas = Object.values(userStats).reduce((sum, s) => sum + s.cotacoes_fechadas, 0);
   const taxaConversaoEquipe = totalCotEnviadas > 0 ? Math.round((totalCotFechadas / totalCotEnviadas) * 100) : 0;
 
-  // Filter vendas for kanban
-  const filteredVendas = vendas.filter(v => {
-    const matchesConsultor = filtroConsultor === 'todos' || v.user_id === filtroConsultor;
+  // Kanban vendas with status filter
+  const kanbanVendas = filteredVendasByPeriod.filter(v => {
     const matchesStatus = filtroStatus === 'todos' || v.status === filtroStatus;
     const matchesSearch = !searchVenda || v.nome_titular.toLowerCase().includes(searchVenda.toLowerCase());
-    return matchesConsultor && matchesStatus && matchesSearch;
+    return matchesStatus && matchesSearch;
   });
 
   const kanbanColumns = [
-    { status: 'analise', label: 'Em Análise', items: filteredVendas.filter(v => v.status === 'analise') },
-    { status: 'pendente', label: 'Pendência', items: filteredVendas.filter(v => v.status === 'pendente') },
-    { status: 'aprovado', label: 'Aprovado', items: filteredVendas.filter(v => v.status === 'aprovado') },
+    { status: 'analise', label: 'Em Análise', items: kanbanVendas.filter(v => v.status === 'analise') },
+    { status: 'pendente', label: 'Pendência', items: kanbanVendas.filter(v => v.status === 'pendente') },
+    { status: 'aprovado', label: 'Aprovado', items: kanbanVendas.filter(v => v.status === 'aprovado') },
   ];
 
   const ranking = useMemo(() => {
@@ -98,6 +136,26 @@ const Gestao = () => {
     meta: Math.round((c.meta_faturamento ?? 75000) / 1000),
     conversao: c.stats.cotacoes_enviadas > 0 ? Math.round((c.stats.cotacoes_fechadas / c.stats.cotacoes_enviadas) * 100) : 0,
   }));
+
+  // Weekly evolution chart
+  const weeklyEvolution = useMemo(() => {
+    const weeks: Record<string, { ligacoes: number; cotacoes: number; vendas: number; faturamento: number }> = {};
+    for (const a of filteredAtividades) {
+      const w = format(startOfWeek(parseISO(a.data), { weekStartsOn: 1 }), 'dd/MM', { locale: ptBR });
+      if (!weeks[w]) weeks[w] = { ligacoes: 0, cotacoes: 0, vendas: 0, faturamento: 0 };
+      weeks[w].ligacoes += a.ligacoes;
+      weeks[w].cotacoes += a.cotacoes_enviadas;
+    }
+    for (const v of filteredVendasByPeriod) {
+      if (v.status === 'aprovado') {
+        const w = format(startOfWeek(parseISO(v.created_at), { weekStartsOn: 1 }), 'dd/MM', { locale: ptBR });
+        if (!weeks[w]) weeks[w] = { ligacoes: 0, cotacoes: 0, vendas: 0, faturamento: 0 };
+        weeks[w].vendas += 1;
+        weeks[w].faturamento += v.valor ?? 0;
+      }
+    }
+    return Object.entries(weeks).map(([label, data]) => ({ label, ...data }));
+  }, [filteredAtividades, filteredVendasByPeriod]);
 
   const getConsultorName = (userId: string) => {
     const p = consultores.find(c => c.id === userId);
@@ -136,18 +194,23 @@ const Gestao = () => {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Painel de Gestão</h1>
-          <p className="text-sm text-muted-foreground mt-1">Visão geral da equipe e vendas</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Visão geral da equipe • {format(dateRange.start, "dd/MM", { locale: ptBR })} a {format(dateRange.end, "dd/MM/yyyy", { locale: ptBR })}
+          </p>
         </div>
         <div className="flex gap-2 flex-wrap">
           <Select value={filtroPeriodo} onValueChange={setFiltroPeriodo}>
-            <SelectTrigger className="w-[140px] h-9 text-xs border-border/40">
-              <Filter className="w-3 h-3 mr-1" />
+            <SelectTrigger className="w-[150px] h-9 text-xs border-border/40">
+              <Calendar className="w-3 h-3 mr-1" />
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="semana">Esta Semana</SelectItem>
               <SelectItem value="mes">Este Mês</SelectItem>
               <SelectItem value="trimestre">Trimestre</SelectItem>
+              <SelectItem value="30d">Últimos 30 dias</SelectItem>
+              <SelectItem value="60d">Últimos 60 dias</SelectItem>
+              <SelectItem value="90d">Últimos 90 dias</SelectItem>
             </SelectContent>
           </Select>
           <Select value={filtroConsultor} onValueChange={setFiltroConsultor}>
@@ -218,86 +281,134 @@ const Gestao = () => {
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Em Análise</span>
             <FileText className="w-4 h-4 text-primary" />
           </div>
-          <p className="text-2xl font-bold font-display text-foreground">{vendas.filter(v => v.status === 'analise').length}</p>
-          <p className="text-xs text-muted-foreground mt-1">{vendas.filter(v => v.status === 'pendente').length} pendentes</p>
+          <p className="text-2xl font-bold font-display text-foreground">{filteredVendasByPeriod.filter(v => v.status === 'analise').length}</p>
+          <p className="text-xs text-muted-foreground mt-1">{filteredVendasByPeriod.filter(v => v.status === 'pendente').length} pendentes</p>
         </div>
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
-          <h3 className="text-xs font-bold text-muted-foreground mb-5 font-display uppercase tracking-[0.08em] flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-primary" /> Faturamento por Consultor (R$ mil)
-          </h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={comparativoData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 13% 90%)" vertical={false} />
-              <XAxis dataKey="nome" tick={{ fontSize: 11, fill: 'hsl(220 10% 46%)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: 'hsl(220 10% 46%)' }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(220 13% 90%)', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 12px hsl(220 25% 10% / 0.08)' }} />
-              <Bar dataKey="faturamento" name="Faturamento" fill="hsl(194 53% 26%)" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="meta" name="Meta" fill="hsl(220 13% 90%)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-        <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
-          <h3 className="text-xs font-bold text-muted-foreground mb-5 font-display uppercase tracking-[0.08em] flex items-center gap-2">
-            <BarChart3 className="w-4 h-4 text-primary" /> Conversão por Consultor
-          </h3>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={comparativoData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 13% 90%)" vertical={false} />
-              <XAxis dataKey="nome" tick={{ fontSize: 11, fill: 'hsl(220 10% 46%)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: 'hsl(220 10% 46%)' }} axisLine={false} tickLine={false} unit="%" />
-              <Tooltip contentStyle={{ background: 'hsl(0 0% 100%)', border: '1px solid hsl(220 13% 90%)', borderRadius: '8px', fontSize: '12px', boxShadow: '0 4px 12px hsl(220 25% 10% / 0.08)' }} />
-              <Bar dataKey="conversao" name="Conversão %" fill="hsl(152 60% 40%)" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
+      <Tabs defaultValue="comparativo" className="space-y-4">
+        <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg">
+          <TabsTrigger value="comparativo" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
+            <BarChart3 className="w-4 h-4" /> Comparativo
+          </TabsTrigger>
+          <TabsTrigger value="evolucao" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
+            <TrendingUp className="w-4 h-4" /> Evolução
+          </TabsTrigger>
+          <TabsTrigger value="ranking" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
+            <Trophy className="w-4 h-4" /> Ranking
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Ranking with Flags */}
-      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
-        <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em] flex items-center gap-2 mb-5">
-          <Trophy className="w-4 h-4 text-primary" /> Ranking de Desempenho
-        </h3>
-        <div className="space-y-2">
-          {ranking.map((c, idx) => {
-            const patente = getPatente(c.percentMeta);
-            // Gestores see risk flags; mesesAbaixo would come from historical data, using 0 for now
-            const mesesAbaixo = c.percentMeta < 100 ? 1 : 0; // Simplified: would need historical tracking
-            return (
-              <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-lg bg-muted/30 border border-border/20 hover:border-primary/15 transition-colors">
-                <div className="w-8 h-8 rounded-full bg-primary/8 flex items-center justify-center text-sm font-bold text-primary shrink-0 font-display">
-                  {idx + 1}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-semibold text-foreground">{c.nome_completo}</p>
-                    {patente && <PatenteBadge percentMeta={c.percentMeta} size="sm" />}
-                    {/* Risk flags visible to gestores/admins */}
-                    <FlagRiscoBadge percentAtual={c.percentMeta} mesesAbaixo={mesesAbaixo} />
+        {/* Comparativo Tab */}
+        <TabsContent value="comparativo">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+              <h3 className="text-xs font-bold text-muted-foreground mb-5 font-display uppercase tracking-[0.08em] flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-primary" /> Faturamento por Consultor (R$ mil)
+              </h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={comparativoData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="nome" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
+                  <Bar dataKey="faturamento" name="Faturamento" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="meta" name="Meta" fill="hsl(var(--muted))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+              <h3 className="text-xs font-bold text-muted-foreground mb-5 font-display uppercase tracking-[0.08em] flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-primary" /> Conversão por Consultor
+              </h3>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={comparativoData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="nome" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} unit="%" />
+                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
+                  <Bar dataKey="conversao" name="Conversão %" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Evolução Tab */}
+        <TabsContent value="evolucao">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+              <h3 className="text-xs font-bold text-muted-foreground mb-5 font-display uppercase tracking-[0.08em] flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-primary" /> Atividades por Semana
+              </h3>
+              <ResponsiveContainer width="100%" height={240}>
+                <AreaChart data={weeklyEvolution}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
+                  <Area type="monotone" dataKey="ligacoes" name="Ligações" stroke="hsl(var(--primary))" fill="hsl(var(--primary) / 0.1)" strokeWidth={2} />
+                  <Area type="monotone" dataKey="cotacoes" name="Cotações" stroke="hsl(var(--success))" fill="hsl(var(--success) / 0.1)" strokeWidth={2} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+              <h3 className="text-xs font-bold text-muted-foreground mb-5 font-display uppercase tracking-[0.08em] flex items-center gap-2">
+                <Target className="w-4 h-4 text-primary" /> Faturamento Semanal
+              </h3>
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={weeklyEvolution}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Faturamento']} />
+                  <Line type="monotone" dataKey="faturamento" name="Faturamento" stroke="hsl(var(--primary))" strokeWidth={2.5} dot={{ r: 4, fill: 'hsl(var(--primary))' }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Ranking Tab */}
+        <TabsContent value="ranking">
+          <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+            <div className="space-y-2">
+              {ranking.map((c, idx) => {
+                const patente = getPatente(c.percentMeta);
+                const mesesAbaixo = c.percentMeta < 100 ? 1 : 0;
+                return (
+                  <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-lg bg-muted/30 border border-border/20 hover:border-primary/15 transition-colors">
+                    <div className="w-8 h-8 rounded-full bg-primary/8 flex items-center justify-center text-sm font-bold text-primary shrink-0 font-display">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold text-foreground">{c.nome_completo}</p>
+                        {patente && <PatenteBadge percentMeta={c.percentMeta} size="sm" />}
+                        <FlagRiscoBadge percentAtual={c.percentMeta} mesesAbaixo={mesesAbaixo} />
+                      </div>
+                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
+                        <span>R$ {(c.stats.faturamento / 1000).toFixed(1)}k</span>
+                        <span className="text-border">•</span>
+                        <span>{c.percentMeta}% da meta</span>
+                        <span className="text-border">•</span>
+                        <span>{c.stats.cotacoes_fechadas} vendas</span>
+                      </div>
+                    </div>
+                    <div className="shrink-0">
+                      {c.percentMeta >= 100 ? (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-success"><ArrowUpRight className="w-3.5 h-3.5" />{c.percentMeta}%</span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-destructive"><ArrowDownRight className="w-3.5 h-3.5" />{c.percentMeta}%</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
-                    <span>R$ {(c.stats.faturamento / 1000).toFixed(1)}k</span>
-                    <span className="text-border">•</span>
-                    <span>{c.percentMeta}% da meta</span>
-                    <span className="text-border">•</span>
-                    <span>{c.stats.cotacoes_fechadas} vendas</span>
-                  </div>
-                </div>
-                <div className="shrink-0">
-                  {c.percentMeta >= 100 ? (
-                    <span className="flex items-center gap-1 text-xs font-semibold text-success"><ArrowUpRight className="w-3.5 h-3.5" />{c.percentMeta}%</span>
-                  ) : (
-                    <span className="flex items-center gap-1 text-xs font-semibold text-destructive"><ArrowDownRight className="w-3.5 h-3.5" />{c.percentMeta}%</span>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+                );
+              })}
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Kanban with search */}
       <div>
