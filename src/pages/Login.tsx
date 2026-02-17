@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { lovable } from '@/integrations/lovable/index';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,12 @@ import logo from '@/assets/logo-grupo-new.png';
 
 const CARGOS = ['Consultor de Vendas', 'Supervisor', 'Gerente', 'Diretor'];
 
+interface LeaderOption {
+  id: string;
+  nome_completo: string;
+  cargo: string;
+}
+
 const Login = () => {
   const [loading, setLoading] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
@@ -24,6 +30,27 @@ const Login = () => {
     nivel_acesso: 'consultor', numero_emergencia_1: '', numero_emergencia_2: '',
   });
   const [submitting, setSubmitting] = useState(false);
+  const [supervisores, setSupervisores] = useState<LeaderOption[]>([]);
+  const [gerentes, setGerentes] = useState<LeaderOption[]>([]);
+  const [selectedSupervisor, setSelectedSupervisor] = useState('');
+  const [selectedGerente, setSelectedGerente] = useState('');
+
+  useEffect(() => {
+    if (!showRequest) return;
+    const fetchLeaders = async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, nome_completo, cargo')
+        .in('cargo', ['Supervisor', 'Gerente', 'Diretor'])
+        .eq('disabled', false)
+        .order('nome_completo');
+      if (data) {
+        setSupervisores(data.filter(p => p.cargo === 'Supervisor'));
+        setGerentes(data.filter(p => p.cargo === 'Gerente' || p.cargo === 'Diretor'));
+      }
+    };
+    fetchLeaders();
+  }, [showRequest]);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
@@ -270,7 +297,30 @@ const Login = () => {
               </div>
             </div>
 
-            {/* Mensagem */}
+            {/* Líderes */}
+            <div>
+              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Líderes (Opcional)</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Supervisor</label>
+                  <Select value={selectedSupervisor} onValueChange={setSelectedSupervisor}>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      {supervisores.map(s => <SelectItem key={s.id} value={s.id}>{s.nome_completo}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Gerente</label>
+                  <Select value={selectedGerente} onValueChange={setSelectedGerente}>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      {gerentes.map(g => <SelectItem key={g.id} value={g.id}>{g.nome_completo}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mensagem (Opcional)</label>
               <Textarea value={requestForm.mensagem} onChange={(e) => setField('mensagem', e.target.value)} placeholder="Informações adicionais..." rows={2} />
