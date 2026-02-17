@@ -132,7 +132,19 @@ const AdminUsuarios = () => {
   };
 
   const setField = (key: keyof FormData, value: string | boolean) => {
-    setForm(prev => ({ ...prev, [key]: value }));
+    setForm(prev => {
+      const next = { ...prev, [key]: value };
+      // Auto-clear supervisor/gerente when cargo changes
+      if (key === 'cargo') {
+        if (['Supervisor', 'Gerente', 'Diretor'].includes(value as string)) {
+          next.supervisor_id = 'none';
+        }
+        if (['Gerente', 'Diretor'].includes(value as string)) {
+          next.gerente_id = 'none';
+        }
+      }
+      return next;
+    });
   };
 
   const handleNew = () => {
@@ -472,8 +484,12 @@ const AdminUsuarios = () => {
                 <FieldWithTooltip label="Meta Faturamento (R$)" tooltip="Meta mensal de faturamento em reais.">
                   <Input type="number" value={form.meta_faturamento} onChange={(e) => setField('meta_faturamento', e.target.value)} className="h-10" />
                 </FieldWithTooltip>
-                <FieldWithTooltip label="Supervisor" tooltip="Supervisor direto do colaborador.">
-                  <Select value={form.supervisor_id} onValueChange={(v) => setField('supervisor_id', v)}>
+                <FieldWithTooltip label="Supervisor" tooltip="Supervisor direto do colaborador. Bloqueado para Supervisores e acima.">
+                  <Select 
+                    value={form.supervisor_id} 
+                    onValueChange={(v) => setField('supervisor_id', v)}
+                    disabled={['Supervisor', 'Gerente', 'Diretor'].includes(form.cargo)}
+                  >
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Nenhum</SelectItem>
@@ -481,8 +497,12 @@ const AdminUsuarios = () => {
                     </SelectContent>
                   </Select>
                 </FieldWithTooltip>
-                <FieldWithTooltip label="Gerente" tooltip="Gerente responsável pela equipe.">
-                  <Select value={form.gerente_id} onValueChange={(v) => setField('gerente_id', v)}>
+                <FieldWithTooltip label="Gerente" tooltip="Gerente responsável pela equipe. Bloqueado para Gerentes e Diretores.">
+                  <Select 
+                    value={form.gerente_id} 
+                    onValueChange={(v) => setField('gerente_id', v)}
+                    disabled={['Gerente', 'Diretor'].includes(form.cargo)}
+                  >
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">Nenhum</SelectItem>
