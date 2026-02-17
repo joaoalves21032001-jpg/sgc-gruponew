@@ -59,40 +59,54 @@ export function useCreateAtividade() {
   return useMutation({
     mutationFn: async (atividade: Omit<Atividade, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
       if (!user) throw new Error('Not authenticated');
+
+      // Check if user is supervisor or gerente for auto-approval
+      const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).maybeSingle();
+      const userRole = roleData?.role;
+      const isAutoApprove = userRole === 'supervisor' || userRole === 'gerente';
+
       const { data, error } = await supabase
         .from('atividades')
         .upsert({
           ...atividade,
           user_id: user.id,
-        }, { onConflict: 'user_id,data' })
+          ...(isAutoApprove ? { status: 'aprovado' } : {}),
+        } as any, { onConflict: 'user_id,data' })
         .select()
         .single();
       if (error) throw error;
-      return data;
+      return { ...data, _userRole: userRole };
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['atividades'] });
       queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
 
+      const userRole = data._userRole;
+
       // Send email notification (fire and forget)
-      try {
-        const { data: profile } = await supabase.from('profiles').select('nome_completo').eq('id', user!.id).single();
-        await supabase.functions.invoke('send-notification', {
-          body: {
-            type: 'atividade_registrada',
-            data: {
-              user_id: user!.id,
-              user_name: profile?.nome_completo || user!.email,
-              data: data.data,
-              ligacoes: data.ligacoes,
-              mensagens: data.mensagens,
-              cotacoes_enviadas: data.cotacoes_enviadas,
-              follow_up: data.follow_up,
+      // Supervisors: auto-approved but email gerente
+      // Gerentes: auto-approved, no email
+      if (userRole !== 'gerente') {
+        try {
+          const { data: profile } = await supabase.from('profiles').select('nome_completo').eq('id', user!.id).single();
+          await supabase.functions.invoke('send-notification', {
+            body: {
+              type: 'atividade_registrada',
+              data: {
+                user_id: user!.id,
+                user_name: profile?.nome_completo || user!.email,
+                data: data.data,
+                ligacoes: data.ligacoes,
+                mensagens: data.mensagens,
+                cotacoes_enviadas: data.cotacoes_enviadas,
+                follow_up: data.follow_up,
+                auto_aprovado: userRole === 'supervisor',
+              },
             },
-          },
-        });
-      } catch (e) {
-        console.error('Notification error:', e);
+          });
+        } catch (e) {
+          console.error('Notification error:', e);
+        }
       }
     },
   });

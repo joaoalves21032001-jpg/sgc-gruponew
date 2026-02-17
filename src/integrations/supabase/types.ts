@@ -110,6 +110,39 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
       companhias: {
         Row: {
           created_at: string
@@ -176,6 +209,7 @@ export type Database = {
           contato: string | null
           cpf: string | null
           created_at: string
+          created_by: string | null
           doc_foto_path: string | null
           email: string | null
           endereco: string | null
@@ -192,6 +226,7 @@ export type Database = {
           contato?: string | null
           cpf?: string | null
           created_at?: string
+          created_by?: string | null
           doc_foto_path?: string | null
           email?: string | null
           endereco?: string | null
@@ -208,6 +243,7 @@ export type Database = {
           contato?: string | null
           cpf?: string | null
           created_at?: string
+          created_by?: string | null
           doc_foto_path?: string | null
           email?: string | null
           endereco?: string | null
@@ -558,6 +594,7 @@ export type Database = {
         Args: { _target_user_id: string }
         Returns: boolean
       }
+      cleanup_old_audit_logs: { Args: never; Returns: undefined }
       cleanup_read_notifications: { Args: never; Returns: undefined }
       has_role: {
         Args: {
