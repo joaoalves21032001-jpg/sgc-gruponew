@@ -12,7 +12,7 @@ import Perfil from "./pages/Perfil";
 import Login from "./pages/Login";
 import MfaSetup from "./pages/MfaSetup";
 import AdminUsuarios from "./pages/AdminUsuarios";
-import AdminSolicitacoes from "./pages/AdminSolicitacoes";
+
 import MinhasAcoes from "./pages/MinhasAcoes";
 import Aprovacoes from "./pages/Aprovacoes";
 import Inventario from "./pages/Inventario";
@@ -102,7 +102,7 @@ const App = () => (
               <Route path="/notificacoes" element={<Notificacoes />} />
               <Route path="/perfil" element={<Perfil />} />
               <Route path="/admin/usuarios" element={<AdminUsuarios />} />
-              <Route path="/admin/solicitacoes" element={<AdminSolicitacoes />} />
+              
               <Route path="/admin/logs" element={<AuditLogs />} />
             </Route>
             <Route path="*" element={<NotFound />} />

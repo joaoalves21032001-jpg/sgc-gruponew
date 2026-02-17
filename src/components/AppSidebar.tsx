@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, Briefcase, BarChart3, HelpCircle, LogOut,
-  UserCog, UserCircle, ChevronLeft, ChevronRight, UserPlus,
+  UserCog, UserCircle, ChevronLeft, ChevronRight,
   ClipboardList, CheckSquare, Bell, Archive, Search, Activity
 } from 'lucide-react';
 import { useProfile, useUserRole } from '@/hooks/useProfile';
@@ -33,7 +33,7 @@ const navItems: NavItem[] = [
   { to: '/gestao', icon: BarChart3, label: 'Dashboard', access: 'supervisor_up' },
   { to: '/inventario', icon: Archive, label: 'Inventário', access: 'all' },
   { to: '/admin/usuarios', icon: UserCog, label: 'Usuários', access: 'admin' },
-  { to: '/admin/solicitacoes', icon: UserPlus, label: 'Solicitações', access: 'admin' },
+  
   { to: '/admin/logs', icon: Activity, label: 'Logs de Auditoria', access: 'admin' },
 ];
 
