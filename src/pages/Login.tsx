@@ -97,7 +97,18 @@ const Login = () => {
   };
 
   const setField = (key: string, value: string) => {
-    setRequestForm(prev => ({ ...prev, [key]: value }));
+    setRequestForm(prev => {
+      const next = { ...prev, [key]: value };
+      if (key === 'cargo') {
+        if (['Supervisor', 'Gerente', 'Diretor'].includes(value)) {
+          setSelectedSupervisor('');
+        }
+        if (['Gerente', 'Diretor'].includes(value)) {
+          setSelectedGerente('');
+        }
+      }
+      return next;
+    });
   };
 
   return (
@@ -303,18 +314,28 @@ const Login = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Supervisor</label>
-                  <Select value={selectedSupervisor} onValueChange={setSelectedSupervisor}>
-                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <Select 
+                    value={selectedSupervisor} 
+                    onValueChange={setSelectedSupervisor}
+                    disabled={['Supervisor', 'Gerente', 'Diretor'].includes(requestForm.cargo)}
+                  >
+                    <SelectTrigger className="h-10"><SelectValue placeholder={['Supervisor', 'Gerente', 'Diretor'].includes(requestForm.cargo) ? 'N/A' : 'Selecione...'} /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
                       {supervisores.map(s => <SelectItem key={s.id} value={s.id}>{s.nome_completo}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Gerente</label>
-                  <Select value={selectedGerente} onValueChange={setSelectedGerente}>
-                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <Select 
+                    value={selectedGerente} 
+                    onValueChange={setSelectedGerente}
+                    disabled={['Gerente', 'Diretor'].includes(requestForm.cargo)}
+                  >
+                    <SelectTrigger className="h-10"><SelectValue placeholder={['Gerente', 'Diretor'].includes(requestForm.cargo) ? 'N/A' : 'Selecione...'} /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="none">Nenhum</SelectItem>
                       {gerentes.map(g => <SelectItem key={g.id} value={g.id}>{g.nome_completo}</SelectItem>)}
                     </SelectContent>
                   </Select>

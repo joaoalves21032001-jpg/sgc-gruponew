@@ -120,6 +120,19 @@ const Perfil = () => {
               <InfoRow icon={FileText} label="RG" value={profile.rg || '—'} />
               <div className="sm:col-span-2">
                 <InfoRow icon={MapPin} label="Endereço" value={profile.endereco || '—'} />
+                {profile.endereco && (
+                  <div className="mt-2 rounded-lg overflow-hidden border border-border/20">
+                    <iframe
+                      title="Mapa"
+                      width="100%"
+                      height="200"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={`https://maps.google.com/maps?q=${encodeURIComponent(profile.endereco)}&output=embed`}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
