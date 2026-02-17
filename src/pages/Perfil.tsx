@@ -1,12 +1,17 @@
+import { useState } from 'react';
 import {
   User, Mail, Phone, Shield, Award, Building, Hash, CreditCard,
-  FileText, MapPin, AlertTriangle, Users, Briefcase
+  FileText, MapPin, AlertTriangle, Users, Briefcase, Eye, EyeOff
 } from 'lucide-react';
 import { useProfile, useUserRole, useSupervisorProfile, useGerenteProfile } from '@/hooks/useProfile';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
 import { PatenteBadge } from '@/components/PatenteBadge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
+import { supabase } from '@/integrations/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
@@ -27,6 +32,23 @@ const Perfil = () => {
   const { data: role } = useUserRole();
   const { data: supervisor } = useSupervisorProfile(profile?.supervisor_id);
   const { data: gerente } = useGerenteProfile(profile?.gerente_id);
+  const qc = useQueryClient();
+
+  const canToggleTabs = role === 'gerente' || role === 'administrador';
+
+  const toggleTab = async (field: string, currentValue: boolean) => {
+    if (!profile) return;
+    const { error } = await supabase
+      .from('profiles')
+      .update({ [field]: !currentValue } as any)
+      .eq('id', profile.id);
+    if (error) {
+      toast.error('Erro ao atualizar.');
+      return;
+    }
+    qc.invalidateQueries({ queryKey: ['profile'] });
+    toast.success('Preferência atualizada!');
+  };
 
   if (isLoading) {
     return (
@@ -43,6 +65,12 @@ const Perfil = () => {
   const patente = getPatente(percentMeta);
   const frase = getFraseMotivacional(percentMeta);
   const nivelLabel = role === 'administrador' ? 'Administrador' : 'Usuário';
+
+  const tabToggles = [
+    { field: 'progresso_desabilitado', label: 'Meu Progresso', value: (profile as any).progresso_desabilitado ?? true },
+    { field: 'atividades_desabilitadas', label: 'Registro de Atividades', value: profile.atividades_desabilitadas },
+    { field: 'acoes_desabilitadas', label: 'Minhas Ações', value: (profile as any).acoes_desabilitadas ?? true },
+  ];
 
   return (
     <div className="max-w-3xl space-y-6 animate-fade-in-up">
@@ -152,6 +180,33 @@ const Perfil = () => {
               </div>
             </div>
           </div>
+
+          {/* Tab visibility toggles for directors/managers */}
+          {canToggleTabs && (
+            <>
+              <Separator className="bg-border/20" />
+              <div>
+                <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-4 flex items-center gap-2">
+                  <Eye className="w-3.5 h-3.5" /> Visibilidade de Guias
+                </h3>
+                <p className="text-xs text-muted-foreground mb-4">Habilite ou desabilite guias para seu perfil.</p>
+                <div className="space-y-3">
+                  {tabToggles.map(t => (
+                    <div key={t.field} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border/20">
+                      <div className="flex items-center gap-2">
+                        {t.value ? <EyeOff className="w-4 h-4 text-muted-foreground" /> : <Eye className="w-4 h-4 text-primary" />}
+                        <span className="text-sm font-medium text-foreground">{t.label}</span>
+                      </div>
+                      <Switch
+                        checked={!t.value}
+                        onCheckedChange={() => toggleTab(t.field, t.value)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
