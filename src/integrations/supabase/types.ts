@@ -200,6 +200,36 @@ export type Database = {
         }
         Relationships: []
       }
+      lead_stages: {
+        Row: {
+          cor: string
+          created_at: string
+          created_by: string | null
+          id: string
+          nome: string
+          ordem: number
+          updated_at: string
+        }
+        Insert: {
+          cor?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          updated_at?: string
+        }
+        Update: {
+          cor?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           boletos_path: string | null
@@ -215,6 +245,7 @@ export type Database = {
           endereco: string | null
           id: string
           nome: string
+          stage_id: string | null
           tipo: string
           updated_at: string
         }
@@ -232,6 +263,7 @@ export type Database = {
           endereco?: string | null
           id?: string
           nome: string
+          stage_id?: string | null
           tipo: string
           updated_at?: string
         }
@@ -249,10 +281,19 @@ export type Database = {
           endereco?: string | null
           id?: string
           nome?: string
+          stage_id?: string | null
           tipo?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "leads_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "lead_stages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       mfa_trusted_devices: {
         Row: {
