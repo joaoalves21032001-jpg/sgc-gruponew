@@ -421,6 +421,27 @@ export type Database = {
           },
         ]
       }
+      system_config: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -531,6 +552,7 @@ export type Database = {
         Args: { _target_user_id: string }
         Returns: boolean
       }
+      cleanup_read_notifications: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
