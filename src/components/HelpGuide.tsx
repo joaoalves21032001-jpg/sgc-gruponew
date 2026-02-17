@@ -4,18 +4,28 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import {
   BookOpen, LayoutDashboard, Briefcase, BarChart3, UserCircle,
-  ClipboardList, ShoppingCart, FileText, Shield, ChevronRight, Upload, Flag, Trophy
+  ClipboardList, ShoppingCart, FileText, Shield, ChevronRight, Upload, Flag, Trophy,
+  TrendingUp, Package, Bell
 } from 'lucide-react';
+import { useUserRole } from '@/hooks/useProfile';
 
 interface HelpGuideProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-const sections = [
+interface HelpSection {
+  icon: React.ElementType;
+  title: string;
+  content: string[];
+  access: 'all' | 'supervisor_up' | 'admin';
+}
+
+const sections: HelpSection[] = [
   {
     icon: LayoutDashboard,
-    title: 'Dashboard',
+    title: 'Meu Progresso',
+    access: 'all',
     content: [
       'O Dashboard exibe um resumo das suas atividades e vendas do mês.',
       'Os cards mostram KPIs como ligações, cotações e vendas.',
@@ -27,6 +37,7 @@ const sections = [
   {
     icon: ClipboardList,
     title: 'Registrar Atividades',
+    access: 'all',
     content: [
       'Acesse Comercial → aba Atividades.',
       'Preencha TODOS os campos numéricos (mesmo que seja 0).',
@@ -39,6 +50,7 @@ const sections = [
   {
     icon: Upload,
     title: 'Importar Atividades via CSV',
+    access: 'all',
     content: [
       '1. Clique em "Modelo" para baixar a planilha padrão.',
       '2. Preencha seguindo o formato: dd/mm/aaaa para datas, valores numéricos inteiros.',
@@ -48,103 +60,139 @@ const sections = [
       '6. Clique em "Upload" e selecione o arquivo.',
       '7. Um resumo será exibido para conferência antes de confirmar.',
       '8. Datas retroativas exigirão justificativa individual para cada dia.',
-      'Colunas: Data, Ligações, Mensagens, Cotações Coletadas, Cotações Enviadas, Cotações Respondidas, Cotações Não Respondidas, Follow-up.',
     ],
   },
   {
     icon: ShoppingCart,
     title: 'Registrar Venda',
+    access: 'all',
     content: [
       'Acesse Comercial → aba Nova Venda.',
-      'Siga o wizard de 5 etapas:',
+      'Siga o wizard de 4 etapas:',
       '1. Modalidade — Selecione o tipo de plano.',
-      '2. Dados do Titular — Preencha nome, e-mail, telefone, endereço e valor.',
-      '3. Beneficiários — Adicione as vidas do plano.',
-      '4. Documentos — Anexe os documentos obrigatórios.',
-      '5. Revisão — Confira e finalize.',
+      '2. Formulário de Venda — Preencha dados do titular, dependentes e valor.',
+      '3. Documentos — Anexe os documentos obrigatórios (variam por modalidade).',
+      '4. Revisão — Confira e finalize.',
     ],
   },
   {
-    icon: Upload,
-    title: 'Importar Vendas via CSV',
+    icon: TrendingUp,
+    title: 'Evolução CRM',
+    access: 'all',
     content: [
-      '1. Clique em "Modelo" na seção Importar vendas em massa.',
-      '2. Preencha: Nome Titular;Modalidade;Vidas;Valor;Observações.',
-      '3. Modalidades válidas: PF, Familiar, PME Multi, Empresarial, Adesão.',
-      '4. Exemplo: João Silva;PF;1;1500;Observação opcional',
-      '5. Após o upload, será exibido um resumo com todos os dados.',
-      '6. Para cada venda, faça upload dos documentos obrigatórios antes de confirmar.',
-      '7. Documentos variam por modalidade (Doc com foto, comprovante de endereço, CNPJ, etc.).',
+      'Acesse Comercial → aba Evolução.',
+      'Visualize gráficos de atividades e faturamento por semana.',
+      'Filtre por período: últimos 30, 60 ou 90 dias.',
+      'KPIs resumidos mostram ligações, cotações, conversão e faturamento.',
+      'A barra de progresso da meta é atualizada automaticamente.',
     ],
   },
   {
     icon: FileText,
     title: 'Documentos por Modalidade',
+    access: 'all',
     content: [
+      'Os documentos obrigatórios e opcionais são definidos pelo Inventário (Modalidades).',
       'Pessoa Física: Doc com foto, comprovante de endereço.',
-      'Familiar: Todos os membros devem enviar docs. Cônjuges precisam de certidão de casamento.',
-      'PME (1 vida): Doc com foto, CNPJ, comprovante de endereço.',
-      'PME (multi vidas): Todos devem enviar docs individuais + CNPJ.',
+      'Familiar: Docs de todos os membros. Cônjuges precisam de certidão de casamento.',
+      'PME Multi: Docs individuais + CNPJ da empresa.',
       'Empresarial (10+): Docs individuais + CNPJ + comprovação de vínculo (FGTS/eSocial/CTPS).',
-      'Com plano anterior: Carteirinha, carta de permanência (PDF), 3 boletos e 3 comprovantes.',
+      'Com plano anterior: Carteirinha, carta de permanência (PDF), 3 boletos.',
+    ],
+  },
+  {
+    icon: Bell,
+    title: 'Notificações',
+    access: 'all',
+    content: [
+      'Notificações são exibidas como uma caixa de entrada com abas "Não Lidas" e "Lidas".',
+      'Marque como lida/não lida ou exclua notificações individualmente.',
+      'O sino na barra lateral mostra a contagem de não lidas em tempo real.',
+      'Administradores podem configurar a exclusão automática de notificações lidas.',
     ],
   },
   {
     icon: Flag,
-    title: 'Reportar Registro Indevido',
+    title: 'Minhas Ações',
+    access: 'all',
     content: [
-      'Acesse Comercial → aba Atividades → seção "Reportar Registro Indevido".',
-      'Selecione o tipo (atividade ou venda) e o registro específico.',
-      'Descreva o motivo da correção necessária.',
-      'O administrador será notificado e poderá editar ou excluir o registro.',
-      'Acompanhe o status da solicitação na mesma página.',
+      'Acompanhe seus registros de atividades e vendas.',
+      'Filtre por status, data e busca textual.',
+      'Registros com status "Pendente" ou "Devolvido" podem ser editados ou excluídos.',
+      'Registros aprovados ficam bloqueados para manter a integridade.',
     ],
   },
   {
     icon: Trophy,
     title: 'Sistema de Gamificação',
+    access: 'all',
     content: [
-      '💎 Diamante (≥200%): "Desempenho lendário! Você é a referência do time."',
-      '🔘 Platina (≥150%): "Incrível! Você superou todas as expectativas."',
-      '🥇 Ouro (≥100%): "Meta batida! Excelente trabalho, continue assim."',
-      '🥈 Prata (90-99%): "Está muito perto! Faltam poucos detalhes."',
-      '🥉 Bronze (80-89%): "Continue acelerando, o ouro é logo ali."',
-      'Abaixo de 80%: "Foco total! Cada esforço conta." (sem alerta visual)',
-      'Gestores também visualizam flags de risco: 🟡 Amarelo, 🟠 Laranja, 🔴 Vermelho.',
+      '💎 Diamante (≥200%): Desempenho lendário!',
+      '🔘 Platina (≥150%): Superou expectativas.',
+      '🥇 Ouro (≥100%): Meta batida!',
+      '🥈 Prata (90-99%): Muito perto!',
+      '🥉 Bronze (80-89%): Continue acelerando.',
+      'Gestores visualizam flags de risco: 🟡 Amarelo, 🟠 Laranja, 🔴 Vermelho.',
     ],
   },
   {
     icon: BarChart3,
-    title: 'Gestão (Administradores)',
+    title: 'Painel de Gestão',
+    access: 'supervisor_up',
     content: [
-      'Visível apenas para administradores.',
-      'Kanban de vendas com filtros por consultor, status e busca.',
-      'Ranking de consultores por meta atingida com patentes e flags de risco.',
-      'Gráficos comparativos de faturamento e conversão da equipe.',
+      'Visível para supervisores, gerentes e administradores.',
+      'Filtros avançados por período (semana, mês, trimestre, 30/60/90 dias) e consultor.',
+      'Abas: Comparativo (gráficos por consultor), Evolução (tendência semanal), Ranking (patentes e flags).',
+      'Kanban de vendas com busca e filtro por status.',
+      'Todos os KPIs são recalculados automaticamente ao mudar o filtro.',
+    ],
+  },
+  {
+    icon: Package,
+    title: 'Inventário',
+    access: 'admin',
+    content: [
+      'Gerencie Companhias, Produtos, Modalidades e Leads.',
+      'Modalidades definem documentos obrigatórios/opcionais e quantidade de vidas.',
+      'Leads são classificados automaticamente como PF ou Empresa com base na modalidade.',
+      'Os dados do inventário alimentam dinamicamente o formulário de vendas.',
     ],
   },
   {
     icon: UserCircle,
     title: 'Meu Perfil',
+    access: 'all',
     content: [
       'Visualize seus dados pessoais, cargo e líderes.',
       'A edição de perfil é feita exclusivamente pelo administrador.',
-      'Para alterações, solicite ao administrador do sistema.',
+      'Diretores e gerentes podem habilitar/desabilitar guias de atividades e ações.',
     ],
   },
   {
     icon: Shield,
     title: 'Segurança',
+    access: 'all',
     content: [
       'O login é feito exclusivamente com conta Google.',
-      'A autenticação em dois fatores (MFA) via Google Authenticator é obrigatória.',
-      'Você pode marcar seu navegador como seguro por até 31 dias.',
+      'Somente usuários pré-cadastrados ou com solicitação aprovada têm acesso.',
+      'O formulário de solicitação permite indicar supervisor e gerente.',
     ],
   },
 ];
 
 export function HelpGuide({ open, onOpenChange }: HelpGuideProps) {
   const [expanded, setExpanded] = useState<number | null>(null);
+  const { data: role } = useUserRole();
+
+  const isAdmin = role === 'administrador';
+  const isSupervisorUp = role === 'supervisor' || role === 'gerente' || isAdmin;
+
+  const visibleSections = sections.filter(s => {
+    if (s.access === 'all') return true;
+    if (s.access === 'supervisor_up') return isSupervisorUp;
+    if (s.access === 'admin') return isAdmin;
+    return false;
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -157,7 +205,7 @@ export function HelpGuide({ open, onOpenChange }: HelpGuideProps) {
         </DialogHeader>
         <ScrollArea className="max-h-[65vh] px-6 pb-6">
           <div className="space-y-1 mt-4">
-            {sections.map((section, i) => (
+            {visibleSections.map((section, i) => (
               <div key={i}>
                 <button
                   onClick={() => setExpanded(expanded === i ? null : i)}
@@ -178,7 +226,7 @@ export function HelpGuide({ open, onOpenChange }: HelpGuideProps) {
                     ))}
                   </div>
                 )}
-                {i < sections.length - 1 && <Separator className="bg-border/15" />}
+                {i < visibleSections.length - 1 && <Separator className="bg-border/15" />}
               </div>
             ))}
           </div>
