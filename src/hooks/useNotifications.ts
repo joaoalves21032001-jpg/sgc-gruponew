@@ -18,13 +18,12 @@ export function useNotifications() {
   const { user } = useAuth();
   const qc = useQueryClient();
 
-  // Realtime subscription
   useEffect(() => {
     if (!user) return;
     const channel = supabase
       .channel('notifications-realtime')
       .on('postgres_changes', {
-        event: 'INSERT',
+        event: '*',
         schema: 'public',
         table: 'notifications',
         filter: `user_id=eq.${user.id}`,
@@ -39,12 +38,14 @@ export function useNotifications() {
     queryKey: ['notifications', user?.id],
     queryFn: async () => {
       if (!user) return [];
+      // Trigger cleanup of old read notifications
+      await supabase.rpc('cleanup_read_notifications' as any);
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
       if (error) throw error;
       return (data ?? []) as Notification[];
     },
@@ -68,6 +69,17 @@ export function useMarkAsRead() {
   });
 }
 
+export function useMarkAsUnread() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('notifications').update({ lida: false } as any).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
 export function useMarkAllAsRead() {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -78,5 +90,45 @@ export function useMarkAllAsRead() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
+export function useDeleteNotification() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('notifications').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
+  });
+}
+
+export function useNotificationConfig() {
+  return useQuery({
+    queryKey: ['notification-config'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('system_config' as any)
+        .select('*')
+        .eq('key', 'notification_auto_delete_days')
+        .single();
+      if (error) throw error;
+      return data as unknown as { key: string; value: string };
+    },
+  });
+}
+
+export function useUpdateNotificationConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (days: number) => {
+      const { error } = await supabase
+        .from('system_config' as any)
+        .update({ value: String(days) })
+        .eq('key', 'notification_auto_delete_days');
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['notification-config'] }),
   });
 }
