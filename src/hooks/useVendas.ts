@@ -69,39 +69,52 @@ export function useCreateVenda() {
   return useMutation({
     mutationFn: async (venda: { nome_titular: string; modalidade: string; vidas: number; valor?: number; observacoes?: string; data_lancamento?: string; justificativa_retroativo?: string }) => {
       if (!user) throw new Error('Not authenticated');
+
+      // Check if user is supervisor or gerente for auto-approval
+      const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).maybeSingle();
+      const userRole = roleData?.role;
+      const isAutoApprove = userRole === 'supervisor' || userRole === 'gerente';
+
       const { data, error } = await supabase
         .from('vendas')
         .insert({
           ...venda,
           user_id: user.id,
+          ...(isAutoApprove ? { status: 'aprovado' } : {}),
         } as any)
         .select()
         .single();
       if (error) throw error;
-      return data as Venda;
+      return { ...(data as Venda), _userRole: userRole };
     },
-    onSuccess: async (data) => {
+    onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['vendas'] });
       queryClient.invalidateQueries({ queryKey: ['team-vendas'] });
 
-      // Send email notification
-      try {
-        const { data: profile } = await supabase.from('profiles').select('nome_completo').eq('id', user!.id).single();
-        await supabase.functions.invoke('send-notification', {
-          body: {
-            type: 'venda_registrada',
-            data: {
-              user_id: user!.id,
-              user_name: profile?.nome_completo || user!.email,
-              nome_titular: data.nome_titular,
-              modalidade: data.modalidade,
-              vidas: data.vidas,
-              valor: data.valor,
+      const userRole = data._userRole;
+
+      // Supervisors: auto-approved but email gerente
+      // Gerentes: auto-approved, no email
+      if (userRole !== 'gerente') {
+        try {
+          const { data: profile } = await supabase.from('profiles').select('nome_completo').eq('id', user!.id).single();
+          await supabase.functions.invoke('send-notification', {
+            body: {
+              type: 'venda_registrada',
+              data: {
+                user_id: user!.id,
+                user_name: profile?.nome_completo || user!.email,
+                nome_titular: data.nome_titular,
+                modalidade: data.modalidade,
+                vidas: data.vidas,
+                valor: data.valor,
+                auto_aprovado: userRole === 'supervisor',
+              },
             },
-          },
-        });
-      } catch (e) {
-        console.error('Notification error:', e);
+          });
+        } catch (e) {
+          console.error('Notification error:', e);
+        }
       }
     },
   });
