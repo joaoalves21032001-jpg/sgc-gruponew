@@ -181,6 +181,7 @@ export interface Lead {
   cartao_cnpj_path: string | null;
   comprovante_endereco_path: string | null;
   boletos_path: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
 }
