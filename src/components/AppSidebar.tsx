@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { HelpGuide } from './HelpGuide';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import { useSidebarOrder } from '@/hooks/useSidebarOrder';
+import { useMyTabPermissions, isTabEnabled } from '@/hooks/useTabPermissions';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 
 type NavRole = 'all' | 'admin' | 'supervisor_up';
@@ -38,6 +39,20 @@ const navItems: NavItem[] = [
   { to: '/admin/logs', icon: Activity, label: 'Logs de Auditoria', access: 'admin' },
 ];
 
+// Map nav items to tab permission keys
+const NAV_TAB_KEYS: Record<string, string> = {
+  '/': 'progresso',
+  '/comercial': 'comercial',
+  '/minhas-acoes': 'minhas-acoes',
+  '/crm': 'crm',
+  '/notificacoes': 'notificacoes',
+  '/aprovacoes': 'aprovacoes',
+  '/gestao': 'gestao',
+  '/inventario': 'inventario',
+  '/admin/usuarios': 'admin',
+  '/admin/logs': 'admin',
+};
+
 export function AppSidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
@@ -48,6 +63,7 @@ export function AppSidebar() {
   const { data: role } = useUserRole();
   const unreadNotifications = useUnreadCount();
   const { sortItems, setOrder, togglePin, isPinned } = useSidebarOrder();
+  const { data: tabPermissions = [] } = useMyTabPermissions();
 
   const [dragItem, setDragItem] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -67,6 +83,14 @@ export function AppSidebar() {
     if (item.profileToggle && profile && !isGerenteOrDirector && !isSupervisorUp) {
       if ((profile as any)[item.profileToggle]) return false;
     }
+    // Admin-defined tab permissions (admins always see everything)
+    if (!isAdmin) {
+      const tabKey = NAV_TAB_KEYS[item.to];
+      if (tabKey) {
+        const perm = tabPermissions.find(p => p.tab_key === tabKey);
+        if (perm && !perm.enabled) return false;
+      }
+    }
     return true;
   };
 
@@ -77,7 +101,7 @@ export function AppSidebar() {
       return sorted.filter(item => item.label.toLowerCase().includes(search.toLowerCase()));
     }
     return sorted;
-  }, [search, role, profile, isAdmin, isSupervisorUp, sortItems]);
+  }, [search, role, profile, isAdmin, isSupervisorUp, tabPermissions, sortItems]);
 
   const handleDragStart = (path: string) => {
     setDragItem(path);
