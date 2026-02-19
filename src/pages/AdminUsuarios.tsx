@@ -559,21 +559,6 @@ const AdminUsuarios = () => {
                 </FieldWithTooltip>
               </div>
 
-              {/* Atividades Toggle (for Diretores) */}
-              {editingId && (
-                <div className="mt-4 flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
-                  <input
-                    type="checkbox"
-                    checked={form.atividades_desabilitadas}
-                    onChange={(e) => setField('atividades_desabilitadas', e.target.checked ? 'true' : 'false')}
-                    className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Desabilitar Registro de Atividades</p>
-                    <p className="text-xs text-muted-foreground">Diretores podem desabilitar a guia de atividades para este usuário.</p>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Tab Permissions (only when editing existing user) */}
