@@ -5,9 +5,10 @@ import { Separator } from '@/components/ui/separator';
 import {
   BookOpen, LayoutDashboard, Briefcase, BarChart3, UserCircle,
   ClipboardList, ShoppingCart, FileText, Shield, ChevronRight, Upload, Flag, Trophy,
-  TrendingUp, Package, Bell
+  TrendingUp, Package, Bell, Kanban
 } from 'lucide-react';
 import { useUserRole } from '@/hooks/useProfile';
+import { useMyTabPermissions, isTabEnabled } from '@/hooks/useTabPermissions';
 
 interface HelpGuideProps {
   open: boolean;
@@ -19,6 +20,7 @@ interface HelpSection {
   title: string;
   content: string[];
   access: 'all' | 'supervisor_up' | 'admin';
+  tabKey?: string; // matches tab permission key
 }
 
 const sections: HelpSection[] = [
@@ -26,6 +28,7 @@ const sections: HelpSection[] = [
     icon: LayoutDashboard,
     title: 'Meu Progresso',
     access: 'all',
+    tabKey: 'progresso',
     content: [
       'O Dashboard exibe um resumo das suas atividades e vendas do mês.',
       'Os cards mostram KPIs como ligações, cotações e vendas.',
@@ -38,6 +41,7 @@ const sections: HelpSection[] = [
     icon: ClipboardList,
     title: 'Registrar Atividades',
     access: 'all',
+    tabKey: 'comercial',
     content: [
       'Acesse Comercial → aba Atividades.',
       'Preencha TODOS os campos numéricos (mesmo que seja 0).',
@@ -51,6 +55,7 @@ const sections: HelpSection[] = [
     icon: Upload,
     title: 'Importar Atividades via CSV',
     access: 'all',
+    tabKey: 'comercial',
     content: [
       '1. Clique em "Modelo" para baixar a planilha padrão.',
       '2. Preencha seguindo o formato: dd/mm/aaaa para datas, valores numéricos inteiros.',
@@ -66,6 +71,7 @@ const sections: HelpSection[] = [
     icon: ShoppingCart,
     title: 'Registrar Venda',
     access: 'all',
+    tabKey: 'comercial',
     content: [
       'Acesse Comercial → aba Nova Venda.',
       'Siga o wizard de 4 etapas:',
@@ -79,6 +85,7 @@ const sections: HelpSection[] = [
     icon: TrendingUp,
     title: 'Evolução CRM',
     access: 'all',
+    tabKey: 'comercial',
     content: [
       'Acesse Comercial → aba Evolução.',
       'Visualize gráficos de atividades e faturamento por semana.',
@@ -88,9 +95,23 @@ const sections: HelpSection[] = [
     ],
   },
   {
+    icon: Kanban,
+    title: 'CRM (Kanban)',
+    access: 'all',
+    tabKey: 'crm',
+    content: [
+      'Visualize todos os leads em um quadro Kanban com colunas personalizáveis.',
+      'Arraste os cards entre colunas para atualizar o estágio do lead.',
+      'Crie novos leads clicando no botão "+" dentro de qualquer coluna.',
+      'Para editar ou excluir um lead, envie uma solicitação ao administrador com justificativa.',
+      'Administradores podem adicionar, renomear e reordenar colunas livremente.',
+    ],
+  },
+  {
     icon: FileText,
     title: 'Documentos por Modalidade',
     access: 'all',
+    tabKey: 'comercial',
     content: [
       'Os documentos obrigatórios e opcionais são definidos pelo Inventário (Modalidades).',
       'Pessoa Física: Doc com foto, comprovante de endereço.',
@@ -104,6 +125,7 @@ const sections: HelpSection[] = [
     icon: Bell,
     title: 'Notificações',
     access: 'all',
+    tabKey: 'notificacoes',
     content: [
       'Notificações são exibidas como uma caixa de entrada com abas "Não Lidas" e "Lidas".',
       'Marque como lida/não lida ou exclua notificações individualmente.',
@@ -115,6 +137,7 @@ const sections: HelpSection[] = [
     icon: Flag,
     title: 'Minhas Ações',
     access: 'all',
+    tabKey: 'minhas-acoes',
     content: [
       'Acompanhe seus registros de atividades e vendas.',
       'Filtre por status, data e busca textual.',
@@ -126,6 +149,7 @@ const sections: HelpSection[] = [
     icon: Trophy,
     title: 'Sistema de Gamificação',
     access: 'all',
+    tabKey: 'progresso',
     content: [
       '💎 Diamante (≥200%): Desempenho lendário!',
       '🔘 Platina (≥150%): Superou expectativas.',
@@ -139,6 +163,7 @@ const sections: HelpSection[] = [
     icon: BarChart3,
     title: 'Painel de Gestão',
     access: 'supervisor_up',
+    tabKey: 'gestao',
     content: [
       'Visível para supervisores, gerentes e administradores.',
       'Filtros avançados por período (semana, mês, trimestre, 30/60/90 dias) e consultor.',
@@ -150,7 +175,8 @@ const sections: HelpSection[] = [
   {
     icon: Package,
     title: 'Inventário',
-    access: 'admin',
+    access: 'all',
+    tabKey: 'inventario',
     content: [
       'Gerencie Companhias, Produtos, Modalidades e Leads.',
       'Modalidades definem documentos obrigatórios/opcionais e quantidade de vidas.',
@@ -183,15 +209,20 @@ const sections: HelpSection[] = [
 export function HelpGuide({ open, onOpenChange }: HelpGuideProps) {
   const [expanded, setExpanded] = useState<number | null>(null);
   const { data: role } = useUserRole();
+  const { data: tabPerms = [] } = useMyTabPermissions();
 
   const isAdmin = role === 'administrador';
   const isSupervisorUp = role === 'supervisor' || role === 'gerente' || isAdmin;
 
   const visibleSections = sections.filter(s => {
-    if (s.access === 'all') return true;
-    if (s.access === 'supervisor_up') return isSupervisorUp;
-    if (s.access === 'admin') return isAdmin;
-    return false;
+    // Role-based access
+    if (s.access === 'supervisor_up' && !isSupervisorUp) return false;
+    if (s.access === 'admin' && !isAdmin) return false;
+    // Tab permission-based: admins see all
+    if (!isAdmin && s.tabKey) {
+      if (!isTabEnabled(tabPerms, s.tabKey)) return false;
+    }
+    return true;
   });
 
   return (
