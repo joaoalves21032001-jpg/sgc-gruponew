@@ -60,7 +60,7 @@ serve(async (req) => {
       nextCode = `GN${String(num + 1).padStart(3, "0")}`;
     }
 
-    // Update profile with full data
+    // Update profile with full data and enable the user
     const { error: profileError } = await supabaseAdmin.from("profiles").update({
       nome_completo,
       apelido: nome_completo.split(" ")[0],
@@ -74,6 +74,7 @@ serve(async (req) => {
       gerente_id: gerente_id || null,
       numero_emergencia_1: numero_emergencia_1 || null,
       numero_emergencia_2: numero_emergencia_2 || null,
+      disabled: false,
     }).eq("id", userId);
 
     if (profileError) throw profileError;

@@ -76,6 +76,16 @@ const Login = () => {
       toast.error('Preencha todos os campos obrigatórios.');
       return;
     }
+    // Validate supervisor/gerente based on cargo
+    const cargo = requestForm.cargo;
+    if (!['Supervisor', 'Gerente', 'Diretor'].includes(cargo) && !selectedSupervisor) {
+      toast.error('Selecione o Supervisor.');
+      return;
+    }
+    if (!['Gerente', 'Diretor'].includes(cargo) && !selectedGerente) {
+      toast.error('Selecione o Gerente.');
+      return;
+    }
     setSubmitting(true);
     try {
       const { error } = await supabase.functions.invoke('notify-access-request', {
@@ -309,39 +319,39 @@ const Login = () => {
             </div>
 
             {/* Líderes */}
+            {!['Gerente', 'Diretor'].includes(requestForm.cargo) && (
             <div>
-              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Líderes (Opcional)</h3>
+              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Líderes</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {!['Supervisor', 'Gerente', 'Diretor'].includes(requestForm.cargo) && (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Supervisor</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Supervisor *</label>
                   <Select 
                     value={selectedSupervisor} 
                     onValueChange={setSelectedSupervisor}
-                    disabled={['Supervisor', 'Gerente', 'Diretor'].includes(requestForm.cargo)}
                   >
-                    <SelectTrigger className="h-10"><SelectValue placeholder={['Supervisor', 'Gerente', 'Diretor'].includes(requestForm.cargo) ? 'N/A' : 'Selecione...'} /></SelectTrigger>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Nenhum</SelectItem>
                       {supervisores.map(s => <SelectItem key={s.id} value={s.id}>{s.nome_completo}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
+                )}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Gerente</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Gerente *</label>
                   <Select 
                     value={selectedGerente} 
                     onValueChange={setSelectedGerente}
-                    disabled={['Gerente', 'Diretor'].includes(requestForm.cargo)}
                   >
-                    <SelectTrigger className="h-10"><SelectValue placeholder={['Gerente', 'Diretor'].includes(requestForm.cargo) ? 'N/A' : 'Selecione...'} /></SelectTrigger>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="none">Nenhum</SelectItem>
                       {gerentes.map(g => <SelectItem key={g.id} value={g.id}>{g.nome_completo}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
             </div>
+            )}
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mensagem (Opcional)</label>
               <Textarea value={requestForm.mensagem} onChange={(e) => setField('mensagem', e.target.value)} placeholder="Informações adicionais..." rows={2} />

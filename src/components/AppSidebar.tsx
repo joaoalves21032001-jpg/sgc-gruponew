@@ -80,15 +80,11 @@ export function AppSidebar() {
   const canAccess = (item: NavItem) => {
     if (item.access === 'admin' && !isAdmin) return false;
     if (item.access === 'supervisor_up' && !isSupervisorUp) return false;
-    if (item.profileToggle && profile && !isGerenteOrDirector && !isSupervisorUp) {
-      if ((profile as any)[item.profileToggle]) return false;
-    }
     // Admin-defined tab permissions (admins always see everything)
     if (!isAdmin) {
       const tabKey = NAV_TAB_KEYS[item.to];
       if (tabKey) {
-        const perm = tabPermissions.find(p => p.tab_key === tabKey);
-        if (perm && !perm.enabled) return false;
+        if (!isTabEnabled(tabPermissions, tabKey)) return false;
       }
     }
     return true;
