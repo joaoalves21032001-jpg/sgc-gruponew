@@ -184,9 +184,27 @@ const Aprovacoes = () => {
         const { data: cpfCheck } = await supabase.from('profiles').select('id').eq('cpf', req.cpf).maybeSingle();
         if (cpfCheck) { toast.error(`Já existe usuário com CPF ${req.cpf}.`); setSavingAccess(false); return; }
       }
+      // Create the user via admin edge function
+      const { data: createResult, error: createError } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          email: req.email,
+          nome_completo: req.nome,
+          celular: req.telefone,
+          cpf: req.cpf,
+          rg: req.rg,
+          endereco: req.endereco,
+          cargo: req.cargo || 'Consultor de Vendas',
+          role: req.nivel_acesso || 'consultor',
+          numero_emergencia_1: req.numero_emergencia_1,
+          numero_emergencia_2: req.numero_emergencia_2,
+        },
+      });
+      if (createError) throw createError;
+      if (createResult?.error) throw new Error(createResult.error);
+      
       const { error } = await supabase.from('access_requests').update({ status: 'aprovado' } as any).eq('id', req.id);
       if (error) throw error;
-      toast.success(`Acesso aprovado para ${req.nome}!`);
+      toast.success(`Acesso aprovado e usuário criado para ${req.nome}!`);
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao aprovar.');
