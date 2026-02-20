@@ -38,15 +38,14 @@ const Login = () => {
   useEffect(() => {
     if (!showRequest) return;
     const fetchLeaders = async () => {
-      const { data } = await supabase
-        .from('profiles')
-        .select('id, nome_completo, cargo')
-        .in('cargo', ['Supervisor', 'Gerente', 'Diretor'])
-        .eq('disabled', false)
-        .order('nome_completo');
-      if (data) {
-        setSupervisores(data.filter(p => p.cargo === 'Supervisor'));
-        setGerentes(data.filter(p => p.cargo === 'Gerente' || p.cargo === 'Diretor'));
+      try {
+        const { data, error } = await supabase.functions.invoke('get-leaders');
+        if (error) throw error;
+        const leaders = data as LeaderOption[];
+        setSupervisores(leaders.filter(p => p.cargo === 'Supervisor'));
+        setGerentes(leaders.filter(p => p.cargo === 'Gerente' || p.cargo === 'Diretor'));
+      } catch (err) {
+        console.error('Error fetching leaders:', err);
       }
     };
     fetchLeaders();
