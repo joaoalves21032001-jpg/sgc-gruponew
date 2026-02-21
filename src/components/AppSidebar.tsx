@@ -14,6 +14,7 @@ import { HelpGuide } from './HelpGuide';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import { useSidebarOrder } from '@/hooks/useSidebarOrder';
 import { useMyTabPermissions, isTabEnabled } from '@/hooks/useTabPermissions';
+import { usePendingApprovals, useMyPendingActions } from '@/hooks/usePendingCounts';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 
 type NavRole = 'all' | 'admin' | 'supervisor_up';
@@ -64,6 +65,8 @@ export function AppSidebar() {
   const unreadNotifications = useUnreadCount();
   const { sortItems, setOrder, togglePin, isPinned } = useSidebarOrder();
   const { data: tabPermissions = [] } = useMyTabPermissions();
+  const { data: pendingApprovals = 0 } = usePendingApprovals();
+  const { data: pendingActions = 0 } = useMyPendingActions();
 
   const [dragItem, setDragItem] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -136,7 +139,7 @@ export function AppSidebar() {
 
   const renderNavItem = (item: NavItem) => {
     const isActive = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to);
-    const unreadCount = item.to === '/notificacoes' ? unreadNotifications : 0;
+    const badgeCount = item.to === '/notificacoes' ? unreadNotifications : item.to === '/aprovacoes' ? pendingApprovals : item.to === '/minhas-acoes' ? pendingActions : 0;
     const pinned = isPinned(item.to);
     const isDragging = dragItem === item.to;
     const isDragTarget = dragOver === item.to;
@@ -171,16 +174,16 @@ export function AppSidebar() {
           >
             <div className="relative shrink-0">
               <item.icon className={`w-[18px] h-[18px] ${isActive ? 'text-white' : ''}`} />
-              {item.to === '/notificacoes' && unreadCount > 0 && (
+              {badgeCount > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center">
-                  {unreadCount > 9 ? '9+' : unreadCount}
+                  {badgeCount > 9 ? '9+' : badgeCount}
                 </span>
               )}
             </div>
             {!collapsed && <span className="flex-1">{item.label}</span>}
-            {!collapsed && item.to === '/notificacoes' && unreadCount > 0 && (
+            {!collapsed && badgeCount > 0 && (
               <span className="ml-auto px-1.5 py-0.5 rounded-full bg-destructive text-[10px] font-bold text-white">
-                {unreadCount}
+                {badgeCount}
               </span>
             )}
           </NavLink>
