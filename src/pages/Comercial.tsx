@@ -582,11 +582,6 @@ function NovaVendaTab() {
 /*              PÁGINA COMERCIAL                   */
 /* ═══════════════════════════════════════════════ */
 const Comercial = () => {
-  const { data: profileData } = useProfile();
-  const { data: roleData } = useUserRole();
-  const atividadesDesabilitadas = profileData?.atividades_desabilitadas === true;
-  const isAdmin = roleData === 'administrador';
-
   return (
     <div className="max-w-5xl space-y-6 animate-fade-in-up">
       <div>
@@ -594,36 +589,23 @@ const Comercial = () => {
         <p className="text-sm text-muted-foreground mt-1">Atividades diárias e registro de vendas</p>
       </div>
 
-      {atividadesDesabilitadas ? (
-        /* If activities are disabled for this user, show only Nova Venda */
-        <div className="space-y-6">
-          <div className="bg-accent/50 rounded-xl p-3 border border-border/30 flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-            <p className="text-xs text-muted-foreground">
-              A guia de registro de atividades está desabilitada para o seu perfil. Somente o registro de vendas está disponível.
-            </p>
-          </div>
-          <NovaVendaTab />
-        </div>
-      ) : (
-        <Tabs defaultValue="atividades" className="space-y-6">
-          <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg">
-            <TabsTrigger value="atividades" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
-              <ClipboardList className="w-4 h-4" /> Atividades
-            </TabsTrigger>
-            <TabsTrigger value="nova-venda" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
-              <ShoppingCart className="w-4 h-4" /> Nova Venda
-            </TabsTrigger>
-            <TabsTrigger value="evolucao" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
-              <TrendingUp className="w-4 h-4" /> Evolução
-            </TabsTrigger>
-          </TabsList>
+      <Tabs defaultValue="atividades" className="space-y-6">
+        <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg">
+          <TabsTrigger value="atividades" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
+            <ClipboardList className="w-4 h-4" /> Atividades
+          </TabsTrigger>
+          <TabsTrigger value="nova-venda" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
+            <ShoppingCart className="w-4 h-4" /> Nova Venda
+          </TabsTrigger>
+          <TabsTrigger value="evolucao" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
+            <TrendingUp className="w-4 h-4" /> Evolução
+          </TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="atividades"><AtividadesTab /></TabsContent>
-          <TabsContent value="nova-venda"><NovaVendaTab /></TabsContent>
-          <TabsContent value="evolucao"><EvolucaoTab /></TabsContent>
-        </Tabs>
-      )}
+        <TabsContent value="atividades"><AtividadesTab /></TabsContent>
+        <TabsContent value="nova-venda"><NovaVendaTab /></TabsContent>
+        <TabsContent value="evolucao"><EvolucaoTab /></TabsContent>
+      </Tabs>
     </div>
   );
 };
