@@ -78,7 +78,7 @@ const Login = () => {
     // Validate supervisor/gerente based on cargo
     const cargo = requestForm.cargo;
     if (!['Supervisor', 'Gerente', 'Diretor'].includes(cargo) && !selectedSupervisor) {
-      toast.error('Selecione o Supervisor.');
+      toast.error('Selecione o Supervisor ou "Nenhum".');
       return;
     }
     if (!['Gerente', 'Diretor'].includes(cargo) && !selectedGerente) {
@@ -331,6 +331,7 @@ const Login = () => {
                   >
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="nenhum">Nenhum (responde ao Gerente)</SelectItem>
                       {supervisores.map(s => <SelectItem key={s.id} value={s.id}>{s.nome_completo}</SelectItem>)}
                     </SelectContent>
                   </Select>
