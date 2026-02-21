@@ -326,11 +326,26 @@ const Aprovacoes = () => {
                           {new Date(a.created_at).toLocaleDateString('pt-BR')} — ID: {a.id.slice(0, 8)}...
                         </p>
                       </div>
-                      {(ativStatus === 'pendente') && (
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold shrink-0" onClick={() => { setSelectedAtiv(a); setAtivJustificativa(''); }}>
-                          <Eye className="w-4 h-4" /> Analisar
-                        </Button>
-                      )}
+                      <div className="flex gap-1.5 shrink-0">
+                        {(ativStatus === 'pendente') && (
+                          <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedAtiv(a); setAtivJustificativa(''); }}>
+                            <Eye className="w-4 h-4" /> Analisar
+                          </Button>
+                        )}
+                        {isAdmin && (
+                          <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={async () => {
+                            if (!confirm('Excluir esta atividade?')) return;
+                            try {
+                              const { error } = await supabase.from('atividades').delete().eq('id', a.id);
+                              if (error) throw error;
+                              toast.success('Atividade excluída!');
+                              queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
+                            } catch (err: any) { toast.error(err.message); }
+                          }}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -373,11 +388,26 @@ const Aprovacoes = () => {
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">ID: {v.id.slice(0, 8)}...</p>
                       </div>
-                      {isPending && (
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold shrink-0" onClick={() => { setSelectedVenda(v); setObs(v.observacoes || ''); setJustificativa(''); }}>
-                          <Eye className="w-4 h-4" /> Analisar
-                        </Button>
-                      )}
+                      <div className="flex gap-1.5 shrink-0">
+                        {isPending && (
+                          <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedVenda(v); setObs(v.observacoes || ''); setJustificativa(''); }}>
+                            <Eye className="w-4 h-4" /> Analisar
+                          </Button>
+                        )}
+                        {isAdmin && (
+                          <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={async () => {
+                            if (!confirm('Excluir esta venda?')) return;
+                            try {
+                              const { error } = await supabase.from('vendas').delete().eq('id', v.id);
+                              if (error) throw error;
+                              toast.success('Venda excluída!');
+                              queryClient.invalidateQueries({ queryKey: ['team-vendas'] });
+                            } catch (err: any) { toast.error(err.message); }
+                          }}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     {v.observacoes && (
                       <div className="p-3 bg-muted/30 rounded-lg">

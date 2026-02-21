@@ -624,15 +624,15 @@ const AdminUsuarios = () => {
                 if (!deleteConfirm) return;
                 setDeleting(true);
                 try {
-                  const { error: profileError } = await supabase.from('profiles').delete().eq('id', deleteConfirm.id);
-                  try {
-                    await supabase.functions.invoke('admin-delete-user', {
-                      body: { user_id: deleteConfirm.id },
-                    });
-                  } catch (e) {
-                    console.error('Auth delete error:', e);
-                  }
+                  // Delete auth user first (this cascades profile via trigger)
+                  const { data: delResult, error: delError } = await supabase.functions.invoke('admin-delete-user', {
+                    body: { user_id: deleteConfirm.id },
+                  });
+                  if (delError) throw delError;
+                  if (delResult?.error) throw new Error(delResult.error);
+                  // Clean up remaining data
                   await supabase.from('user_roles').delete().eq('user_id', deleteConfirm.id);
+                  await supabase.from('profiles').delete().eq('id', deleteConfirm.id);
                   toast.success('Usuário excluído!');
                   queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
                   setDeleteConfirm(null);
