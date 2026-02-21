@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import {
   Plus, Pencil, Trash2, GripVertical, Settings, X, Upload, FileText, MoreHorizontal, User, Mail, Phone, MapPin, Shield
 } from 'lucide-react';
+import { maskCPF, maskPhone } from '@/lib/masks';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 /* ─── Stage Settings Dialog ─── */
@@ -494,11 +495,11 @@ export function KanbanBoard() {
               <Input value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} className="h-10" />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div><label className="text-xs font-semibold text-muted-foreground">Contato</label><Input value={form.contato} onChange={e => setForm(p => ({ ...p, contato: e.target.value }))} className="h-10" /></div>
+              <div><label className="text-xs font-semibold text-muted-foreground">Contato</label><Input value={form.contato} onChange={e => setForm(p => ({ ...p, contato: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" /></div>
               <div><label className="text-xs font-semibold text-muted-foreground">E-mail</label><Input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} className="h-10" /></div>
             </div>
             {isPessoaFisica(form.tipo) ? (
-              <div><label className="text-xs font-semibold text-muted-foreground">CPF</label><Input value={form.cpf} onChange={e => setForm(p => ({ ...p, cpf: e.target.value }))} className="h-10" /></div>
+              <div><label className="text-xs font-semibold text-muted-foreground">CPF</label><Input value={form.cpf} onChange={e => setForm(p => ({ ...p, cpf: maskCPF(e.target.value) }))} placeholder="000.000.000-00" className="h-10" /></div>
             ) : (
               <div><label className="text-xs font-semibold text-muted-foreground">CNPJ</label><Input value={form.cnpj} onChange={e => setForm(p => ({ ...p, cnpj: e.target.value }))} className="h-10" /></div>
             )}

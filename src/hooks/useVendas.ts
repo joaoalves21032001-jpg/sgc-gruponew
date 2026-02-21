@@ -70,10 +70,11 @@ export function useCreateVenda() {
     mutationFn: async (venda: { nome_titular: string; modalidade: string; vidas: number; valor?: number; observacoes?: string; data_lancamento?: string; justificativa_retroativo?: string }) => {
       if (!user) throw new Error('Not authenticated');
 
-      // Check if user is supervisor or gerente for auto-approval
+      // Check if user is gerente or above for auto-approval
+      // Supervisors submit for gerente approval; gerente+ auto-approved
       const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).maybeSingle();
       const userRole = roleData?.role;
-      const isAutoApprove = userRole === 'supervisor' || userRole === 'gerente';
+      const isAutoApprove = userRole === 'gerente';
 
       const { data, error } = await supabase
         .from('vendas')
