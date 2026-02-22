@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
 import { useUserTabPermissions, useSetTabPermission, ALL_TABS } from '@/hooks/useTabPermissions';
+import { useLogAction } from '@/hooks/useAuditLog';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -124,6 +125,7 @@ function TabPermissionsPanel({ userId }: { userId: string }) {
 const AdminUsuarios = () => {
   const { data: role } = useUserRole();
   const { data: allProfiles, isLoading } = useTeamProfiles();
+  const logAction = useLogAction();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormData>({ ...emptyForm });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -174,7 +176,6 @@ const AdminUsuarios = () => {
   const setField = (key: keyof FormData, value: string | boolean) => {
     setForm(prev => {
       const next = { ...prev, [key]: value };
-      // Auto-clear supervisor/gerente when cargo changes
       if (key === 'cargo') {
         if (['Supervisor', 'Gerente', 'Diretor'].includes(value as string)) {
           next.supervisor_id = 'none';
@@ -197,7 +198,6 @@ const AdminUsuarios = () => {
 
   const handleEdit = async (profile: Profile) => {
     setEditingId(profile.id);
-    // Fetch the current role from DB to avoid overwriting with default
     const { data: roleData } = await supabase
       .from('user_roles')
       .select('role')
@@ -227,11 +227,6 @@ const AdminUsuarios = () => {
     setOpen(true);
   };
 
-  const generateCodigo = () => {
-    const count = allProfiles?.length ?? 0;
-    return `GN${String(count + 1).padStart(3, '0')}`;
-  };
-
   const handleSave = async () => {
     const required: (keyof FormData)[] = [
       'email', 'nome_completo', 'apelido', 'celular', 'cpf', 'rg',
@@ -248,23 +243,20 @@ const AdminUsuarios = () => {
     setSaving(true);
     try {
       let avatarUrl = avatarPreview;
-      let codigo = form.codigo;
-      if (!codigo.trim()) {
-        codigo = generateCodigo();
-      }
-
-      if (avatarFile && editingId) {
-        const ext = avatarFile.name.split('.').pop();
-        const path = `${editingId}/avatar.${ext}`;
-        const { error: uploadError } = await supabase.storage
-          .from('avatars')
-          .upload(path, avatarFile, { upsert: true });
-        if (uploadError) throw uploadError;
-        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-        avatarUrl = urlData.publicUrl;
-      }
 
       if (editingId) {
+        // EDITING existing user
+        if (avatarFile) {
+          const ext = avatarFile.name.split('.').pop();
+          const path = `${editingId}/avatar.${ext}`;
+          const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(path, avatarFile, { upsert: true });
+          if (uploadError) throw uploadError;
+          const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+          avatarUrl = urlData.publicUrl;
+        }
+
         const { error } = await supabase.from('profiles').update({
           nome_completo: form.nome_completo,
           apelido: form.apelido,
@@ -273,7 +265,6 @@ const AdminUsuarios = () => {
           rg: form.rg,
           endereco: form.endereco,
           cargo: form.cargo,
-          codigo,
           numero_emergencia_1: form.numero_emergencia_1,
           numero_emergencia_2: form.numero_emergencia_2,
           supervisor_id: form.supervisor_id && form.supervisor_id !== 'none' ? form.supervisor_id : null,
@@ -285,20 +276,42 @@ const AdminUsuarios = () => {
 
         if (error) throw error;
         await supabase.from('user_roles').update({ role: form.role }).eq('user_id', editingId);
+        await logAction('editar_usuario', 'profile', editingId, { nome: form.nome_completo, email: form.email });
         toast.success('Usuário atualizado com sucesso!');
       } else {
-        toast.info('O perfil será criado automaticamente quando o usuário fizer login com o Google pela primeira vez. Os dados serão atualizados após o primeiro login.');
-      }
-
-      try {
-        await supabase.functions.invoke('send-notification', {
+        // CREATING new user via edge function
+        const { data: createResult, error: createError } = await supabase.functions.invoke('admin-create-user', {
           body: {
-            type: 'novo_usuario',
-            data: { nome: form.nome_completo, email: form.email, cargo: form.cargo },
+            email: form.email,
+            nome_completo: form.nome_completo,
+            celular: form.celular,
+            cpf: form.cpf,
+            rg: form.rg,
+            endereco: form.endereco,
+            cargo: form.cargo,
+            role: form.role,
+            supervisor_id: form.supervisor_id && form.supervisor_id !== 'none' ? form.supervisor_id : null,
+            gerente_id: form.gerente_id && form.gerente_id !== 'none' ? form.gerente_id : null,
+            numero_emergencia_1: form.numero_emergencia_1,
+            numero_emergencia_2: form.numero_emergencia_2,
           },
         });
-      } catch (e) {
-        console.error('Notification error:', e);
+        if (createError) throw createError;
+        if (createResult?.error) throw new Error(createResult.error);
+
+        const userId = createResult?.user_id;
+
+        // Update additional fields not handled by edge function
+        if (userId) {
+          await supabase.from('profiles').update({
+            apelido: form.apelido,
+            meta_faturamento: form.meta_faturamento ? parseFloat(form.meta_faturamento) : null,
+            atividades_desabilitadas: form.atividades_desabilitadas,
+          }).eq('id', userId);
+        }
+
+        await logAction('criar_usuario', 'profile', userId, { nome: form.nome_completo, email: form.email });
+        toast.success(`Usuário ${form.nome_completo} criado com sucesso! Código: ${createResult?.codigo || 'gerado'}`);
       }
 
       queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
@@ -319,6 +332,7 @@ const AdminUsuarios = () => {
       const isDisabled = (profile as any).disabled === true;
       const { error } = await supabase.from('profiles').update({ disabled: !isDisabled } as any).eq('id', profile.id);
       if (error) throw error;
+      await logAction(isDisabled ? 'reativar_usuario' : 'desabilitar_usuario', 'profile', profile.id, { nome: profile.nome_completo });
       toast.success(isDisabled ? 'Usuário reativado!' : 'Usuário desabilitado!');
       queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
       setDisableConfirm(null);
@@ -558,7 +572,6 @@ const AdminUsuarios = () => {
                   </Select>
                 </FieldWithTooltip>
               </div>
-
             </div>
 
             {/* Tab Permissions (only when editing existing user) */}
@@ -624,15 +637,16 @@ const AdminUsuarios = () => {
                 if (!deleteConfirm) return;
                 setDeleting(true);
                 try {
-                  // Delete auth user first (this cascades profile via trigger)
+                  // Delete profile and role data first to prevent trigger recreation
+                  await supabase.from('user_roles').delete().eq('user_id', deleteConfirm.id);
+                  await supabase.from('profiles').delete().eq('id', deleteConfirm.id);
+                  // Then delete auth user
                   const { data: delResult, error: delError } = await supabase.functions.invoke('admin-delete-user', {
                     body: { user_id: deleteConfirm.id },
                   });
                   if (delError) throw delError;
                   if (delResult?.error) throw new Error(delResult.error);
-                  // Clean up remaining data
-                  await supabase.from('user_roles').delete().eq('user_id', deleteConfirm.id);
-                  await supabase.from('profiles').delete().eq('id', deleteConfirm.id);
+                  await logAction('excluir_usuario', 'profile', deleteConfirm.id, { nome: deleteConfirm.nome_completo, email: deleteConfirm.email });
                   toast.success('Usuário excluído!');
                   queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
                   setDeleteConfirm(null);

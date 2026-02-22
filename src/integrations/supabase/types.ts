@@ -21,6 +21,7 @@ export type Database = {
           created_at: string
           email: string
           endereco: string | null
+          gerente_id: string | null
           id: string
           mensagem: string | null
           motivo_recusa: string | null
@@ -30,6 +31,7 @@ export type Database = {
           numero_emergencia_2: string | null
           rg: string | null
           status: string
+          supervisor_id: string | null
           telefone: string | null
         }
         Insert: {
@@ -38,6 +40,7 @@ export type Database = {
           created_at?: string
           email: string
           endereco?: string | null
+          gerente_id?: string | null
           id?: string
           mensagem?: string | null
           motivo_recusa?: string | null
@@ -47,6 +50,7 @@ export type Database = {
           numero_emergencia_2?: string | null
           rg?: string | null
           status?: string
+          supervisor_id?: string | null
           telefone?: string | null
         }
         Update: {
@@ -55,6 +59,7 @@ export type Database = {
           created_at?: string
           email?: string
           endereco?: string | null
+          gerente_id?: string | null
           id?: string
           mensagem?: string | null
           motivo_recusa?: string | null
@@ -64,6 +69,7 @@ export type Database = {
           numero_emergencia_2?: string | null
           rg?: string | null
           status?: string
+          supervisor_id?: string | null
           telefone?: string | null
         }
         Relationships: []
