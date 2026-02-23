@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
-import { useLeadStages, useCreateLeadStage, useUpdateLeadStage, useDeleteLeadStage, useMoveLeadToStage, type LeadStage } from '@/hooks/useLeadStages';
+import { useLeadStages, useMoveLeadToStage, type LeadStage } from '@/hooks/useLeadStages';
 import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, type Lead } from '@/hooks/useInventario';
 import { useModalidades } from '@/hooks/useInventario';
-import { useUserRole } from '@/hooks/useProfile';
+import { useUserRole, useProfile, useTeamProfiles } from '@/hooks/useProfile';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,120 +13,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
-  Plus, Pencil, Trash2, GripVertical, Settings, X, Upload, FileText, MoreHorizontal, User, Mail, Phone, MapPin, Shield
+  Plus, Pencil, Trash2, X, Upload, MoreHorizontal, Phone, Mail, Shield, User
 } from 'lucide-react';
 import { maskCPF, maskPhone } from '@/lib/masks';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
-/* ─── Stage Settings Dialog ─── */
-function StageSettingsDialog({ open, onOpenChange, stages }: { open: boolean; onOpenChange: (v: boolean) => void; stages: LeadStage[] }) {
-  const createMut = useCreateLeadStage();
-  const updateMut = useUpdateLeadStage();
-  const deleteMut = useDeleteLeadStage();
-  const [newName, setNewName] = useState('');
-  const [newColor, setNewColor] = useState('#3b82f6');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editName, setEditName] = useState('');
-  const [editColor, setEditColor] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const handleAdd = async () => {
-    if (!newName.trim()) return;
-    setSaving(true);
-    try {
-      await createMut.mutateAsync({ nome: newName.trim(), cor: newColor, ordem: stages.length });
-      toast.success('Coluna criada!');
-      setNewName('');
-      setNewColor('#3b82f6');
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-
-  const handleUpdate = async (id: string) => {
-    if (!editName.trim()) return;
-    setSaving(true);
-    try {
-      await updateMut.mutateAsync({ id, nome: editName.trim(), cor: editColor });
-      toast.success('Coluna atualizada!');
-      setEditingId(null);
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-
-  const handleDelete = async (id: string) => {
-    setSaving(true);
-    try {
-      await deleteMut.mutateAsync(id);
-      toast.success('Coluna excluída!');
-    } catch (e: any) { toast.error(e.message); }
-    finally { setSaving(false); }
-  };
-
-  const presetColors = ['#3b82f6', '#f59e0b', '#22c55e', '#8b5cf6', '#ef4444', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6', '#84cc16', '#64748b'];
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
-        <DialogHeader><DialogTitle className="font-display">Gerenciar Colunas</DialogTitle><DialogDescription>Crie, edite ou exclua as colunas do board.</DialogDescription></DialogHeader>
-        <div className="space-y-3">
-          {stages.map((s, i) => (
-            <div key={s.id} className="flex items-center gap-2 p-2.5 rounded-lg border border-border/30 bg-muted/30">
-              <div className="w-4 h-4 rounded-full shrink-0 border border-border/50" style={{ backgroundColor: editingId === s.id ? editColor : s.cor }} />
-              {editingId === s.id ? (
-                <div className="flex-1 space-y-2">
-                  <Input value={editName} onChange={e => setEditName(e.target.value)} className="h-8 text-sm" />
-                  <div className="flex flex-wrap gap-1.5">
-                    {presetColors.map(c => (
-                      <button key={c} className={`w-6 h-6 rounded-full border-2 transition-transform ${editColor === c ? 'border-foreground scale-110' : 'border-transparent'}`} style={{ backgroundColor: c }} onClick={() => setEditColor(c)} />
-                    ))}
-                    <input type="color" value={editColor} onChange={e => setEditColor(e.target.value)} className="w-6 h-6 rounded-full cursor-pointer border-0 p-0" />
-                  </div>
-                  <div className="flex gap-1.5">
-                    <Button size="sm" onClick={() => handleUpdate(s.id)} disabled={saving} className="h-7 text-xs">Salvar</Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} className="h-7 text-xs">Cancelar</Button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <span className="flex-1 text-sm font-medium">{s.nome}</span>
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditingId(s.id); setEditName(s.nome); setEditColor(s.cor); }}>
-                    <Pencil className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDelete(s.id)} disabled={saving}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </>
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div className="border-t border-border/30 pt-3 space-y-2">
-          <p className="text-xs font-semibold text-muted-foreground">Nova Coluna</p>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full shrink-0 border border-border/50" style={{ backgroundColor: newColor }} />
-            <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nome da coluna..." className="h-8 text-sm flex-1" />
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {presetColors.map(c => (
-              <button key={c} className={`w-6 h-6 rounded-full border-2 transition-transform ${newColor === c ? 'border-foreground scale-110' : 'border-transparent'}`} style={{ backgroundColor: c }} onClick={() => setNewColor(c)} />
-            ))}
-            <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} className="w-6 h-6 rounded-full cursor-pointer border-0 p-0" />
-          </div>
-          <Button onClick={handleAdd} disabled={saving || !newName.trim()} size="sm" className="gap-1.5">
-            <Plus className="w-3.5 h-3.5" /> Adicionar
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 /* ─── Lead Card ─── */
-function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart }: {
+function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName }: {
   lead: Lead; isAdmin: boolean;
   onEdit: (l: Lead) => void; onDelete: (l: Lead) => void;
   onDragStart: (e: React.DragEvent, leadId: string) => void;
+  leaderName?: string;
 }) {
   return (
     <div
@@ -154,12 +52,16 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart }: {
         {lead.contato && <p className="text-[11px] text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{lead.contato}</p>}
         {lead.email && <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate"><Mail className="w-3 h-3 shrink-0" />{lead.email}</p>}
       </div>
-      {(lead.doc_foto_path || lead.cartao_cnpj_path || lead.comprovante_endereco_path || lead.boletos_path) && (
+      {(lead.doc_foto_path || lead.cartao_cnpj_path || lead.comprovante_endereco_path) && (
         <div className="flex gap-1 mt-2 flex-wrap">
           {lead.doc_foto_path && <span className="text-[8px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">Doc</span>}
           {lead.cartao_cnpj_path && <span className="text-[8px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">CNPJ</span>}
           {lead.comprovante_endereco_path && <span className="text-[8px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">Endereço</span>}
-          {lead.boletos_path && <span className="text-[8px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">Boletos</span>}
+        </div>
+      )}
+      {leaderName && (
+        <div className="mt-2 pt-1.5 border-t border-border/20">
+          <p className="text-[10px] text-muted-foreground flex items-center gap-1"><User className="w-3 h-3" /> {leaderName}</p>
         </div>
       )}
     </div>
@@ -167,12 +69,13 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart }: {
 }
 
 /* ─── Kanban Column ─── */
-function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, onDrop, onAddLead }: {
+function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, onDrop, onAddLead, getLeaderName }: {
   stage: LeadStage; leads: Lead[]; isAdmin: boolean;
   onEdit: (l: Lead) => void; onDelete: (l: Lead) => void;
   onDragStart: (e: React.DragEvent, leadId: string) => void;
   onDrop: (stageId: string) => void;
   onAddLead: (stageId: string) => void;
+  getLeaderName: (createdBy: string | null) => string | undefined;
 }) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -183,72 +86,32 @@ function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, on
       onDragLeave={() => setDragOver(false)}
       onDrop={e => { e.preventDefault(); setDragOver(false); onDrop(stage.id); }}
     >
-      {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/20">
         <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: stage.cor }} />
         <span className="text-sm font-bold text-foreground flex-1 truncate">{stage.nome}</span>
         <Badge variant="outline" className="text-[10px] font-bold h-5 px-1.5">{leads.length}</Badge>
       </div>
-
-      {/* Cards */}
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-320px)] min-h-[120px]">
         {leads.map(l => (
-          <LeadCard key={l.id} lead={l} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} onDragStart={onDragStart} />
+          <LeadCard key={l.id} lead={l} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} onDragStart={onDragStart} leaderName={getLeaderName(l.created_by)} />
         ))}
         {leads.length === 0 && (
-          <div className="text-center py-6 text-muted-foreground/50 text-xs">
-            Arraste leads para cá
-          </div>
+          <div className="text-center py-6 text-muted-foreground/50 text-xs">Arraste leads para cá</div>
         )}
       </div>
-
-      {/* Footer */}
-      <button
-        onClick={() => onAddLead(stage.id)}
-        className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border-t border-border/20"
-      >
+      <button onClick={() => onAddLead(stage.id)} className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border-t border-border/20">
         <Plus className="w-3.5 h-3.5" /> Novo lead
       </button>
     </div>
   );
 }
 
-/* ─── Unassigned Column ─── */
-function UnassignedColumn({ leads, isAdmin, onEdit, onDelete, onDragStart, onDrop, onAddLead }: {
-  leads: Lead[]; isAdmin: boolean;
-  onEdit: (l: Lead) => void; onDelete: (l: Lead) => void;
-  onDragStart: (e: React.DragEvent, leadId: string) => void;
-  onDrop: () => void;
-  onAddLead: () => void;
-}) {
-  const [dragOver, setDragOver] = useState(false);
-
-  if (leads.length === 0) return null;
-
-  return (
-    <div
-      className={`flex flex-col min-w-[280px] max-w-[320px] rounded-xl border transition-colors ${dragOver ? 'border-primary bg-primary/5' : 'border-border/30 bg-muted/20'}`}
-      onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={e => { e.preventDefault(); setDragOver(false); onDrop(); }}
-    >
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/20">
-        <div className="w-3 h-3 rounded-full shrink-0 bg-muted-foreground/30" />
-        <span className="text-sm font-bold text-muted-foreground flex-1">Sem Coluna</span>
-        <Badge variant="outline" className="text-[10px] font-bold h-5 px-1.5">{leads.length}</Badge>
-      </div>
-      <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-320px)] min-h-[120px]">
-        {leads.map(l => (
-          <LeadCard key={l.id} lead={l} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} onDragStart={onDragStart} />
-        ))}
-      </div>
-    </div>
-  );
-}
-
 /* ─── Main Kanban Board ─── */
 export function KanbanBoard() {
+  const { user } = useAuth();
   const { data: role } = useUserRole();
+  const { data: profile } = useProfile();
+  const { data: allProfiles = [] } = useTeamProfiles();
   const isAdmin = role === 'administrador';
   const { data: stages = [], isLoading: stagesLoading } = useLeadStages();
   const { data: leads = [], isLoading: leadsLoading } = useLeads();
@@ -258,7 +121,6 @@ export function KanbanBoard() {
   const deleteMut = useDeleteLead();
   const moveMut = useMoveLeadToStage();
 
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
 
   // Lead form state
@@ -266,7 +128,7 @@ export function KanbanBoard() {
   const [editItem, setEditItem] = useState<Lead | null>(null);
   const [formStageId, setFormStageId] = useState<string | null>(null);
   const defaultTipo = modalidadesList.length > 0 ? modalidadesList[0].nome : 'PF';
-  const [form, setForm] = useState({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' });
+  const [form, setForm] = useState({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', peso: '', altura: '' });
   const [saving, setSaving] = useState(false);
   const [deleteItem, setDeleteItem] = useState<Lead | null>(null);
 
@@ -275,13 +137,29 @@ export function KanbanBoard() {
   const [approvalJustificativa, setApprovalJustificativa] = useState('');
   const [sendingApproval, setSendingApproval] = useState(false);
 
-  // File uploads
+  // File uploads (no boletos)
   const [docFoto, setDocFoto] = useState<File | null>(null);
   const [cartaoCnpj, setCartaoCnpj] = useState<File | null>(null);
   const [comprovanteEndereco, setComprovanteEndereco] = useState<File | null>(null);
-  const [boletos, setBoletos] = useState<File | null>(null);
 
   const isPessoaFisica = (tipo: string) => tipo === 'PF' || tipo === 'Familiar' || tipo === 'pessoa_fisica';
+
+  // Get leader name for a lead's creator
+  const getLeaderName = (createdBy: string | null): string | undefined => {
+    if (!createdBy) return undefined;
+    const creator = allProfiles.find(p => p.id === createdBy);
+    if (!creator) return undefined;
+    // Show supervisor name, or gerente if no supervisor
+    if (creator.supervisor_id) {
+      const sup = allProfiles.find(p => p.id === creator.supervisor_id);
+      return sup ? `Sup: ${sup.apelido || sup.nome_completo.split(' ')[0]}` : undefined;
+    }
+    if (creator.gerente_id) {
+      const ger = allProfiles.find(p => p.id === creator.gerente_id);
+      return ger ? `Ger: ${ger.apelido || ger.nome_completo.split(' ')[0]}` : undefined;
+    }
+    return undefined;
+  };
 
   const leadsByStage = useMemo(() => {
     const map: Record<string, Lead[]> = {};
@@ -313,9 +191,15 @@ export function KanbanBoard() {
       return;
     }
     setEditItem(l);
-    setForm({ tipo: l.tipo, nome: l.nome, contato: l.contato || '', email: l.email || '', cpf: l.cpf || '', cnpj: l.cnpj || '', endereco: l.endereco || '' });
+    setForm({
+      tipo: l.tipo, nome: l.nome, contato: l.contato || '', email: l.email || '',
+      cpf: l.cpf || '', cnpj: l.cnpj || '', endereco: l.endereco || '',
+      idade: (l as any).idade ? String((l as any).idade) : '',
+      peso: (l as any).peso || '',
+      altura: (l as any).altura || '',
+    });
     setFormStageId((l as any).stage_id || null);
-    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setBoletos(null);
+    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null);
     setShowForm(true);
   };
 
@@ -330,9 +214,9 @@ export function KanbanBoard() {
 
   const openAdd = (stageId?: string | null) => {
     setEditItem(null);
-    setForm({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '' });
+    setForm({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', peso: '', altura: '' });
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
-    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setBoletos(null);
+    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null);
     setShowForm(true);
   };
 
@@ -346,11 +230,17 @@ export function KanbanBoard() {
   const handleSave = async () => {
     if (!form.nome.trim()) { toast.error('Informe o nome.'); return; }
     setSaving(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    const payload: any = { tipo: form.tipo, nome: form.nome.trim(), contato: form.contato || null, email: form.email || null, endereco: form.endereco || null, stage_id: formStageId };
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    const payload: any = {
+      tipo: form.tipo, nome: form.nome.trim(), contato: form.contato || null,
+      email: form.email || null, endereco: form.endereco || null, stage_id: formStageId,
+      idade: form.idade ? parseInt(form.idade) : null,
+      peso: form.peso || null,
+      altura: form.altura || null,
+    };
     if (isPessoaFisica(form.tipo)) { payload.cpf = form.cpf || null; payload.cnpj = null; }
     else { payload.cnpj = form.cnpj || null; payload.cpf = null; }
-    if (!editItem) { payload.created_by = user?.id || null; }
+    if (!editItem) { payload.created_by = currentUser?.id || null; }
     try {
       let leadId: string;
       if (editItem) {
@@ -364,7 +254,6 @@ export function KanbanBoard() {
       if (docFoto) updates.doc_foto_path = await uploadFile(docFoto, leadId, 'doc_foto');
       if (cartaoCnpj) updates.cartao_cnpj_path = await uploadFile(cartaoCnpj, leadId, 'cartao_cnpj');
       if (comprovanteEndereco) updates.comprovante_endereco_path = await uploadFile(comprovanteEndereco, leadId, 'comprovante');
-      if (boletos) updates.boletos_path = await uploadFile(boletos, leadId, 'boletos');
       if (Object.keys(updates).length > 0) {
         await supabase.from('leads').update(updates as any).eq('id', leadId);
       }
@@ -378,10 +267,10 @@ export function KanbanBoard() {
     if (!approvalDialog || !approvalJustificativa.trim()) { toast.error('Informe a justificativa.'); return; }
     setSendingApproval(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Não autenticado');
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('Não autenticado');
       const { error } = await supabase.from('correction_requests').insert({
-        user_id: user.id, tipo: approvalDialog.type === 'edit' ? 'lead_edit' : 'lead_delete',
+        user_id: currentUser.id, tipo: approvalDialog.type === 'edit' ? 'lead_edit' : 'lead_delete',
         registro_id: approvalDialog.lead.id, motivo: approvalJustificativa.trim(),
       } as any);
       if (error) throw error;
@@ -414,16 +303,9 @@ export function KanbanBoard() {
           <h2 className="text-lg font-bold font-display text-foreground">CRM — Board de Leads</h2>
           <p className="text-xs text-muted-foreground">Arraste leads entre colunas para atualizar o status</p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => openAdd()} className="gap-1.5 font-semibold shadow-brand" size="sm">
-            <Plus className="w-4 h-4" /> Novo Lead
-          </Button>
-          {isAdmin && (
-            <Button variant="outline" onClick={() => setSettingsOpen(true)} size="sm" className="gap-1.5">
-              <Settings className="w-4 h-4" /> Colunas
-            </Button>
-          )}
-        </div>
+        <Button onClick={() => openAdd()} className="gap-1.5 font-semibold shadow-brand" size="sm">
+          <Plus className="w-4 h-4" /> Novo Lead
+        </Button>
       </div>
 
       {!isAdmin && (
@@ -448,21 +330,10 @@ export function KanbanBoard() {
             onDragStart={handleDragStart}
             onDrop={stageId => handleDrop(stageId)}
             onAddLead={stageId => openAdd(stageId)}
+            getLeaderName={getLeaderName}
           />
         ))}
-        <UnassignedColumn
-          leads={leadsByStage.unassigned}
-          isAdmin={isAdmin}
-          onEdit={openEdit}
-          onDelete={requestDelete}
-          onDragStart={handleDragStart}
-          onDrop={() => handleDrop(null)}
-          onAddLead={() => openAdd(null)}
-        />
       </div>
-
-      {/* Stage Settings */}
-      {isAdmin && <StageSettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} stages={stages} />}
 
       {/* Lead Form Dialog */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) { setShowForm(false); setEditItem(null); } }}>
@@ -504,12 +375,19 @@ export function KanbanBoard() {
               <div><label className="text-xs font-semibold text-muted-foreground">CNPJ</label><Input value={form.cnpj} onChange={e => setForm(p => ({ ...p, cnpj: e.target.value }))} className="h-10" /></div>
             )}
             <div><label className="text-xs font-semibold text-muted-foreground">Endereço</label><Input value={form.endereco} onChange={e => setForm(p => ({ ...p, endereco: e.target.value }))} className="h-10" /></div>
+            
+            {/* New fields: Idade, Peso, Altura */}
+            <div className="grid grid-cols-3 gap-3">
+              <div><label className="text-xs font-semibold text-muted-foreground">Idade</label><Input type="number" value={form.idade} onChange={e => setForm(p => ({ ...p, idade: e.target.value }))} placeholder="Ex: 30" className="h-10" /></div>
+              <div><label className="text-xs font-semibold text-muted-foreground">Peso</label><Input value={form.peso} onChange={e => setForm(p => ({ ...p, peso: e.target.value }))} placeholder="Ex: 80 kg" className="h-10" /></div>
+              <div><label className="text-xs font-semibold text-muted-foreground">Altura</label><Input value={form.altura} onChange={e => setForm(p => ({ ...p, altura: e.target.value }))} placeholder="Ex: 170 cm" className="h-10" /></div>
+            </div>
+
             <div className="border-t border-border/20 pt-3 space-y-3">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.08em]">Documentos</p>
               {isPessoaFisica(form.tipo) && <FileUploadField label="Documento com Foto" file={docFoto} onFileChange={setDocFoto} existingPath={editItem?.doc_foto_path} />}
               {!isPessoaFisica(form.tipo) && <FileUploadField label="Cartão CNPJ" file={cartaoCnpj} onFileChange={setCartaoCnpj} existingPath={editItem?.cartao_cnpj_path} />}
               <FileUploadField label="Comprovante de Endereço" file={comprovanteEndereco} onFileChange={setComprovanteEndereco} existingPath={editItem?.comprovante_endereco_path} />
-              <FileUploadField label="Boletos/Comprovantes" file={boletos} onFileChange={setBoletos} existingPath={editItem?.boletos_path} />
             </div>
           </div>
           <DialogFooter>

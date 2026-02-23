@@ -184,6 +184,12 @@ export interface Lead {
   created_by: string | null;
   created_at: string;
   updated_at: string;
+  idade: number | null;
+  peso: string | null;
+  altura: string | null;
+  livre: boolean;
+  origem: string | null;
+  stage_id: string | null;
 }
 
 export function useLeads() {
