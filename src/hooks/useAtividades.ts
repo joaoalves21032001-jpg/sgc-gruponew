@@ -60,19 +60,30 @@ export function useCreateAtividade() {
     mutationFn: async (atividade: Omit<Atividade, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => {
       if (!user) throw new Error('Not authenticated');
 
+      // Check for existing record on this date
+      const { data: existing } = await supabase
+        .from('atividades')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('data', atividade.data)
+        .maybeSingle();
+
+      if (existing) {
+        throw new Error('Você já possui um registro para este dia. Para alterar, acesse a guia "Minhas Ações" e solicite a alteração do registro.');
+      }
+
       // Check if user is gerente or above for auto-approval
-      // Supervisors submit for gerente approval; gerente+ auto-approved
       const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).maybeSingle();
       const userRole = roleData?.role;
       const isAutoApprove = userRole === 'gerente';
 
       const { data, error } = await supabase
         .from('atividades')
-        .upsert({
+        .insert({
           ...atividade,
           user_id: user.id,
           ...(isAutoApprove ? { status: 'aprovado' } : {}),
-        } as any, { onConflict: 'user_id,data' })
+        } as any)
         .select()
         .single();
       if (error) throw error;

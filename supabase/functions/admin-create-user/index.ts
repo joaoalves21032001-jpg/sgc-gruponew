@@ -40,7 +40,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { email, nome_completo, celular, cpf, rg, endereco, cargo, role, supervisor_id, gerente_id, numero_emergencia_1, numero_emergencia_2 } = body;
+    const { email, nome_completo, celular, cpf, rg, endereco, cargo, role, supervisor_id, gerente_id, numero_emergencia_1, numero_emergencia_2, data_admissao, data_nascimento } = body;
 
     // Create auth user (trigger will create profile + default role)
     const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -60,7 +60,7 @@ serve(async (req) => {
       nextCode = `GN${String(num + 1).padStart(3, "0")}`;
     }
 
-    // Update profile with full data and enable the user
+    // Update profile with full data and enable the user (Active from the start)
     const { error: profileError } = await supabaseAdmin.from("profiles").update({
       nome_completo,
       apelido: nome_completo.split(" ")[0],
@@ -74,6 +74,8 @@ serve(async (req) => {
       gerente_id: gerente_id || null,
       numero_emergencia_1: numero_emergencia_1 || null,
       numero_emergencia_2: numero_emergencia_2 || null,
+      data_admissao: data_admissao || null,
+      data_nascimento: data_nascimento || null,
       disabled: false,
     }).eq("id", userId);
 

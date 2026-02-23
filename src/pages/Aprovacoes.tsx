@@ -237,9 +237,8 @@ const Aprovacoes = () => {
   const handleApproveCotacao = async (cotacao: Cotacao) => {
     setSavingCotacao(true);
     try {
-      // Determine tipo based on modalidade
-      const tipoPF = ['PF', 'Familiar'];
-      const tipo = cotacao.modalidade && tipoPF.includes(cotacao.modalidade) ? 'Pessoa Física' : 'Empresa';
+      // Determine tipo based on modalidade - must match leads_tipo_check constraint
+      const tipo = cotacao.modalidade || 'PF';
 
       // Get first stage
       const { data: firstStage } = await supabase
@@ -353,7 +352,7 @@ const Aprovacoes = () => {
         const { data: cpfCheck } = await supabase.from('profiles').select('id').eq('cpf', req.cpf).maybeSingle();
         if (cpfCheck) { toast.error(`Já existe usuário com CPF ${req.cpf}.`); setSavingAccess(false); return; }
       }
-      // Create the user via admin edge function
+      // Create the user via admin edge function with ALL form data
       const { data: createResult, error: createError } = await supabase.functions.invoke('admin-create-user', {
         body: {
           email: req.email,
@@ -366,6 +365,10 @@ const Aprovacoes = () => {
           role: req.nivel_acesso || 'consultor',
           numero_emergencia_1: req.numero_emergencia_1,
           numero_emergencia_2: req.numero_emergencia_2,
+          supervisor_id: req.supervisor_id,
+          gerente_id: req.gerente_id,
+          data_admissao: req.data_admissao,
+          data_nascimento: req.data_nascimento,
         },
       });
       if (createError) throw createError;
