@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import {
   User, Mail, Phone, Shield, Award, Building, Hash, CreditCard,
-  FileText, MapPin, AlertTriangle, Users, Briefcase, Camera, Send
+  FileText, MapPin, AlertTriangle, Users, Briefcase, Camera, Send,
+  CalendarDays, Cake
 } from 'lucide-react';
 import { useProfile, useUserRole, useSupervisorProfile, useGerenteProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
@@ -152,6 +153,8 @@ const Perfil = () => {
               <InfoRow icon={Phone} label="Celular" value={profile.celular || '—'} />
               <InfoRow icon={CreditCard} label="CPF" value={profile.cpf || '—'} />
               <InfoRow icon={FileText} label="RG" value={profile.rg || '—'} />
+              <InfoRow icon={CalendarDays} label="Data de Admissão" value={(profile as any).data_admissao ? new Date((profile as any).data_admissao + 'T12:00:00').toLocaleDateString('pt-BR') : '—'} />
+              <InfoRow icon={Cake} label="Data de Nascimento" value={(profile as any).data_nascimento ? new Date((profile as any).data_nascimento + 'T12:00:00').toLocaleDateString('pt-BR') : '—'} />
               <div className="sm:col-span-2">
                 <InfoRow icon={MapPin} label="Endereço" value={profile.endereco || '—'} />
                 {profile.endereco && (

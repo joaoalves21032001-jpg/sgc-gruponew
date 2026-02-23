@@ -131,7 +131,7 @@ export function KanbanBoard() {
   const [editItem, setEditItem] = useState<Lead | null>(null);
   const [formStageId, setFormStageId] = useState<string | null>(null);
   const defaultTipo = modalidadesList.length > 0 ? modalidadesList[0].nome : 'PF';
-  const [form, setForm] = useState({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', peso: '', altura: '', livre: false });
+  const [form, setForm] = useState({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false });
   const [saving, setSaving] = useState(false);
   const [deleteItem, setDeleteItem] = useState<Lead | null>(null);
 
@@ -232,8 +232,6 @@ export function KanbanBoard() {
       tipo: l.tipo, nome: l.nome, contato: l.contato || '', email: l.email || '',
       cpf: l.cpf || '', cnpj: l.cnpj || '', endereco: l.endereco || '',
       idade: (l as any).idade ? String((l as any).idade) : '',
-      peso: (l as any).peso || '',
-      altura: (l as any).altura || '',
       livre: (l as any).livre || false,
     });
     setFormStageId((l as any).stage_id || null);
@@ -252,7 +250,7 @@ export function KanbanBoard() {
 
   const openAdd = (stageId?: string | null) => {
     setEditItem(null);
-    setForm({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', peso: '', altura: '', livre: false });
+    setForm({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false });
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
     setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null);
     setShowForm(true);
@@ -273,8 +271,6 @@ export function KanbanBoard() {
       tipo: form.tipo, nome: form.nome.trim(), contato: form.contato || null,
       email: form.email || null, endereco: form.endereco || null, stage_id: formStageId,
       idade: form.idade ? parseInt(form.idade) : null,
-      peso: form.peso || null,
-      altura: form.altura || null,
     };
     payload.livre = form.livre;
     if (isPessoaFisica(form.tipo)) { payload.cpf = form.cpf || null; payload.cnpj = null; }
@@ -417,11 +413,10 @@ export function KanbanBoard() {
             )}
             <div><label className="text-xs font-semibold text-muted-foreground">Endereço</label><Input value={form.endereco} onChange={e => setForm(p => ({ ...p, endereco: e.target.value }))} className="h-10" /></div>
             
-            {/* New fields: Idade, Peso, Altura */}
-            <div className="grid grid-cols-3 gap-3">
-              <div><label className="text-xs font-semibold text-muted-foreground">Idade</label><Input type="number" value={form.idade} onChange={e => setForm(p => ({ ...p, idade: e.target.value }))} placeholder="Ex: 30" className="h-10" /></div>
-              <div><label className="text-xs font-semibold text-muted-foreground">Peso</label><Input value={form.peso} onChange={e => setForm(p => ({ ...p, peso: e.target.value }))} placeholder="Ex: 80 kg" className="h-10" /></div>
-              <div><label className="text-xs font-semibold text-muted-foreground">Altura</label><Input value={form.altura} onChange={e => setForm(p => ({ ...p, altura: e.target.value }))} placeholder="Ex: 170 cm" className="h-10" /></div>
+            {/* Idade */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Idade</label>
+              <Input type="number" value={form.idade} onChange={e => setForm(p => ({ ...p, idade: e.target.value }))} placeholder="Ex: 30" className="h-10" />
             </div>
 
             {/* Lead Livre (Admin only) */}

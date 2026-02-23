@@ -319,7 +319,6 @@ export type Database = {
       }
       leads: {
         Row: {
-          altura: string | null
           boletos_path: string | null
           cartao_cnpj_path: string | null
           cnpj: string | null
@@ -336,13 +335,11 @@ export type Database = {
           livre: boolean
           nome: string
           origem: string | null
-          peso: string | null
           stage_id: string | null
           tipo: string
           updated_at: string
         }
         Insert: {
-          altura?: string | null
           boletos_path?: string | null
           cartao_cnpj_path?: string | null
           cnpj?: string | null
@@ -359,13 +356,11 @@ export type Database = {
           livre?: boolean
           nome: string
           origem?: string | null
-          peso?: string | null
           stage_id?: string | null
           tipo: string
           updated_at?: string
         }
         Update: {
-          altura?: string | null
           boletos_path?: string | null
           cartao_cnpj_path?: string | null
           cnpj?: string | null
@@ -382,7 +377,6 @@ export type Database = {
           livre?: boolean
           nome?: string
           origem?: string | null
-          peso?: string | null
           stage_id?: string | null
           tipo?: string
           updated_at?: string
@@ -479,6 +473,33 @@ export type Database = {
           lida?: boolean
           link?: string | null
           tipo?: string
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      premiacoes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
           titulo?: string
           user_id?: string
         }

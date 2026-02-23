@@ -436,7 +436,7 @@ function AtividadesTab() {
             <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={downloadAtividadesModelo}>
               <Download className="w-3.5 h-3.5" /> Modelo
             </Button>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => uploadRef.current?.click()}>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => uploadRef.current?.click()} disabled={!form.ligacoes}>
               <Upload className="w-3.5 h-3.5" /> Upload
             </Button>
             <input ref={uploadRef} type="file" accept=".csv" className="hidden" onChange={handleBulkUpload} />

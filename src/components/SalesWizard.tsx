@@ -90,16 +90,12 @@ type VendaModalidade = 'PF' | 'Familiar' | 'PME Multi' | 'Empresarial' | 'Adesã
 interface TitularData {
   nome: string;
   idade: string;
-  peso: string;
-  altura: string;
   produto_id: string;
 }
 
 interface DependenteData {
   nome: string;
   idade: string;
-  peso: string;
-  altura: string;
   produto_id: string;
   descricao: string;
   descricao_custom: string;
@@ -165,7 +161,7 @@ export default function SalesWizard() {
   const [coParticipacao, setCoParticipacao] = useState('sem');
   const [estagiarios, setEstagiarios] = useState(false);
   const [qtdEstagiarios, setQtdEstagiarios] = useState('');
-  const [titulares, setTitulares] = useState<TitularData[]>([{ nome: '', idade: '', peso: '', altura: '', produto_id: '' }]);
+  const [titulares, setTitulares] = useState<TitularData[]>([{ nome: '', idade: '', produto_id: '' }]);
   const [dependentes, setDependentes] = useState<DependenteData[]>([]);
   const [valorContrato, setValorContrato] = useState('');
   const [observacoes, setObservacoes] = useState('');
@@ -183,11 +179,11 @@ export default function SalesWizard() {
   const isRetroativo = !isToday(dataLancamento);
   const isEmpresa = modalidade === 'PME Multi' || modalidade === 'Empresarial';
 
-  // Filter leads based on modalidade
+  // Filter leads to show ONLY the current user's leads
   const filteredLeads = useMemo(() => {
-    if (isEmpresa) return leads.filter(l => l.tipo !== 'PF' && l.tipo !== 'Familiar' && l.tipo !== 'pessoa_fisica');
-    return leads.filter(l => l.tipo === 'PF' || l.tipo === 'Familiar' || l.tipo === 'pessoa_fisica');
-  }, [leads, isEmpresa]);
+    if (!user) return [];
+    return leads.filter(l => l.created_by === user.id);
+  }, [leads, user]);
 
   // Selected lead
   const selectedLead = leads.find(l => l.id === leadId);
@@ -226,14 +222,14 @@ export default function SalesWizard() {
   const updateTitular = (idx: number, field: keyof TitularData, value: string) => {
     setTitulares(prev => prev.map((t, i) => i === idx ? { ...t, [field]: value } : t));
   };
-  const addTitular = () => setTitulares(prev => [...prev, { nome: '', idade: '', peso: '', altura: '', produto_id: '' }]);
+  const addTitular = () => setTitulares(prev => [...prev, { nome: '', idade: '', produto_id: '' }]);
   const removeTitular = (idx: number) => { if (titulares.length > 1) setTitulares(prev => prev.filter((_, i) => i !== idx)); };
 
   // Dependente management
   const updateDependente = (idx: number, field: keyof DependenteData, value: string | boolean) => {
     setDependentes(prev => prev.map((d, i) => i === idx ? { ...d, [field]: value } : d));
   };
-  const addDependente = () => setDependentes(prev => [...prev, { nome: '', idade: '', peso: '', altura: '', produto_id: '', descricao: 'Filho(a)', descricao_custom: '', is_conjuge: false }]);
+  const addDependente = () => setDependentes(prev => [...prev, { nome: '', idade: '', produto_id: '', descricao: 'Filho(a)', descricao_custom: '', is_conjuge: false }]);
   const removeDependente = (idx: number) => setDependentes(prev => prev.filter((_, i) => i !== idx));
 
   // Documents logic
@@ -338,7 +334,7 @@ export default function SalesWizard() {
       setPossuiAproveitamento(false);
       setCompanhiaId('');
       setLeadId('');
-      setTitulares([{ nome: '', idade: '', peso: '', altura: '', produto_id: '' }]);
+      setTitulares([{ nome: '', idade: '', produto_id: '' }]);
       setDependentes([]);
       setTitularDocs({});
       setAproveitamentoDocs({});
@@ -503,13 +499,6 @@ export default function SalesWizard() {
                   </div>
                 </FieldWithTooltip>
 
-                {possuiAproveitamento && (
-                  <FieldWithTooltip label="Doc Anexo (Aproveitamento)" tooltip="Documentos de aproveitamento de carência obrigatórios.">
-                    <div className="h-11 flex items-center px-3 rounded-md border border-success/40 bg-success/5 text-sm font-medium text-success">
-                      Sim — Documentos solicitados na etapa Documentos
-                    </div>
-                  </FieldWithTooltip>
-                )}
               </div>
             </div>
 
@@ -544,8 +533,6 @@ export default function SalesWizard() {
                       if (checked && selectedLead) {
                         updateTitular(0, 'nome', selectedLead.nome);
                         if (selectedLead.idade) updateTitular(0, 'idade', String(selectedLead.idade));
-                        if (selectedLead.peso) updateTitular(0, 'peso', selectedLead.peso.replace(/[^0-9]/g, ''));
-                        if (selectedLead.altura) updateTitular(0, 'altura', selectedLead.altura.replace(/[^0-9]/g, ''));
                         toast.success('Dados do responsável aplicados ao 1º titular!');
                       }
                     }}
@@ -602,28 +589,14 @@ export default function SalesWizard() {
                         </Button>
                       )}
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-                      <div className="col-span-2 sm:col-span-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      <div className="col-span-2">
                         <label className="text-[10px] text-muted-foreground font-semibold">Nome do Beneficiário *</label>
                         <Input value={t.nome} onChange={(e) => updateTitular(i, 'nome', e.target.value)} className="h-9 border-border/40" />
                       </div>
                       <div>
                         <label className="text-[10px] text-muted-foreground font-semibold">Idade *</label>
                         <Input type="number" min={0} value={t.idade} onChange={(e) => updateTitular(i, 'idade', e.target.value)} className="h-9 border-border/40" />
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground font-semibold">Peso (kg)</label>
-                        <div className="relative">
-                          <Input type="number" min={0} value={t.peso} onChange={(e) => updateTitular(i, 'peso', e.target.value)} className="h-9 border-border/40 pr-10" />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">kg</span>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-[10px] text-muted-foreground font-semibold">Altura (cm)</label>
-                        <div className="relative">
-                          <Input type="number" min={0} value={t.altura} onChange={(e) => updateTitular(i, 'altura', e.target.value)} className="h-9 border-border/40 pr-10" />
-                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">cm</span>
-                        </div>
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">
@@ -670,7 +643,7 @@ export default function SalesWizard() {
                           <Trash2 className="w-3.5 h-3.5" />
                         </Button>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                         <div className="col-span-2">
                           <label className="text-[10px] text-muted-foreground font-semibold">Nome do Beneficiário *</label>
                           <Input value={d.nome} onChange={(e) => updateDependente(i, 'nome', e.target.value)} className="h-9 border-border/40" />
@@ -678,20 +651,6 @@ export default function SalesWizard() {
                         <div>
                           <label className="text-[10px] text-muted-foreground font-semibold">Idade *</label>
                           <Input type="number" min={0} value={d.idade} onChange={(e) => updateDependente(i, 'idade', e.target.value)} className="h-9 border-border/40" />
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-muted-foreground font-semibold">Peso (kg)</label>
-                          <div className="relative">
-                            <Input type="number" min={0} value={d.peso} onChange={(e) => updateDependente(i, 'peso', e.target.value)} className="h-9 border-border/40 pr-10" />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">kg</span>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="text-[10px] text-muted-foreground font-semibold">Altura (cm)</label>
-                          <div className="relative">
-                            <Input type="number" min={0} value={d.altura} onChange={(e) => updateDependente(i, 'altura', e.target.value)} className="h-9 border-border/40 pr-10" />
-                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">cm</span>
-                          </div>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -789,19 +748,8 @@ export default function SalesWizard() {
               </div>
             )}
 
-            {/* Main documents from modalidade */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
-                <FileText className="w-3.5 h-3.5 text-primary" /> Documentos da Modalidade
-              </h3>
-              {getRequiredDocs().map(doc => (
-                <DocUploadRow key={doc.label} label={doc.label} required={doc.required} file={titularDocs[doc.label] || null} onUpload={(f) => setTitularDocs(prev => ({ ...prev, [doc.label]: f }))} />
-              ))}
-              {getRequiredDocs().length === 0 && (
-                <p className="text-xs text-muted-foreground py-2">Nenhum documento configurado para esta modalidade.</p>
-              )}
-            </div>
-
+            {/* Main documents from modalidade REMOVED as per requirements */}
+            
             {/* Aproveitamento docs */}
             {possuiAproveitamento && (
               <div className="space-y-3 pt-4 border-t border-border/20">
@@ -890,10 +838,9 @@ export default function SalesWizard() {
             <div className="space-y-2">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Titulares ({titulares.length})</p>
               {titulares.map((t, i) => (
-                <div key={i} className="p-2.5 bg-muted/30 rounded-lg text-sm grid grid-cols-2 sm:grid-cols-5 gap-2">
+                <div key={i} className="p-2.5 bg-muted/30 rounded-lg text-sm grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <span className="font-medium text-foreground col-span-2">{t.nome || '—'}</span>
                   <span className="text-muted-foreground">{t.idade} anos</span>
-                  <span className="text-muted-foreground">{t.peso} kg / {t.altura} cm</span>
                   <span className="text-muted-foreground">{getProductName(t.produto_id)}</span>
                 </div>
               ))}
@@ -903,10 +850,9 @@ export default function SalesWizard() {
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Dependentes ({dependentes.length})</p>
                 {dependentes.map((d, i) => (
-                  <div key={i} className="p-2.5 bg-muted/30 rounded-lg text-sm grid grid-cols-2 sm:grid-cols-6 gap-2">
+                  <div key={i} className="p-2.5 bg-muted/30 rounded-lg text-sm grid grid-cols-2 sm:grid-cols-5 gap-2">
                     <span className="font-medium text-foreground col-span-2">{d.nome || '—'}</span>
                     <span className="text-muted-foreground">{d.idade} anos</span>
-                    <span className="text-muted-foreground">{d.peso} kg / {d.altura} cm</span>
                     <span className="text-muted-foreground">{getProductName(d.produto_id)}</span>
                     <span className="text-muted-foreground">{d.descricao === 'Outro' ? d.descricao_custom || 'Outro' : d.descricao}</span>
                   </div>
