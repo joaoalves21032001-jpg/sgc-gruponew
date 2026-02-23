@@ -36,12 +36,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const prevUser = user;
       setSession(session);
       setUser(session?.user ?? null);
       if (!session?.user) {
         setMfaVerified(false);
         setNeedsMfa(false);
         setHasProfile(null);
+        // Log logout
+        if (prevUser) {
+          supabase.from('audit_logs').insert({
+            user_id: prevUser.id,
+            user_name: prevUser.email,
+            action: 'logout',
+          } as any).then(() => {});
+        }
+      } else if (!prevUser && session?.user && _event === 'SIGNED_IN') {
+        // Log login
+        supabase.from('audit_logs').insert({
+          user_id: session.user.id,
+          user_name: session.user.email,
+          action: 'login',
+        } as any).then(() => {});
       }
       setLoading(false);
     });

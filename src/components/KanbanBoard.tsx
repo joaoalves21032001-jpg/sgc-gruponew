@@ -54,11 +54,12 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName }: 
         {lead.contato && <p className="text-[11px] text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{lead.contato}</p>}
         {lead.email && <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate"><Mail className="w-3 h-3 shrink-0" />{lead.email}</p>}
       </div>
-      {(lead.doc_foto_path || lead.cartao_cnpj_path || lead.comprovante_endereco_path) && (
+      {(lead.doc_foto_path || lead.cartao_cnpj_path || lead.comprovante_endereco_path || lead.boletos_path) && (
         <div className="flex gap-1 mt-2 flex-wrap">
           {lead.doc_foto_path && <span className="text-[8px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">Doc</span>}
           {lead.cartao_cnpj_path && <span className="text-[8px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">CNPJ</span>}
           {lead.comprovante_endereco_path && <span className="text-[8px] px-1.5 py-0.5 rounded bg-success/10 text-success font-medium">Endereço</span>}
+          {lead.boletos_path && <span className="text-[8px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Cotação</span>}
         </div>
       )}
       {leaderName && (
@@ -139,10 +140,11 @@ export function KanbanBoard() {
   const [approvalJustificativa, setApprovalJustificativa] = useState('');
   const [sendingApproval, setSendingApproval] = useState(false);
 
-  // File uploads (no boletos)
+  // File uploads
   const [docFoto, setDocFoto] = useState<File | null>(null);
   const [cartaoCnpj, setCartaoCnpj] = useState<File | null>(null);
   const [comprovanteEndereco, setComprovanteEndereco] = useState<File | null>(null);
+  const [cotacaoPdf, setCotacaoPdf] = useState<File | null>(null);
 
   const isPessoaFisica = (tipo: string) => tipo === 'PF' || tipo === 'Familiar' || tipo === 'pessoa_fisica';
 
@@ -235,7 +237,7 @@ export function KanbanBoard() {
       livre: (l as any).livre || false,
     });
     setFormStageId((l as any).stage_id || null);
-    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null);
+    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null);
     setShowForm(true);
   };
 
@@ -252,7 +254,7 @@ export function KanbanBoard() {
     setEditItem(null);
     setForm({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', peso: '', altura: '', livre: false });
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
-    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null);
+    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null);
     setShowForm(true);
   };
 
@@ -291,6 +293,7 @@ export function KanbanBoard() {
       if (docFoto) updates.doc_foto_path = await uploadFile(docFoto, leadId, 'doc_foto');
       if (cartaoCnpj) updates.cartao_cnpj_path = await uploadFile(cartaoCnpj, leadId, 'cartao_cnpj');
       if (comprovanteEndereco) updates.comprovante_endereco_path = await uploadFile(comprovanteEndereco, leadId, 'comprovante');
+      if (cotacaoPdf) updates.boletos_path = await uploadFile(cotacaoPdf, leadId, 'cotacao');
       if (Object.keys(updates).length > 0) {
         await supabase.from('leads').update(updates as any).eq('id', leadId);
       }
@@ -437,6 +440,7 @@ export function KanbanBoard() {
               {isPessoaFisica(form.tipo) && <FileUploadField label="Documento com Foto" file={docFoto} onFileChange={setDocFoto} existingPath={editItem?.doc_foto_path} />}
               {!isPessoaFisica(form.tipo) && <FileUploadField label="Cartão CNPJ" file={cartaoCnpj} onFileChange={setCartaoCnpj} existingPath={editItem?.cartao_cnpj_path} />}
               <FileUploadField label="Comprovante de Endereço" file={comprovanteEndereco} onFileChange={setComprovanteEndereco} existingPath={editItem?.comprovante_endereco_path} />
+              <FileUploadField label="Cotação (PDF)" file={cotacaoPdf} onFileChange={setCotacaoPdf} existingPath={editItem?.boletos_path} />
             </div>
           </div>
           <DialogFooter>
