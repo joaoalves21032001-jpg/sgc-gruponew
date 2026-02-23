@@ -531,6 +531,25 @@ export default function SalesWizard() {
                   </div>
                 </FieldWithTooltip>
               </div>
+
+              {/* Smart Fill - only for first titular */}
+              {selectedLead && titulares.length > 0 && (
+                <div className="mt-3 flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
+                  <Switch
+                    checked={false}
+                    onCheckedChange={(checked) => {
+                      if (checked && selectedLead) {
+                        updateTitular(0, 'nome', selectedLead.nome);
+                        if (selectedLead.idade) updateTitular(0, 'idade', String(selectedLead.idade));
+                        if (selectedLead.peso) updateTitular(0, 'peso', selectedLead.peso.replace(/[^0-9]/g, ''));
+                        if (selectedLead.altura) updateTitular(0, 'altura', selectedLead.altura.replace(/[^0-9]/g, ''));
+                        toast.success('Dados do responsável aplicados ao 1º titular!');
+                      }
+                    }}
+                  />
+                  <Label className="text-sm text-foreground">Utilizar os dados do responsável para preenchimento do 1º Titular</Label>
+                </div>
+              )}
             </div>
 
             <Separator className="bg-border/20" />
