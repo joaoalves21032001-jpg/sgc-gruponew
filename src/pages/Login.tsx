@@ -28,6 +28,7 @@ const Login = () => {
     nome: '', email: '', telefone: '', mensagem: '',
     cpf: '', rg: '', endereco: '', cargo: 'Consultor de Vendas',
     nivel_acesso: 'consultor', numero_emergencia_1: '', numero_emergencia_2: '',
+    data_admissao: '', data_nascimento: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [supervisores, setSupervisores] = useState<LeaderOption[]>([]);
@@ -88,7 +89,7 @@ const Login = () => {
     setSubmitting(true);
     try {
       const { error } = await supabase.functions.invoke('notify-access-request', {
-        body: requestForm,
+        body: { ...requestForm, supervisor_id: selectedSupervisor === 'nenhum' ? null : selectedSupervisor || null, gerente_id: selectedGerente || null },
       });
       if (error) throw error;
       toast.success('Solicitação enviada! O administrador será notificado.');
@@ -97,6 +98,7 @@ const Login = () => {
         nome: '', email: '', telefone: '', mensagem: '',
         cpf: '', rg: '', endereco: '', cargo: 'Consultor de Vendas',
         nivel_acesso: 'consultor', numero_emergencia_1: '', numero_emergencia_2: '',
+        data_admissao: '', data_nascimento: '',
       });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao enviar solicitação.');
@@ -272,6 +274,16 @@ const Login = () => {
                 <div className="sm:col-span-2 space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Endereço *</label>
                   <Input value={requestForm.endereco} onChange={(e) => setField('endereco', e.target.value)} placeholder="Rua, número, bairro, cidade - UF" className="h-10" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data de Nascimento *</label>
+                  <Input type="date" value={requestForm.data_nascimento} onChange={(e) => setField('data_nascimento', e.target.value)} className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data de Admissão</label>
+                  <Input type="date" value={requestForm.data_admissao} onChange={(e) => setField('data_admissao', e.target.value)} className="h-10" />
                 </div>
               </div>
             </div>
