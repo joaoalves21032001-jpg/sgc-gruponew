@@ -8,7 +8,6 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Toaster as Sonner } from '@/components/ui/sonner';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 import logo from '@/assets/logo-grupo-new.png';
 import {
@@ -95,7 +94,7 @@ export default function LandingPage() {
           quantidade_vidas: parseInt(vidas) || 1,
           com_dental: comDental,
           co_participacao: CO_PARTICIPACAO.find(o => o.value === coParticipacao)?.label || null,
-          consultor_recomendado_id: consultorId || null,
+          consultor_recomendado_id: (consultorId && consultorId !== 'none') ? consultorId : null,
         },
       });
       if (error) throw error;
@@ -116,7 +115,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white font-sans antialiased">
-      <Sonner />
+      
 
       {/* ── HEADER ── */}
       <header className="sticky top-0 z-50 backdrop-blur-xl bg-white/80 border-b border-gray-100">
