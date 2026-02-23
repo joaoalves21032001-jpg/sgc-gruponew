@@ -20,6 +20,9 @@ const actionLabels: Record<string, string> = {
   aprovar_venda: 'Aprovar Venda',
   devolver_venda: 'Devolver Venda',
   criar_lead: 'Criar Lead',
+  editar_lead: 'Editar Lead',
+  excluir_lead: 'Excluir Lead',
+  mover_lead: 'Mover Lead',
   solicitar_edicao_lead: 'Solicitar Edição Lead',
   solicitar_exclusao_lead: 'Solicitar Exclusão Lead',
   aprovar_acesso: 'Aprovar Acesso',
@@ -29,6 +32,17 @@ const actionLabels: Record<string, string> = {
   excluir_usuario: 'Excluir Usuário',
   desabilitar_usuario: 'Desabilitar Usuário',
   reativar_usuario: 'Reativar Usuário',
+  criar_companhia: 'Criar Companhia',
+  editar_companhia: 'Editar Companhia',
+  excluir_companhia: 'Excluir Companhia',
+  criar_produto: 'Criar Produto',
+  editar_produto: 'Editar Produto',
+  excluir_produto: 'Excluir Produto',
+  criar_modalidade: 'Criar Modalidade',
+  editar_modalidade: 'Editar Modalidade',
+  excluir_modalidade: 'Excluir Modalidade',
+  solicitar_alteracao: 'Solicitar Alteração',
+  alterar_avatar: 'Alterar Avatar',
 };
 
 const entityTypeLabels: Record<string, string> = {
@@ -38,6 +52,9 @@ const entityTypeLabels: Record<string, string> = {
   profile: 'Usuário',
   access_request: 'Solicitação de Acesso',
   correction_request: 'Solicitação de Correção',
+  companhia: 'Companhia',
+  produto: 'Produto',
+  modalidade: 'Modalidade',
 };
 
 const actionColors: Record<string, string> = {
