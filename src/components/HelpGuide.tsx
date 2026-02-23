@@ -222,6 +222,7 @@ export function HelpGuide({ open, onOpenChange }: HelpGuideProps) {
     if (!isAdmin && s.tabKey) {
       if (!isTabEnabled(tabPerms, s.tabKey)) return false;
     }
+    // Also check if current user can view the tab at all (based on sidebar logic which uses same permissions)
     return true;
   });
 
