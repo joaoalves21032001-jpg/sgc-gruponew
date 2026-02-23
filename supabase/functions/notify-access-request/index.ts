@@ -10,7 +10,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { email, nome, telefone, mensagem, cpf, rg, endereco, cargo, nivel_acesso, numero_emergencia_1, numero_emergencia_2 } = await req.json();
+    const { email, nome, telefone, mensagem, cpf, rg, endereco, cargo, nivel_acesso, numero_emergencia_1, numero_emergencia_2, supervisor_id, gerente_id, data_admissao, data_nascimento } = await req.json();
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -20,7 +20,7 @@ serve(async (req) => {
     // Save request
     const { error: insertError } = await supabaseAdmin
       .from("access_requests")
-      .insert({ email, nome, telefone, mensagem, cpf, rg, endereco, cargo, nivel_acesso, numero_emergencia_1, numero_emergencia_2 });
+      .insert({ email, nome, telefone, mensagem, cpf, rg, endereco, cargo, nivel_acesso, numero_emergencia_1, numero_emergencia_2, supervisor_id: supervisor_id || null, gerente_id: gerente_id || null, data_admissao: data_admissao || null, data_nascimento: data_nascimento || null });
 
     if (insertError) throw insertError;
 

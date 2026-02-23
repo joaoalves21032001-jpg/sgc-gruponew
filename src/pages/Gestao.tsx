@@ -32,8 +32,12 @@ const statusColors: Record<string, string> = {
   recusado: 'bg-destructive/8 text-destructive border-destructive/15',
 };
 
-function getDateRange(periodo: string) {
+function getDateRange(periodo: string, customDate?: string) {
   const now = new Date();
+  if (periodo === 'dia' && customDate) {
+    const d = parseISO(customDate);
+    return { start: d, end: d };
+  }
   switch (periodo) {
     case 'semana': return { start: startOfWeek(now, { weekStartsOn: 1 }), end: now };
     case 'mes': return { start: startOfMonth(now), end: now };
@@ -56,9 +60,10 @@ const Gestao = () => {
   const [filtroPeriodo, setFiltroPeriodo] = useState<string>('mes');
   const [filtroStatus, setFiltroStatus] = useState<string>('todos');
   const [searchVenda, setSearchVenda] = useState('');
+  const [filtroDia, setFiltroDia] = useState('');
 
   const consultores = profiles ?? [];
-  const dateRange = useMemo(() => getDateRange(filtroPeriodo), [filtroPeriodo]);
+  const dateRange = useMemo(() => getDateRange(filtroPeriodo, filtroDia), [filtroPeriodo, filtroDia]);
 
   // Filter atividades and vendas by date range and consultor
   const filteredAtividades = useMemo(() => {
@@ -205,6 +210,7 @@ const Gestao = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="dia">Dia Específico</SelectItem>
               <SelectItem value="semana">Esta Semana</SelectItem>
               <SelectItem value="mes">Este Mês</SelectItem>
               <SelectItem value="trimestre">Trimestre</SelectItem>
@@ -213,6 +219,9 @@ const Gestao = () => {
               <SelectItem value="90d">Últimos 90 dias</SelectItem>
             </SelectContent>
           </Select>
+          {filtroPeriodo === 'dia' && (
+            <Input type="date" value={filtroDia} onChange={e => setFiltroDia(e.target.value)} className="h-9 w-[160px] text-xs bg-card border-border/40" />
+          )}
           <Select value={filtroConsultor} onValueChange={setFiltroConsultor}>
             <SelectTrigger className="w-[160px] h-9 text-xs border-border/40">
               <Users className="w-3 h-3 mr-1" />
