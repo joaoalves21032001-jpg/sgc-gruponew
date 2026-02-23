@@ -104,9 +104,12 @@ function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, se
             <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Modalidade</span><p className="font-semibold mt-0.5">{venda.modalidade}</p></div>
             <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Consultor</span><p className="font-semibold mt-0.5">{getConsultorName(venda.user_id)}</p></div>
             <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Vidas</span><p className="font-semibold mt-0.5">{venda.vidas}</p></div>
-            {venda.valor && <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Valor</span><p className="font-semibold mt-0.5">R$ {venda.valor.toLocaleString('pt-BR')}</p></div>}
-            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Data</span><p className="font-semibold mt-0.5">{new Date(venda.created_at).toLocaleDateString('pt-BR')}</p></div>
-            {(venda as any).justificativa_retroativo && <div className="col-span-full"><span className="text-[10px] text-muted-foreground uppercase font-semibold">Justificativa Retroativo</span><p className="font-semibold mt-0.5">{(venda as any).justificativa_retroativo}</p></div>}
+            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Valor</span><p className="font-semibold mt-0.5">{venda.valor ? `R$ ${venda.valor.toLocaleString('pt-BR')}` : '—'}</p></div>
+            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Status</span><p className="font-semibold mt-0.5">{venda.status}</p></div>
+            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Data de Lançamento</span><p className="font-semibold mt-0.5">{(venda as any).data_lancamento ? new Date((venda as any).data_lancamento + 'T12:00:00').toLocaleDateString('pt-BR') : new Date(venda.created_at).toLocaleDateString('pt-BR')}</p></div>
+            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Criado em</span><p className="font-semibold mt-0.5">{new Date(venda.created_at).toLocaleDateString('pt-BR')}</p></div>
+            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">ID</span><p className="font-semibold mt-0.5 font-mono text-xs">{venda.id.slice(0, 12)}...</p></div>
+            {(venda as any).justificativa_retroativo && <div className="col-span-full"><span className="text-[10px] text-muted-foreground uppercase font-semibold">Justificativa Retroativo</span><p className="font-semibold mt-0.5 text-warning">{(venda as any).justificativa_retroativo}</p></div>}
           </div>
           {venda.observacoes && <div className="p-3 bg-muted/30 rounded-lg"><p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">Observações</p><p className="text-sm whitespace-pre-wrap">{venda.observacoes}</p></div>}
           <div>
@@ -346,8 +349,9 @@ const Aprovacoes = () => {
   const handleApproveAccess = async (req: AccessRequest) => {
     setSavingAccess(true);
     try {
-      const { data: existing } = await supabase.from('profiles').select('id').eq('email', req.email).maybeSingle();
-      if (existing) { toast.error(`Já existe usuário com e-mail ${req.email}.`); setSavingAccess(false); return; }
+      // Check for existing ACTIVE user with same email (disabled profiles can be reused)
+      const { data: existing } = await supabase.from('profiles').select('id, disabled').eq('email', req.email).maybeSingle();
+      if (existing && !existing.disabled) { toast.error(`Já existe usuário ativo com e-mail ${req.email}.`); setSavingAccess(false); return; }
       if (req.cpf) {
         const { data: cpfCheck } = await supabase.from('profiles').select('id').eq('cpf', req.cpf).maybeSingle();
         if (cpfCheck) { toast.error(`Já existe usuário com CPF ${req.cpf}.`); setSavingAccess(false); return; }

@@ -90,38 +90,24 @@ const TreeNode = ({ profile, profiles, level, isAdmin, salesData }: { profile: P
 
   // Find direct reports
   const directReports = useMemo(() => {
-    return profiles.filter(p => {
-      // Logic for hierarchy:
-      // If profile is Diretor, find Gerentes under them (assuming some link or just all gerentes if no link?)
-      // Current DB has supervisor_id and gerente_id on profiles.
-      // So if I am a Gerente, my reports have gerente_id = my_id AND supervisor_id is null (or supervisor is me? No supervisor is usually a supervisor role).
-      // Let's rely on IDs.
-      // If profile is Supervisor, reports have supervisor_id = profile.id.
-      // If profile is Gerente, reports have gerente_id = profile.id AND (role is supervisor OR (role is consultor AND supervisor_id is null)).
-      // Actually simpler:
-      // Children of X are profiles where supervisor_id == X.id OR (gerente_id == X.id AND supervisor_id IS NULL).
-      // But we also need to handle Diretor -> Gerente. There is no 'diretor_id'.
-      // Assumption based on roles:
-      // Diretor (top) -> Gerente -> Supervisor -> Consultor.
-      // Since we don't have explicit hierarchy table for top levels, we might need to group by role if no ID link.
-      // But the prompt says "hierarchical tree view".
-      // Let's check if we can infer:
-      // - Consultors have supervisor_id (Supervisor) or gerente_id (Gerente).
-      // - Supervisors have gerente_id (Gerente).
-      // - Gerentes have... ?? Maybe no link to Diretor in DB schema.
-      // Let's group unlinked Gerentes under Diretores (or if no Diretor, they are top).
-      
-      // Strict ID check:
-      if (profile.cargo.toLowerCase().includes('gerente')) {
-         // Supervisors under this gerente
-         return profiles.filter(p => p.gerente_id === profile.id && p.cargo.toLowerCase().includes('supervisor'));
-      }
-      if (profile.cargo.toLowerCase().includes('supervisor')) {
-         // Consultors under this supervisor
-         return profiles.filter(p => p.supervisor_id === profile.id);
-      }
-      return [];
-    });
+    const cargo = profile.cargo.toLowerCase();
+    
+    if (cargo.includes('diretor')) {
+      // Diretores see Gerentes (those without a supervisor link to another diretor)
+      return profiles.filter(p => {
+        const pCargo = p.cargo.toLowerCase();
+        return pCargo.includes('gerente') && p.id !== profile.id;
+      });
+    }
+    if (cargo.includes('gerente')) {
+      // Gerentes see Supervisors under them
+      return profiles.filter(p => p.gerente_id === profile.id && p.cargo.toLowerCase().includes('supervisor'));
+    }
+    if (cargo.includes('supervisor')) {
+      // Supervisors see Consultors under them
+      return profiles.filter(p => p.supervisor_id === profile.id);
+    }
+    return [];
   }, [profile, profiles]);
 
   // Special handling for top level (Diretor) or unlinked Gerentes done in parent.
