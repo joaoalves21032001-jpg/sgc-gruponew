@@ -277,9 +277,7 @@ export default function SalesWizard() {
       return true;
     }
     if (step === 2) {
-      const mainDocs = getRequiredDocs();
-      const mainOk = mainDocs.filter(d => d.required).every(d => titularDocs[d.label]);
-      if (!mainOk) return false;
+      // Aproveitamento docs required only if possuiAproveitamento
       if (possuiAproveitamento) {
         const aprovOk = aproveitamentoDefs.filter(d => d.required).every(d => aproveitamentoDocs[d.label]);
         if (!aprovOk) return false;
@@ -702,34 +700,34 @@ export default function SalesWizard() {
 
             <Separator className="bg-border/20" />
 
-            {/* Valor e Observação */}
+            {/* Valor */}
             <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FieldWithTooltip label="Valor (R$)" tooltip="Valor total do contrato." required>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-primary/50 font-medium">R$</span>
-                    <Input value={valorContrato} onChange={(e) => setValorContrato(maskCurrency(e.target.value))} placeholder="0,00" className="pl-10 h-11 border-border/40" />
-                  </div>
-                </FieldWithTooltip>
-                <FieldWithTooltip label="Observações" tooltip="Linhas de observação adicionais.">
-                  <div className="space-y-2">
-                    {obsLinhas.map((line, i) => (
-                      <div key={i} className="flex gap-2">
-                        <Input value={line} onChange={(e) => { const n = [...obsLinhas]; n[i] = e.target.value; setObsLinhas(n); }} className="h-9 border-border/40" placeholder={`Observação ${i + 1}`} />
-                        {obsLinhas.length > 1 && (
-                          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive" onClick={() => setObsLinhas(prev => prev.filter((_, j) => j !== i))}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setObsLinhas(prev => [...prev, ''])}>
-                      <Plus className="w-3 h-3" /> Linha
-                    </Button>
-                  </div>
-                </FieldWithTooltip>
-              </div>
+              <FieldWithTooltip label="Valor (R$)" tooltip="Valor total do contrato." required>
+                <div className="relative max-w-xs">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-primary/50 font-medium">R$</span>
+                  <Input value={valorContrato} onChange={(e) => setValorContrato(maskCurrency(e.target.value))} placeholder="0,00" className="pl-10 h-11 border-border/40" />
+                </div>
+              </FieldWithTooltip>
             </div>
+
+            {/* Observações - abaixo do valor */}
+            <FieldWithTooltip label="Observações" tooltip="Linhas de observação adicionais.">
+              <div className="space-y-2">
+                {obsLinhas.map((line, i) => (
+                  <div key={i} className="flex gap-2">
+                    <Input value={line} onChange={(e) => { const n = [...obsLinhas]; n[i] = e.target.value; setObsLinhas(n); }} className="h-9 border-border/40" placeholder={`Observação ${i + 1}`} />
+                    {obsLinhas.length > 1 && (
+                      <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 text-destructive" onClick={() => setObsLinhas(prev => prev.filter((_, j) => j !== i))}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => setObsLinhas(prev => [...prev, ''])}>
+                  <Plus className="w-3 h-3" /> Linha
+                </Button>
+              </div>
+            </FieldWithTooltip>
           </div>
         )}
 

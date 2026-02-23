@@ -42,15 +42,29 @@ serve(async (req) => {
     const body = await req.json();
     const { email, nome_completo, celular, cpf, rg, endereco, cargo, role, supervisor_id, gerente_id, numero_emergencia_1, numero_emergencia_2, data_admissao, data_nascimento } = body;
 
-    // Create auth user (trigger will create profile + default role)
-    const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      email_confirm: true,
-      user_metadata: { full_name: nome_completo },
-    });
+    // Check if a disabled profile with this email exists (reusable)
+    const { data: existingProfile } = await supabaseAdmin
+      .from("profiles")
+      .select("id, disabled")
+      .eq("email", email)
+      .maybeSingle();
 
-    if (createError) throw createError;
-    const userId = newUser.user.id;
+    let userId: string;
+
+    if (existingProfile && existingProfile.disabled) {
+      // Reuse existing auth user
+      userId = existingProfile.id;
+    } else {
+      // Create new auth user (trigger will create profile + default role)
+      const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        email_confirm: true,
+        user_metadata: { full_name: nome_completo },
+      });
+
+      if (createError) throw createError;
+      userId = newUser.user.id;
+    }
 
     // Generate next codigo
     const { data: allProfiles } = await supabaseAdmin.from("profiles").select("codigo").order("codigo", { ascending: false }).limit(1);
