@@ -3,7 +3,7 @@ import {
   LayoutDashboard, Briefcase, BarChart3, HelpCircle, LogOut,
   UserCog, UserCircle, ChevronLeft, ChevronRight,
   ClipboardList, CheckSquare, Bell, Archive, Search, Activity,
-  GripVertical, Pin, PinOff, Kanban
+  GripVertical, Pin, PinOff, Kanban, Users
 } from 'lucide-react';
 import { useProfile, useUserRole } from '@/hooks/useProfile';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
@@ -36,6 +36,7 @@ const navItems: NavItem[] = [
   { to: '/aprovacoes', icon: CheckSquare, label: 'Aprovações', access: 'supervisor_up' },
   { to: '/gestao', icon: BarChart3, label: 'Dashboard', access: 'supervisor_up' },
   { to: '/inventario', icon: Archive, label: 'Inventário', access: 'all' },
+  { to: '/equipe', icon: Users, label: 'Equipe', access: 'all' },
   { to: '/admin/usuarios', icon: UserCog, label: 'Usuários', access: 'admin' },
   { to: '/admin/logs', icon: Activity, label: 'Logs de Auditoria', access: 'admin' },
 ];
@@ -50,6 +51,7 @@ const NAV_TAB_KEYS: Record<string, string> = {
   '/aprovacoes': 'aprovacoes',
   '/gestao': 'gestao',
   '/inventario': 'inventario',
+  '/equipe': 'equipe',
   '/admin/usuarios': 'admin',
   '/admin/logs': 'admin',
 };

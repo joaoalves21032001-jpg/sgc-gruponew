@@ -19,6 +19,7 @@ import Inventario from "./pages/Inventario";
 import CRM from "./pages/CRM";
 import Notificacoes from "./pages/Notificacoes";
 import AuditLogs from "./pages/AuditLogs";
+import Equipe from "./pages/Equipe";
 import NotFound from "./pages/NotFound";
 import { Shield, UserPlus } from "lucide-react";
 import { Button } from "./components/ui/button";
@@ -103,6 +104,7 @@ const App = () => (
               <Route path="/inventario" element={<Inventario />} />
               <Route path="/notificacoes" element={<Notificacoes />} />
               <Route path="/perfil" element={<Perfil />} />
+              <Route path="/equipe" element={<Equipe />} />
               <Route path="/admin/usuarios" element={<AdminUsuarios />} />
               
               <Route path="/admin/logs" element={<AuditLogs />} />
