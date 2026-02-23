@@ -1,12 +1,20 @@
+import { useState } from 'react';
 import {
   User, Mail, Phone, Shield, Award, Building, Hash, CreditCard,
-  FileText, MapPin, AlertTriangle, Users, Briefcase
+  FileText, MapPin, AlertTriangle, Users, Briefcase, Camera, Send
 } from 'lucide-react';
 import { useProfile, useUserRole, useSupervisorProfile, useGerenteProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
 import { PatenteBadge } from '@/components/PatenteBadge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
@@ -23,12 +31,59 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label:
 }
 
 const Perfil = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const { data: profile, isLoading } = useProfile();
   const { data: role } = useUserRole();
   const { data: supervisor } = useSupervisorProfile(profile?.supervisor_id);
   const { data: gerente } = useGerenteProfile(profile?.gerente_id);
 
-  // Tab visibility is now controlled exclusively by administrators via the admin panel
+  const [uploading, setUploading] = useState(false);
+  const [showRequest, setShowRequest] = useState(false);
+  const [requestText, setRequestText] = useState('');
+  const [sendingRequest, setSendingRequest] = useState(false);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop();
+      const path = `${user.id}/avatar_${Date.now()}.${ext}`;
+      const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const { error: profileErr } = await supabase.from('profiles').update({ avatar_url: urlData.publicUrl } as any).eq('id', user.id);
+      if (profileErr) throw profileErr;
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+      toast.success('Foto atualizada!');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao enviar foto.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const sendDataChangeRequest = async () => {
+    if (!requestText.trim() || !user) return;
+    setSendingRequest(true);
+    try {
+      const { error } = await supabase.from('correction_requests').insert({
+        user_id: user.id,
+        tipo: 'profile_edit',
+        registro_id: user.id,
+        motivo: requestText.trim(),
+      } as any);
+      if (error) throw error;
+      toast.success('Solicitação enviada ao administrador!');
+      setShowRequest(false);
+      setRequestText('');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao enviar solicitação.');
+    } finally {
+      setSendingRequest(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -54,7 +109,7 @@ const Perfil = () => {
       <div className="bg-card rounded-xl shadow-card border border-border/30 overflow-hidden">
         {/* Hero */}
         <div className="gradient-hero p-8 flex items-center gap-5">
-          <div className={`w-[72px] h-[72px] rounded-full border-[3px] ${patente?.borderClass ?? 'border-white/20'} bg-white/10 flex items-center justify-center shrink-0 overflow-hidden`}>
+          <div className={`w-[72px] h-[72px] rounded-full border-[3px] ${patente?.borderClass ?? 'border-white/20'} bg-white/10 flex items-center justify-center shrink-0 overflow-hidden relative group`}>
             {profile.avatar_url ? (
               <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
             ) : (
@@ -62,6 +117,10 @@ const Perfil = () => {
                 {(profile.apelido || profile.nome_completo).charAt(0).toUpperCase()}
               </span>
             )}
+            <label className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-full">
+              <Camera className="w-5 h-5 text-white" />
+              <input type="file" className="hidden" accept="image/*" onChange={handleAvatarUpload} disabled={uploading} />
+            </label>
           </div>
           <div>
             <h2 className="text-xl font-bold text-white font-display">{profile.nome_completo}</h2>
@@ -172,9 +231,25 @@ const Perfil = () => {
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground/60 text-center">
-        Para alterar qualquer informação, entre em contato com um administrador.
-      </p>
+      <div className="flex justify-center">
+        <Button variant="outline" onClick={() => setShowRequest(true)} className="gap-1.5">
+          <Send className="w-4 h-4" /> Solicitar alteração de meus dados
+        </Button>
+      </div>
+
+      <Dialog open={showRequest} onOpenChange={v => { if (!v) setShowRequest(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle className="font-display">Solicitar Alteração de Dados</DialogTitle></DialogHeader>
+          <p className="text-xs text-muted-foreground">Descreva quais dados deseja alterar. A solicitação será enviada para aprovação do administrador.</p>
+          <Textarea value={requestText} onChange={e => setRequestText(e.target.value)} placeholder="Ex: Atualizar meu endereço para Rua Nova, 123..." rows={4} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRequest(false)}>Cancelar</Button>
+            <Button onClick={sendDataChangeRequest} disabled={sendingRequest || !requestText.trim()}>
+              {sendingRequest ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Enviar Solicitação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

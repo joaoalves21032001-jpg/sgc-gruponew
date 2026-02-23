@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
 import { useTeamVendas, useUpdateVendaStatus, type Venda } from '@/hooks/useVendas';
 import { useTeamAtividades, type Atividade } from '@/hooks/useAtividades';
+import { useVendaDocumentos, getDocumentUrl } from '@/hooks/useVendaDocs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -14,7 +15,8 @@ import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Shield, Search, CheckCircle2, Clock, Undo2,
-  ClipboardList, ShoppingCart, Users, UserPlus, Eye, XCircle, Trash2
+  ClipboardList, ShoppingCart, Users, UserPlus, Eye, XCircle, Trash2,
+  Download, FileText
 } from 'lucide-react';
 
 /* ─── Types ─── */
@@ -52,6 +54,60 @@ function useAccessRequests() {
       return (data ?? []) as AccessRequest[];
     },
   });
+}
+
+/* ─── Venda Detail Dialog with docs ─── */
+function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, setJustificativa, onAction }: {
+  venda: Venda | null; onClose: () => void; getConsultorName: (id: string) => string;
+  justificativa: string; setJustificativa: (v: string) => void;
+  onAction: (v: Venda, action: 'aprovado' | 'devolvido') => void;
+}) {
+  const { data: docs = [] } = useVendaDocumentos(venda?.id || null);
+  const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
+  const handleDownload = async (filePath: string) => {
+    setDownloadingDoc(filePath);
+    try { const url = await getDocumentUrl(filePath); if (url) window.open(url, '_blank'); else toast.error('Link indisponível.'); }
+    catch { toast.error('Erro ao baixar.'); } finally { setDownloadingDoc(null); }
+  };
+  return (
+    <Dialog open={!!venda} onOpenChange={() => onClose()}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle className="font-display text-lg">Detalhes Completos da Venda</DialogTitle></DialogHeader>
+        {venda && (<div className="space-y-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Titular</span><p className="font-semibold mt-0.5">{venda.nome_titular}</p></div>
+            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Modalidade</span><p className="font-semibold mt-0.5">{venda.modalidade}</p></div>
+            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Consultor</span><p className="font-semibold mt-0.5">{getConsultorName(venda.user_id)}</p></div>
+            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Vidas</span><p className="font-semibold mt-0.5">{venda.vidas}</p></div>
+            {venda.valor && <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Valor</span><p className="font-semibold mt-0.5">R$ {venda.valor.toLocaleString('pt-BR')}</p></div>}
+            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Data</span><p className="font-semibold mt-0.5">{new Date(venda.created_at).toLocaleDateString('pt-BR')}</p></div>
+            {(venda as any).justificativa_retroativo && <div className="col-span-full"><span className="text-[10px] text-muted-foreground uppercase font-semibold">Justificativa Retroativo</span><p className="font-semibold mt-0.5">{(venda as any).justificativa_retroativo}</p></div>}
+          </div>
+          {venda.observacoes && <div className="p-3 bg-muted/30 rounded-lg"><p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">Observações</p><p className="text-sm whitespace-pre-wrap">{venda.observacoes}</p></div>}
+          <div>
+            <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-2">Documentos ({docs.length})</p>
+            {docs.length === 0 ? <p className="text-xs text-muted-foreground italic">Nenhum documento.</p> : (
+              <div className="space-y-2">{docs.map(doc => (
+                <div key={doc.id} className="flex items-center gap-3 p-3 rounded-lg border border-border/30 bg-muted/10">
+                  <FileText className="w-4 h-4 text-primary shrink-0" />
+                  <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{doc.nome}</p><p className="text-[10px] text-muted-foreground">{doc.tipo}{doc.file_size ? ` • ${(doc.file_size/1024).toFixed(0)} KB` : ''}</p></div>
+                  <Button variant="outline" size="sm" className="gap-1 shrink-0" onClick={() => handleDownload(doc.file_path)} disabled={downloadingDoc === doc.file_path}><Download className="w-3.5 h-3.5" /> Baixar</Button>
+                </div>
+              ))}</div>
+            )}
+          </div>
+          <div className="space-y-3 pt-2 border-t border-border/20">
+            <div className="space-y-1.5"><label className="text-xs font-semibold text-muted-foreground uppercase">Justificativa da Devolução <span className="text-destructive">*</span></label>
+              <Textarea value={justificativa} onChange={e => setJustificativa(e.target.value)} placeholder="Obrigatório para devolver..." rows={3} className="border-border/40" /></div>
+            <div className="flex gap-2 flex-wrap">
+              <Button onClick={() => onAction(venda, 'aprovado')} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg"><CheckCircle2 className="w-5 h-5" /> Aprovar</Button>
+              <Button onClick={() => onAction(venda, 'devolvido')} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg"><Undo2 className="w-5 h-5" /> Devolver</Button>
+            </div>
+          </div>
+        </div>)}
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 const Aprovacoes = () => {
@@ -494,36 +550,14 @@ const Aprovacoes = () => {
       </Tabs>
 
       {/* ── Venda Detail Dialog ── */}
-      <Dialog open={!!selectedVenda} onOpenChange={() => setSelectedVenda(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-display text-lg">Detalhes da Venda</DialogTitle>
-          </DialogHeader>
-          {selectedVenda && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Titular</span><p className="font-semibold text-foreground mt-0.5">{selectedVenda.nome_titular}</p></div>
-                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Modalidade</span><p className="font-semibold text-foreground mt-0.5">{selectedVenda.modalidade}</p></div>
-                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Consultor</span><p className="font-semibold text-foreground mt-0.5">{getConsultorName(selectedVenda.user_id)}</p></div>
-                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Vidas</span><p className="font-semibold text-foreground mt-0.5">{selectedVenda.vidas}</p></div>
-                {selectedVenda.valor && <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Valor</span><p className="font-semibold text-foreground mt-0.5">R$ {selectedVenda.valor.toLocaleString('pt-BR')}</p></div>}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.08em]">Justificativa da Devolução <span className="text-destructive">*</span></label>
-                <Textarea value={justificativa} onChange={(e) => setJustificativa(e.target.value)} placeholder="Obrigatório para devolver. Explique o motivo..." rows={3} className="border-border/40" />
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                <Button onClick={() => handleVendaAction(selectedVenda, 'aprovado')} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
-                  <CheckCircle2 className="w-5 h-5" /> Aprovar Venda
-                </Button>
-                <Button onClick={() => handleVendaAction(selectedVenda, 'devolvido')} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
-                  <Undo2 className="w-5 h-5" /> Devolver Venda
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <VendaDetailDialog
+        venda={selectedVenda}
+        onClose={() => setSelectedVenda(null)}
+        getConsultorName={getConsultorName}
+        justificativa={justificativa}
+        setJustificativa={setJustificativa}
+        onAction={handleVendaAction}
+      />
 
       {/* ── Atividade Detail Dialog ── */}
       <Dialog open={!!selectedAtiv} onOpenChange={() => setSelectedAtiv(null)}>
