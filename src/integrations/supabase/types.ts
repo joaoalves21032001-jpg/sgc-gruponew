@@ -159,18 +159,21 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          logo_url: string | null
           nome: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
+          logo_url?: string | null
           nome: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
+          logo_url?: string | null
           nome?: string
           updated_at?: string
         }
@@ -695,6 +698,7 @@ export type Database = {
         Args: { _target_user_id: string }
         Returns: boolean
       }
+      check_reusable_email: { Args: { _email: string }; Returns: boolean }
       cleanup_old_audit_logs: { Args: never; Returns: undefined }
       cleanup_read_notifications: { Args: never; Returns: undefined }
       has_role: {
