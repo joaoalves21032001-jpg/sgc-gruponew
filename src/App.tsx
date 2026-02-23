@@ -20,7 +20,7 @@ import CRM from "./pages/CRM";
 import Notificacoes from "./pages/Notificacoes";
 import AuditLogs from "./pages/AuditLogs";
 import Equipe from "./pages/Equipe";
-
+import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
 import { Shield, UserPlus } from "lucide-react";
 import { Button } from "./components/ui/button";
@@ -94,7 +94,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            
+            <Route path="/landing" element={<LandingPage />} />
             <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
             <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
               <Route path="/" element={<Index />} />
