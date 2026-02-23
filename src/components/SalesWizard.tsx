@@ -726,10 +726,10 @@ export default function SalesWizard() {
                           </div>
                         </div>
                         <div className="flex items-end pb-1">
-                          <div className="flex items-center gap-2">
-                            <Switch checked={d.is_conjuge} onCheckedChange={(v) => updateDependente(i, 'is_conjuge', v)} />
-                            <Label className="text-xs">Cônjuge</Label>
-                          </div>
+                          {/* Cônjuge is set automatically by description dropdown */}
+                          {(d.is_conjuge || d.descricao === 'Cônjuge') && (
+                            <Badge className="text-[9px] bg-warning/10 text-warning border-warning/20">Certidão obrigatória</Badge>
+                          )}
                         </div>
                       </div>
                     </div>
