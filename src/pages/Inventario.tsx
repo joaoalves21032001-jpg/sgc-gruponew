@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useUserRole } from '@/hooks/useProfile';
+import { useLogAction } from '@/hooks/useAuditLog';
 import {
   useCompanhias, useCreateCompanhia, useUpdateCompanhia, useDeleteCompanhia,
   useProdutos, useCreateProduto, useUpdateProduto, useDeleteProduto,
@@ -25,6 +26,7 @@ import {
 function CompanhiasTab() {
   const { data: role } = useUserRole();
   const isAdmin = role === 'administrador';
+  const logAction = useLogAction();
   const { data: companhias = [], isLoading } = useCompanhias();
   const createMut = useCreateCompanhia();
   const updateMut = useUpdateCompanhia();
@@ -62,6 +64,7 @@ function CompanhiasTab() {
         if (logoUrl) {
           await supabase.from('companhias').update({ logo_url: logoUrl } as any).eq('id', editItem.id);
         }
+        logAction('editar_companhia', 'companhia', editItem.id, { nome: nome.trim() });
         toast.success('Companhia atualizada!');
       } else {
         const result = await createMut.mutateAsync(nome.trim());
@@ -69,6 +72,7 @@ function CompanhiasTab() {
           logoUrl = await uploadLogo(result.id, logoFile);
           await supabase.from('companhias').update({ logo_url: logoUrl } as any).eq('id', result.id);
         }
+        logAction('criar_companhia', 'companhia', result?.id, { nome: nome.trim() });
         toast.success('Companhia criada!');
       }
       setShowAdd(false); setEditItem(null); setNome(''); setLogoFile(null);
@@ -81,6 +85,7 @@ function CompanhiasTab() {
     setSaving(true);
     try {
       await deleteMut.mutateAsync(deleteItem.id);
+      logAction('excluir_companhia', 'companhia', deleteItem.id, { nome: deleteItem.nome });
       toast.success('Companhia excluída!');
       setDeleteItem(null);
     } catch (e: any) { toast.error(e.message); }
@@ -168,6 +173,7 @@ function CompanhiasTab() {
 function ProdutosTab() {
   const { data: role } = useUserRole();
   const isAdmin = role === 'administrador';
+  const logAction = useLogAction();
   const { data: produtos = [], isLoading } = useProdutos();
   const { data: companhias = [] } = useCompanhias();
   const createMut = useCreateProduto();
@@ -190,9 +196,11 @@ function ProdutosTab() {
     try {
       if (editItem) {
         await updateMut.mutateAsync({ id: editItem.id, nome: nome.trim(), companhia_id: companhiaId });
+        logAction('editar_produto', 'produto', editItem.id, { nome: nome.trim() });
         toast.success('Produto atualizado!');
       } else {
-        await createMut.mutateAsync({ nome: nome.trim(), companhia_id: companhiaId });
+        const result = await createMut.mutateAsync({ nome: nome.trim(), companhia_id: companhiaId });
+        logAction('criar_produto', 'produto', undefined, { nome: nome.trim() });
         toast.success('Produto criado!');
       }
       setShowAdd(false); setEditItem(null); setNome(''); setCompanhiaId('');
@@ -269,6 +277,7 @@ function ProdutosTab() {
 function ModalidadesTab() {
   const { data: role } = useUserRole();
   const isAdmin = role === 'administrador';
+  const logAction = useLogAction();
   const { data: modalidades = [], isLoading } = useModalidades();
   const createMut = useCreateModalidade();
   const updateMut = useUpdateModalidade();
@@ -299,8 +308,8 @@ function ModalidadesTab() {
       quantidade_vidas: qtdVidas.trim() || 'indefinido',
     };
     try {
-      if (editItem) { await updateMut.mutateAsync({ id: editItem.id, ...payload }); toast.success('Modalidade atualizada!'); }
-      else { await createMut.mutateAsync(payload); toast.success('Modalidade criada!'); }
+      if (editItem) { await updateMut.mutateAsync({ id: editItem.id, ...payload }); logAction('editar_modalidade', 'modalidade', editItem.id, { nome: nome.trim() }); toast.success('Modalidade atualizada!'); }
+      else { await createMut.mutateAsync(payload); logAction('criar_modalidade', 'modalidade', undefined, { nome: nome.trim() }); toast.success('Modalidade criada!'); }
       setShowAdd(false); setEditItem(null); setNome(''); setDocsObrig(''); setDocsOpc(''); setQtdVidas('indefinido');
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }

@@ -4,6 +4,7 @@ import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, type Lead } from
 import { useModalidades } from '@/hooks/useInventario';
 import { useUserRole, useProfile, useTeamProfiles } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLogAction } from '@/hooks/useAuditLog';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -121,7 +122,7 @@ export function KanbanBoard() {
   const updateMut = useUpdateLead();
   const deleteMut = useDeleteLead();
   const moveMut = useMoveLeadToStage();
-
+  const logAction = useLogAction();
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
 
   // Lead form state
@@ -179,8 +180,41 @@ export function KanbanBoard() {
     e.dataTransfer.effectAllowed = 'move';
   };
 
+  // Gatekeeper: validate required fields before allowing stage moves
+  const validateLeadForStage = (lead: Lead, targetStageId: string | null): string | null => {
+    if (!targetStageId) return null;
+    const stage = stages.find(s => s.id === targetStageId);
+    if (!stage) return null;
+    const stageName = stage.nome.toLowerCase();
+
+    // Stages that require contact info
+    const contactRequiredStages = ['envio de cotação', 'negociação', 'fechamento', 'pós-venda'];
+    if (contactRequiredStages.some(s => stageName.includes(s))) {
+      if (!lead.contato && !lead.email) return `Para mover para "${stage.nome}", o lead precisa ter Contato ou E-mail preenchido.`;
+    }
+
+    // Stages that require documents
+    const docRequiredStages = ['fechamento', 'pós-venda'];
+    if (docRequiredStages.some(s => stageName.includes(s))) {
+      const pf = isPessoaFisica(lead.tipo);
+      if (pf && !lead.doc_foto_path) return `Para mover para "${stage.nome}", o lead precisa ter Documento com Foto anexado.`;
+      if (!pf && !lead.cartao_cnpj_path) return `Para mover para "${stage.nome}", o lead precisa ter Cartão CNPJ anexado.`;
+    }
+
+    return null;
+  };
+
   const handleDrop = (stageId: string | null) => {
     if (!draggedLeadId) return;
+    const lead = leads.find(l => l.id === draggedLeadId);
+    if (lead) {
+      const error = validateLeadForStage(lead, stageId);
+      if (error) {
+        toast.error(error);
+        setDraggedLeadId(null);
+        return;
+      }
+    }
     moveMut.mutate({ leadId: draggedLeadId, stageId });
     setDraggedLeadId(null);
   };
@@ -261,6 +295,7 @@ export function KanbanBoard() {
         await supabase.from('leads').update(updates as any).eq('id', leadId);
       }
       toast.success(editItem ? 'Lead atualizado!' : 'Lead criado!');
+      logAction(editItem ? 'editar_lead' : 'criar_lead', 'lead', leadId, { nome: form.nome.trim() });
       setShowForm(false); setEditItem(null);
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
