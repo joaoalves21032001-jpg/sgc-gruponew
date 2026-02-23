@@ -25,6 +25,7 @@ import { useProfile, useSupervisorProfile, useUserRole } from '@/hooks/useProfil
 import { useCreateAtividade, useMyAtividades } from '@/hooks/useAtividades';
 import { useCreateVenda, useMyVendas, uploadVendaDocumento } from '@/hooks/useVendas';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLogAction } from '@/hooks/useAuditLog';
 import { maskPhone } from '@/lib/masks';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -237,6 +238,7 @@ function AtividadesTab() {
   const { data: myAtividades } = useMyAtividades();
   const { data: myVendas } = useMyVendas();
   const createAtividade = useCreateAtividade();
+  const logAction = useLogAction();
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const [showConfirm, setShowConfirm] = useState(false);
   const [showBulkConfirm, setShowBulkConfirm] = useState(false);
@@ -300,6 +302,7 @@ function AtividadesTab() {
         follow_up: parseInt(form.follow_up) || 0,
       });
       setShowConfirm(false);
+      logAction('criar_atividade', 'atividade', undefined, { data: format(dataLancamento, 'yyyy-MM-dd') });
       toast.success('Atividades registradas com sucesso!');
       setForm({ ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '', cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '' });
     } catch (err: any) {
