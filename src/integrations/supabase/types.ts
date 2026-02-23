@@ -19,6 +19,8 @@ export type Database = {
           cargo: string | null
           cpf: string | null
           created_at: string
+          data_admissao: string | null
+          data_nascimento: string | null
           email: string
           endereco: string | null
           gerente_id: string | null
@@ -38,6 +40,8 @@ export type Database = {
           cargo?: string | null
           cpf?: string | null
           created_at?: string
+          data_admissao?: string | null
+          data_nascimento?: string | null
           email: string
           endereco?: string | null
           gerente_id?: string | null
@@ -57,6 +61,8 @@ export type Database = {
           cargo?: string | null
           cpf?: string | null
           created_at?: string
+          data_admissao?: string | null
+          data_nascimento?: string | null
           email?: string
           endereco?: string | null
           gerente_id?: string | null
@@ -238,6 +244,7 @@ export type Database = {
       }
       leads: {
         Row: {
+          altura: string | null
           boletos_path: string | null
           cartao_cnpj_path: string | null
           cnpj: string | null
@@ -250,12 +257,17 @@ export type Database = {
           email: string | null
           endereco: string | null
           id: string
+          idade: number | null
+          livre: boolean
           nome: string
+          origem: string | null
+          peso: string | null
           stage_id: string | null
           tipo: string
           updated_at: string
         }
         Insert: {
+          altura?: string | null
           boletos_path?: string | null
           cartao_cnpj_path?: string | null
           cnpj?: string | null
@@ -268,12 +280,17 @@ export type Database = {
           email?: string | null
           endereco?: string | null
           id?: string
+          idade?: number | null
+          livre?: boolean
           nome: string
+          origem?: string | null
+          peso?: string | null
           stage_id?: string | null
           tipo: string
           updated_at?: string
         }
         Update: {
+          altura?: string | null
           boletos_path?: string | null
           cartao_cnpj_path?: string | null
           cnpj?: string | null
@@ -286,7 +303,11 @@ export type Database = {
           email?: string | null
           endereco?: string | null
           id?: string
+          idade?: number | null
+          livre?: boolean
           nome?: string
+          origem?: string | null
+          peso?: string | null
           stage_id?: string | null
           tipo?: string
           updated_at?: string
@@ -431,6 +452,8 @@ export type Database = {
           codigo: string | null
           cpf: string | null
           created_at: string
+          data_admissao: string | null
+          data_nascimento: string | null
           disabled: boolean
           email: string
           endereco: string | null
@@ -455,6 +478,8 @@ export type Database = {
           codigo?: string | null
           cpf?: string | null
           created_at?: string
+          data_admissao?: string | null
+          data_nascimento?: string | null
           disabled?: boolean
           email: string
           endereco?: string | null
@@ -479,6 +504,8 @@ export type Database = {
           codigo?: string | null
           cpf?: string | null
           created_at?: string
+          data_admissao?: string | null
+          data_nascimento?: string | null
           disabled?: boolean
           email?: string
           endereco?: string | null

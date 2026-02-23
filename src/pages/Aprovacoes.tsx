@@ -24,6 +24,8 @@ interface AccessRequest {
   endereco: string | null; cargo: string | null; nivel_acesso: string | null;
   numero_emergencia_1: string | null; numero_emergencia_2: string | null;
   motivo_recusa: string | null; status: string; created_at: string;
+  supervisor_id: string | null; gerente_id: string | null;
+  data_admissao: string | null; data_nascimento: string | null;
 }
 
 const statusColors: Record<string, string> = {
@@ -573,6 +575,10 @@ const Aprovacoes = () => {
               <div className="col-span-2"><span className="text-[10px] text-muted-foreground uppercase font-semibold">Endereço</span><p className="font-semibold mt-0.5">{viewAccess.endereco || '—'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Cargo</span><p className="font-semibold mt-0.5">{viewAccess.cargo || '—'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Nível de Acesso</span><p className="font-semibold mt-0.5">{viewAccess.nivel_acesso === 'administrador' ? 'Administrador' : 'Usuário'}</p></div>
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Supervisor</span><p className="font-semibold mt-0.5">{viewAccess.supervisor_id ? (profiles.find(p => p.id === viewAccess.supervisor_id)?.nome_completo || viewAccess.supervisor_id.slice(0, 8)) : 'Nenhum'}</p></div>
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Gerente</span><p className="font-semibold mt-0.5">{viewAccess.gerente_id ? (profiles.find(p => p.id === viewAccess.gerente_id)?.nome_completo || viewAccess.gerente_id.slice(0, 8)) : '—'}</p></div>
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Data de Nascimento</span><p className="font-semibold mt-0.5">{viewAccess.data_nascimento ? new Date(viewAccess.data_nascimento + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</p></div>
+              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Data de Admissão</span><p className="font-semibold mt-0.5">{viewAccess.data_admissao ? new Date(viewAccess.data_admissao + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Emergência 1</span><p className="font-semibold mt-0.5">{viewAccess.numero_emergencia_1 || '—'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Emergência 2</span><p className="font-semibold mt-0.5">{viewAccess.numero_emergencia_2 || '—'}</p></div>
             </div>
