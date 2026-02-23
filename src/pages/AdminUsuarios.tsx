@@ -75,6 +75,8 @@ interface FormData {
   gerente_id: string;
   meta_faturamento: string;
   atividades_desabilitadas: boolean;
+  data_admissao: string;
+  data_nascimento: string;
 }
 
 const emptyForm: FormData = {
@@ -82,6 +84,7 @@ const emptyForm: FormData = {
   endereco: '', cargo: 'Consultor de Vendas', codigo: '', role: 'consultor',
   numero_emergencia_1: '', numero_emergencia_2: '', supervisor_id: '', gerente_id: '',
   meta_faturamento: '', atividades_desabilitadas: false,
+  data_admissao: '', data_nascimento: '',
 };
 
 // Component: Tab permissions panel shown inside edit dialog
@@ -221,6 +224,8 @@ const AdminUsuarios = () => {
       gerente_id: profile.gerente_id || 'none',
       meta_faturamento: profile.meta_faturamento?.toString() || '',
       atividades_desabilitadas: (profile as any).atividades_desabilitadas === true,
+      data_admissao: (profile as any).data_admissao || '',
+      data_nascimento: (profile as any).data_nascimento || '',
     });
     setAvatarPreview(profile.avatar_url);
     setAvatarFile(null);
@@ -272,6 +277,8 @@ const AdminUsuarios = () => {
           meta_faturamento: form.meta_faturamento ? parseFloat(form.meta_faturamento) : null,
           avatar_url: avatarUrl,
           atividades_desabilitadas: form.atividades_desabilitadas,
+          data_admissao: form.data_admissao || null,
+          data_nascimento: form.data_nascimento || null,
         }).eq('id', editingId);
 
         if (error) throw error;
@@ -307,6 +314,8 @@ const AdminUsuarios = () => {
             apelido: form.apelido,
             meta_faturamento: form.meta_faturamento ? parseFloat(form.meta_faturamento) : null,
             atividades_desabilitadas: form.atividades_desabilitadas,
+            data_admissao: form.data_admissao || null,
+            data_nascimento: form.data_nascimento || null,
           }).eq('id', userId);
         }
 
@@ -499,6 +508,12 @@ const AdminUsuarios = () => {
                     <Input value={form.endereco} onChange={(e) => setField('endereco', e.target.value)} className="h-10" />
                   </FieldWithTooltip>
                 </div>
+                <FieldWithTooltip label="Data de Admissão" tooltip="Data de início do colaborador na empresa.">
+                  <Input type="date" value={form.data_admissao} onChange={(e) => setField('data_admissao', e.target.value)} className="h-10" />
+                </FieldWithTooltip>
+                <FieldWithTooltip label="Data de Nascimento" tooltip="Data de nascimento do colaborador.">
+                  <Input type="date" value={form.data_nascimento} onChange={(e) => setField('data_nascimento', e.target.value)} className="h-10" />
+                </FieldWithTooltip>
               </div>
             </div>
 
