@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   ClipboardList, ShoppingCart, Search, Pencil, Trash2, Plus,
-  CheckCircle2, Clock, XCircle, Undo2, AlertCircle
+  CheckCircle2, Clock, XCircle, Undo2, AlertCircle, Send
 } from 'lucide-react';
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; className: string }> = {
@@ -47,6 +47,11 @@ const MinhasAcoes = () => {
   const [editVendaForm, setEditVendaForm] = useState({ nome_titular: '', vidas: '', valor: '', observacoes: '' });
   const [editVendaSaving, setEditVendaSaving] = useState(false);
 
+  // Solicitar Alteração state
+  const [requestDialog, setRequestDialog] = useState<{ type: 'atividade' | 'venda'; id: string; label: string } | null>(null);
+  const [requestJustificativa, setRequestJustificativa] = useState('');
+  const [sendingRequest, setSendingRequest] = useState(false);
+
   const getStatusFilter = () => {
     if (mainTab === 'pendentes') return ['pendente', 'analise', 'devolvido'];
     if (mainTab === 'aprovados') return ['aprovado'];
@@ -75,7 +80,10 @@ const MinhasAcoes = () => {
     });
   }, [vendas, search, statusFilter, filterDate]);
 
-  const canEditDelete = (status: string) => status === 'devolvido' || status === 'pendente';
+  // Edit rules: only devolvido allows direct edit; pendente/aprovado require "Solicitar Alteração"
+  const canDirectEdit = (status: string) => status === 'devolvido';
+  const canRequestChange = (status: string) => status === 'pendente' || status === 'analise' || status === 'aprovado';
+  const canDelete = (status: string) => status === 'devolvido';
 
   const pendingCount = atividades.filter(a => ['pendente', 'analise', 'devolvido'].includes((a as any).status || 'pendente')).length
     + vendas.filter(v => ['pendente', 'analise', 'devolvido'].includes(v.status)).length;
@@ -102,8 +110,14 @@ const MinhasAcoes = () => {
   };
 
   const openEditAtiv = (a: any) => {
-    if (!canEditDelete((a as any).status || 'pendente')) {
-      toast.info('Este registro já foi processado e não pode ser editado.');
+    const status = (a as any).status || 'pendente';
+    if (canRequestChange(status)) {
+      setRequestDialog({ type: 'atividade', id: a.id, label: a.data });
+      setRequestJustificativa('');
+      return;
+    }
+    if (!canDirectEdit(status)) {
+      toast.info('Este registro não pode ser editado.');
       return;
     }
     setEditAtiv(a);
@@ -117,8 +131,13 @@ const MinhasAcoes = () => {
   };
 
   const openEditVenda = (v: Venda) => {
-    if (!canEditDelete(v.status)) {
-      toast.info('Este registro já foi processado e não pode ser editado.');
+    if (canRequestChange(v.status)) {
+      setRequestDialog({ type: 'venda', id: v.id, label: v.nome_titular });
+      setRequestJustificativa('');
+      return;
+    }
+    if (!canDirectEdit(v.status)) {
+      toast.info('Este registro não pode ser editado.');
       return;
     }
     setEditVenda(v);
@@ -131,11 +150,35 @@ const MinhasAcoes = () => {
   };
 
   const tryDelete = (type: 'atividade' | 'venda', id: string, label: string, status: string) => {
-    if (!canEditDelete(status)) {
-      toast.info('Este registro já foi processado e não pode ser excluído.');
+    if (!canDelete(status)) {
+      toast.info('Apenas registros devolvidos podem ser excluídos. Use "Solicitar Alteração" para outros status.');
       return;
     }
     setDeleteItem({ type, id, label });
+  };
+
+  const sendChangeRequest = async () => {
+    if (!requestDialog || !requestJustificativa.trim()) {
+      toast.error('Informe a justificativa.');
+      return;
+    }
+    setSendingRequest(true);
+    try {
+      if (!user) throw new Error('Não autenticado');
+      const { error } = await supabase.from('correction_requests').insert({
+        user_id: user.id,
+        tipo: requestDialog.type === 'atividade' ? 'atividade_edit' : 'venda_edit',
+        registro_id: requestDialog.id,
+        motivo: requestJustificativa.trim(),
+      } as any);
+      if (error) throw error;
+      toast.success('Solicitação de alteração enviada ao administrador!');
+      setRequestDialog(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao enviar solicitação.');
+    } finally {
+      setSendingRequest(false);
+    }
   };
 
   const saveEditAtiv = async () => {
@@ -187,7 +230,8 @@ const MinhasAcoes = () => {
     const ativStatus = (a as any).status || 'pendente';
     const sc = statusConfig[ativStatus] || statusConfig.pendente;
     const StatusIcon = sc.icon;
-    const editable = canEditDelete(ativStatus);
+    const isDevolvido = ativStatus === 'devolvido';
+    const showRequestBtn = canRequestChange(ativStatus);
     return (
       <div key={a.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4">
         <div className="flex items-start justify-between gap-3">
@@ -206,16 +250,23 @@ const MinhasAcoes = () => {
               <span>Follow-up: <strong className="text-foreground">{a.follow_up}</strong></span>
             </div>
           </div>
-          {editable && (
-            <div className="flex gap-1.5 shrink-0">
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditAtiv(a)}>
-                <Pencil className="w-3.5 h-3.5" />
+          <div className="flex gap-1.5 shrink-0">
+            {isDevolvido && (
+              <>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditAtiv(a)}>
+                  <Pencil className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => tryDelete('atividade', a.id, a.data, ativStatus)}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </>
+            )}
+            {showRequestBtn && (
+              <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => openEditAtiv(a)}>
+                <Send className="w-3 h-3" /> Solicitar Alteração
               </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => tryDelete('atividade', a.id, a.data, ativStatus)}>
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     );
@@ -224,7 +275,8 @@ const MinhasAcoes = () => {
   const renderVendaCard = (v: Venda) => {
     const sc = statusConfig[v.status] || statusConfig.pendente;
     const StatusIcon = sc.icon;
-    const editable = canEditDelete(v.status);
+    const isDevolvido = v.status === 'devolvido';
+    const showRequestBtn = canRequestChange(v.status);
     return (
       <div key={v.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4">
         <div className="flex items-start justify-between gap-3">
@@ -243,16 +295,23 @@ const MinhasAcoes = () => {
             </div>
             {v.observacoes && <p className="text-xs text-muted-foreground mt-1 italic">{v.observacoes}</p>}
           </div>
-          {editable && (
-            <div className="flex gap-1.5 shrink-0">
-              <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditVenda(v)}>
-                <Pencil className="w-3.5 h-3.5" />
+          <div className="flex gap-1.5 shrink-0">
+            {isDevolvido && (
+              <>
+                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditVenda(v)}>
+                  <Pencil className="w-3.5 h-3.5" />
+                </Button>
+                <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => tryDelete('venda', v.id, v.nome_titular, v.status)}>
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </>
+            )}
+            {showRequestBtn && (
+              <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => openEditVenda(v)}>
+                <Send className="w-3 h-3" /> Solicitar Alteração
               </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => tryDelete('venda', v.id, v.nome_titular, v.status)}>
-                <Trash2 className="w-3.5 h-3.5" />
-              </Button>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     );
@@ -270,15 +329,13 @@ const MinhasAcoes = () => {
         </Button>
       </div>
 
-      {/* Info */}
       <div className="bg-accent/50 rounded-xl p-3 border border-border/30 flex items-start gap-2">
         <AlertCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" />
         <p className="text-xs text-muted-foreground">
-          Você pode editar ou excluir registros com status <strong>Pendente</strong> ou <strong>Devolvido</strong>. Registros aprovados ficam bloqueados. Ao editar um devolvido, ele será reenviado para aprovação.
+          Registros <strong>Devolvidos</strong> podem ser editados livremente. Para registros <strong>Pendentes</strong> ou <strong>Aprovados</strong>, clique em "Solicitar Alteração" para enviar justificativa ao administrador.
         </p>
       </div>
 
-      {/* Main tabs: Pendentes / Aprovados / Devolvidos */}
       <Tabs value={mainTab} onValueChange={setMainTab} className="space-y-4">
         <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg">
           <TabsTrigger value="pendentes" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
@@ -292,7 +349,6 @@ const MinhasAcoes = () => {
           </TabsTrigger>
         </TabsList>
 
-        {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -301,83 +357,33 @@ const MinhasAcoes = () => {
           <Input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="h-10 w-[160px] bg-card border-border/40" />
         </div>
 
-        <TabsContent value="pendentes">
-          <div className="space-y-4">
-            {(filteredAtividades.length > 0 || filteredVendas.length > 0) ? (
-              <>
-                {filteredAtividades.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> Atividades ({filteredAtividades.length})</h3>
-                    <div className="grid gap-3">{filteredAtividades.map(renderAtivCard)}</div>
-                  </div>
-                )}
-                {filteredVendas.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"><ShoppingCart className="w-3.5 h-3.5" /> Vendas ({filteredVendas.length})</h3>
-                    <div className="grid gap-3">{filteredVendas.map(renderVendaCard)}</div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <ClipboardList className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                Nenhum registro pendente.
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="aprovados">
-          <div className="space-y-4">
-            {(filteredAtividades.length > 0 || filteredVendas.length > 0) ? (
-              <>
-                {filteredAtividades.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> Atividades ({filteredAtividades.length})</h3>
-                    <div className="grid gap-3">{filteredAtividades.map(renderAtivCard)}</div>
-                  </div>
-                )}
-                {filteredVendas.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"><ShoppingCart className="w-3.5 h-3.5" /> Vendas ({filteredVendas.length})</h3>
-                    <div className="grid gap-3">{filteredVendas.map(renderVendaCard)}</div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <CheckCircle2 className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                Nenhum registro aprovado.
-              </div>
-            )}
-          </div>
-        </TabsContent>
-
-        <TabsContent value="devolvidos">
-          <div className="space-y-4">
-            {(filteredAtividades.length > 0 || filteredVendas.length > 0) ? (
-              <>
-                {filteredAtividades.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> Atividades ({filteredAtividades.length})</h3>
-                    <div className="grid gap-3">{filteredAtividades.map(renderAtivCard)}</div>
-                  </div>
-                )}
-                {filteredVendas.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"><ShoppingCart className="w-3.5 h-3.5" /> Vendas ({filteredVendas.length})</h3>
-                    <div className="grid gap-3">{filteredVendas.map(renderVendaCard)}</div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <Undo2 className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                Nenhum registro devolvido.
-              </div>
-            )}
-          </div>
-        </TabsContent>
+        {['pendentes', 'aprovados', 'devolvidos'].map(tab => (
+          <TabsContent key={tab} value={tab}>
+            <div className="space-y-4">
+              {(filteredAtividades.length > 0 || filteredVendas.length > 0) ? (
+                <>
+                  {filteredAtividades.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"><ClipboardList className="w-3.5 h-3.5" /> Atividades ({filteredAtividades.length})</h3>
+                      <div className="grid gap-3">{filteredAtividades.map(renderAtivCard)}</div>
+                    </div>
+                  )}
+                  {filteredVendas.length > 0 && (
+                    <div>
+                      <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"><ShoppingCart className="w-3.5 h-3.5" /> Vendas ({filteredVendas.length})</h3>
+                      <div className="grid gap-3">{filteredVendas.map(renderVendaCard)}</div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground">
+                  <ClipboardList className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                  Nenhum registro encontrado.
+                </div>
+              )}
+            </div>
+          </TabsContent>
+        ))}
       </Tabs>
 
       {/* Delete Dialog */}
@@ -385,7 +391,7 @@ const MinhasAcoes = () => {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="font-display text-lg text-destructive">Excluir Registro</DialogTitle>
-            <DialogDescription>Tem certeza que deseja excluir "{deleteItem?.label}"? Esta ação não pode ser desfeita.</DialogDescription>
+            <DialogDescription>Tem certeza que deseja excluir "{deleteItem?.label}"?</DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDeleteItem(null)}>Cancelar</Button>
@@ -396,7 +402,26 @@ const MinhasAcoes = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Atividade Dialog */}
+      {/* Solicitar Alteração Dialog */}
+      <Dialog open={!!requestDialog} onOpenChange={v => { if (!v) setRequestDialog(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Solicitar Alteração</DialogTitle>
+            <DialogDescription>
+              Este registro está com status que não permite edição direta. Envie uma justificativa para o administrador avaliar sua solicitação.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea value={requestJustificativa} onChange={e => setRequestJustificativa(e.target.value)} placeholder="Descreva o que precisa ser alterado e o motivo..." rows={4} />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRequestDialog(null)}>Cancelar</Button>
+            <Button onClick={sendChangeRequest} disabled={sendingRequest || !requestJustificativa.trim()}>
+              {sendingRequest ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Enviar Solicitação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Atividade Dialog (only devolvido) */}
       <Dialog open={!!editAtiv} onOpenChange={(v) => { if (!v) setEditAtiv(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -425,7 +450,7 @@ const MinhasAcoes = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Venda Dialog */}
+      {/* Edit Venda Dialog (only devolvido) */}
       <Dialog open={!!editVenda} onOpenChange={(v) => { if (!v) setEditVenda(null); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

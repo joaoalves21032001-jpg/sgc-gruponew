@@ -35,6 +35,7 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName }: 
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground truncate">{lead.nome}</p>
           <Badge variant="outline" className="text-[9px] mt-1">{lead.tipo}</Badge>
+          {(lead as any).livre && <Badge className="text-[9px] mt-1 bg-success/10 text-success border-success/20">Livre</Badge>}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -128,7 +129,7 @@ export function KanbanBoard() {
   const [editItem, setEditItem] = useState<Lead | null>(null);
   const [formStageId, setFormStageId] = useState<string | null>(null);
   const defaultTipo = modalidadesList.length > 0 ? modalidadesList[0].nome : 'PF';
-  const [form, setForm] = useState({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', peso: '', altura: '' });
+  const [form, setForm] = useState({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', peso: '', altura: '', livre: false });
   const [saving, setSaving] = useState(false);
   const [deleteItem, setDeleteItem] = useState<Lead | null>(null);
 
@@ -197,6 +198,7 @@ export function KanbanBoard() {
       idade: (l as any).idade ? String((l as any).idade) : '',
       peso: (l as any).peso || '',
       altura: (l as any).altura || '',
+      livre: (l as any).livre || false,
     });
     setFormStageId((l as any).stage_id || null);
     setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null);
@@ -214,7 +216,7 @@ export function KanbanBoard() {
 
   const openAdd = (stageId?: string | null) => {
     setEditItem(null);
-    setForm({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', peso: '', altura: '' });
+    setForm({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', peso: '', altura: '', livre: false });
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
     setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null);
     setShowForm(true);
@@ -238,6 +240,7 @@ export function KanbanBoard() {
       peso: form.peso || null,
       altura: form.altura || null,
     };
+    payload.livre = form.livre;
     if (isPessoaFisica(form.tipo)) { payload.cpf = form.cpf || null; payload.cnpj = null; }
     else { payload.cnpj = form.cnpj || null; payload.cpf = null; }
     if (!editItem) { payload.created_by = currentUser?.id || null; }
@@ -382,6 +385,17 @@ export function KanbanBoard() {
               <div><label className="text-xs font-semibold text-muted-foreground">Peso</label><Input value={form.peso} onChange={e => setForm(p => ({ ...p, peso: e.target.value }))} placeholder="Ex: 80 kg" className="h-10" /></div>
               <div><label className="text-xs font-semibold text-muted-foreground">Altura</label><Input value={form.altura} onChange={e => setForm(p => ({ ...p, altura: e.target.value }))} placeholder="Ex: 170 cm" className="h-10" /></div>
             </div>
+
+            {/* Lead Livre (Admin only) */}
+            {isAdmin && (
+              <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
+                <input type="checkbox" checked={form.livre} onChange={e => setForm(p => ({ ...p, livre: e.target.checked }))} className="w-4 h-4 rounded border-border" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Lead Livre</p>
+                  <p className="text-[10px] text-muted-foreground">Qualquer consultor pode assumir este lead.</p>
+                </div>
+              </div>
+            )}
 
             <div className="border-t border-border/20 pt-3 space-y-3">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.08em]">Documentos</p>

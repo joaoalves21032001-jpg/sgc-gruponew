@@ -14,12 +14,14 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
-  Building2, Package, Tag, Users, Plus, Pencil, Trash2, Search
+  Building2, Package, Tag, Users, Plus, Pencil, Trash2, Search, Upload, Image
 } from 'lucide-react';
 
-/* ─── Companhias Tab ─── */
+/* ─── Companhias Tab with Logo Upload ─── */
 function CompanhiasTab() {
   const { data: role } = useUserRole();
   const isAdmin = role === 'administrador';
@@ -33,21 +35,43 @@ function CompanhiasTab() {
   const [showAdd, setShowAdd] = useState(false);
   const [deleteItem, setDeleteItem] = useState<Companhia | null>(null);
   const [saving, setSaving] = useState(false);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const filtered = companhias.filter(c => c.nome.toLowerCase().includes(search.toLowerCase()));
+
+  const uploadLogo = async (companhiaId: string, file: File): Promise<string> => {
+    const ext = file.name.split('.').pop();
+    const path = `companhias/${companhiaId}/logo_${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+    if (error) throw error;
+    const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+    return data.publicUrl;
+  };
 
   const handleSave = async () => {
     if (!nome.trim()) { toast.error('Informe o nome.'); return; }
     setSaving(true);
     try {
+      let logoUrl: string | undefined;
       if (editItem) {
+        if (logoFile) {
+          logoUrl = await uploadLogo(editItem.id, logoFile);
+        }
         await updateMut.mutateAsync({ id: editItem.id, nome: nome.trim() });
+        if (logoUrl) {
+          await supabase.from('companhias').update({ logo_url: logoUrl } as any).eq('id', editItem.id);
+        }
         toast.success('Companhia atualizada!');
       } else {
-        await createMut.mutateAsync(nome.trim());
+        const result = await createMut.mutateAsync(nome.trim());
+        if (logoFile && result?.id) {
+          logoUrl = await uploadLogo(result.id, logoFile);
+          await supabase.from('companhias').update({ logo_url: logoUrl } as any).eq('id', result.id);
+        }
         toast.success('Companhia criada!');
       }
-      setShowAdd(false); setEditItem(null); setNome('');
+      setShowAdd(false); setEditItem(null); setNome(''); setLogoFile(null);
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
   };
@@ -71,7 +95,7 @@ function CompanhiasTab() {
           <Input placeholder="Buscar companhia..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-10 bg-card border-border/40" />
         </div>
         {isAdmin && (
-          <Button onClick={() => { setShowAdd(true); setEditItem(null); setNome(''); }} className="gap-1.5 font-semibold shadow-brand">
+          <Button onClick={() => { setShowAdd(true); setEditItem(null); setNome(''); setLogoFile(null); }} className="gap-1.5 font-semibold shadow-brand">
             <Plus className="w-4 h-4" /> Nova Companhia
           </Button>
         )}
@@ -82,13 +106,21 @@ function CompanhiasTab() {
           filtered.length === 0 ? <p className="text-center py-12 text-muted-foreground">Nenhuma companhia encontrada.</p> :
             filtered.map(c => (
               <div key={c.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-foreground">{c.nome}</p>
-                  <p className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleDateString('pt-BR')}</p>
+                <div className="flex items-center gap-3">
+                  <Avatar className="w-10 h-10 border border-border/30">
+                    <AvatarImage src={(c as any).logo_url || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary font-bold text-sm">
+                      {c.nome.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{c.nome}</p>
+                    <p className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleDateString('pt-BR')}</p>
+                  </div>
                 </div>
                 {isAdmin && (
                   <div className="flex gap-1.5 shrink-0">
-                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditItem(c); setNome(c.nome); setShowAdd(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditItem(c); setNome(c.nome); setLogoFile(null); setShowAdd(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
                     <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteItem(c)}><Trash2 className="w-3.5 h-3.5" /></Button>
                   </div>
                 )}
@@ -99,7 +131,19 @@ function CompanhiasTab() {
       <Dialog open={showAdd} onOpenChange={v => { if (!v) { setShowAdd(false); setEditItem(null); } }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle className="font-display">{editItem ? 'Editar' : 'Nova'} Companhia</DialogTitle></DialogHeader>
-          <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome da companhia" className="h-10" />
+          <div className="space-y-3">
+            <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome da companhia" className="h-10" />
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Logomarca</label>
+              <label className="cursor-pointer block">
+                <input type="file" className="hidden" accept="image/*" onChange={e => setLogoFile(e.target.files?.[0] || null)} />
+                <span className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border/40 bg-card text-xs hover:bg-muted transition-colors cursor-pointer">
+                  <Image className="w-3.5 h-3.5 text-primary shrink-0" />
+                  {logoFile ? <span className="text-success truncate">{logoFile.name}</span> : (editItem as any)?.logo_url ? <span className="text-muted-foreground">Logo existente ✓</span> : <span className="text-muted-foreground">Selecionar imagem...</span>}
+                </span>
+              </label>
+            </div>
+          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAdd(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={saving}>{saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Salvar'}</Button>
@@ -239,12 +283,10 @@ function ModalidadesTab() {
   const [saving, setSaving] = useState(false);
 
   const openEdit = (m: ModalidadeType) => {
-    setEditItem(m);
-    setNome(m.nome);
+    setEditItem(m); setNome(m.nome);
     setDocsObrig(m.documentos_obrigatorios.join('\n'));
     setDocsOpc(m.documentos_opcionais.join('\n'));
-    setQtdVidas(m.quantidade_vidas);
-    setShowAdd(true);
+    setQtdVidas(m.quantidade_vidas); setShowAdd(true);
   };
 
   const handleSave = async () => {
@@ -257,13 +299,8 @@ function ModalidadesTab() {
       quantidade_vidas: qtdVidas.trim() || 'indefinido',
     };
     try {
-      if (editItem) {
-        await updateMut.mutateAsync({ id: editItem.id, ...payload });
-        toast.success('Modalidade atualizada!');
-      } else {
-        await createMut.mutateAsync(payload);
-        toast.success('Modalidade criada!');
-      }
+      if (editItem) { await updateMut.mutateAsync({ id: editItem.id, ...payload }); toast.success('Modalidade atualizada!'); }
+      else { await createMut.mutateAsync(payload); toast.success('Modalidade criada!'); }
       setShowAdd(false); setEditItem(null); setNome(''); setDocsObrig(''); setDocsOpc(''); setQtdVidas('indefinido');
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
@@ -306,24 +343,10 @@ function ModalidadesTab() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle className="font-display">{editItem ? 'Editar' : 'Nova'} Modalidade</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground">Nome</label>
-              <Input value={nome} onChange={e => setNome(e.target.value)} className="h-10" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground">Documentos Obrigatórios <span className="text-destructive">*</span></label>
-              <p className="text-[10px] text-muted-foreground mb-1">Um por linha</p>
-              <Textarea value={docsObrig} onChange={e => setDocsObrig(e.target.value)} rows={4} placeholder="Documento com foto&#10;Comprovante de endereço" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground">Documentos Opcionais</label>
-              <p className="text-[10px] text-muted-foreground mb-1">Um por linha</p>
-              <Textarea value={docsOpc} onChange={e => setDocsOpc(e.target.value)} rows={3} placeholder="Últimos 3 boletos" />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground">Quantidade de Vidas</label>
-              <Input value={qtdVidas} onChange={e => setQtdVidas(e.target.value)} placeholder="Ex: 1, 5, indefinido" className="h-10" />
-            </div>
+            <div><label className="text-xs font-semibold text-muted-foreground">Nome</label><Input value={nome} onChange={e => setNome(e.target.value)} className="h-10" /></div>
+            <div><label className="text-xs font-semibold text-muted-foreground">Documentos Obrigatórios <span className="text-destructive">*</span></label><p className="text-[10px] text-muted-foreground mb-1">Um por linha</p><Textarea value={docsObrig} onChange={e => setDocsObrig(e.target.value)} rows={4} placeholder="Documento com foto&#10;Comprovante de endereço" /></div>
+            <div><label className="text-xs font-semibold text-muted-foreground">Documentos Opcionais</label><p className="text-[10px] text-muted-foreground mb-1">Um por linha</p><Textarea value={docsOpc} onChange={e => setDocsOpc(e.target.value)} rows={3} /></div>
+            <div><label className="text-xs font-semibold text-muted-foreground">Quantidade de Vidas</label><Input value={qtdVidas} onChange={e => setQtdVidas(e.target.value)} placeholder="Ex: 1, 5, indefinido" className="h-10" /></div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAdd(false)}>Cancelar</Button>
@@ -344,8 +367,6 @@ function ModalidadesTab() {
     </div>
   );
 }
-
-/* LeadsTab replaced by KanbanBoard component */
 
 /* ─── Main Page ─── */
 const Inventario = () => {
