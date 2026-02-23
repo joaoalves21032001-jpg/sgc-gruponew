@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useLogAction } from '@/hooks/useAuditLog';
 import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
 import { useTeamVendas, useUpdateVendaStatus, type Venda } from '@/hooks/useVendas';
 import { useTeamAtividades, type Atividade } from '@/hooks/useAtividades';
@@ -118,6 +119,7 @@ const Aprovacoes = () => {
   const { data: accessRequests = [], isLoading: loadingAccess } = useAccessRequests();
   const updateStatus = useUpdateVendaStatus();
   const queryClient = useQueryClient();
+  const logAction = useLogAction();
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('todos');
@@ -202,6 +204,7 @@ const Aprovacoes = () => {
       const finalObs = action === 'devolvido' ? justificativa.trim() : obs;
       await updateStatus.mutateAsync({ id: venda.id, status: action, observacoes: finalObs });
       toast.success(`Venda ${action === 'aprovado' ? 'aprovada' : 'devolvida'} com sucesso!`);
+      logAction(action === 'aprovado' ? 'aprovar_venda' : 'devolver_venda', 'venda', venda.id, { nome_titular: venda.nome_titular });
       setSelectedVenda(null);
       setObs(''); setJustificativa('');
     } catch (err: any) {
@@ -222,6 +225,7 @@ const Aprovacoes = () => {
         .eq('id', ativ.id);
       if (error) throw error;
       toast.success(`Atividade ${action === 'aprovado' ? 'aprovada' : 'devolvida'} com sucesso!`);
+      logAction(action === 'aprovado' ? 'aprovar_atividade' : 'devolver_atividade', 'atividade', ativ.id, { user_id: ativ.user_id, data: ativ.data });
       queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
       queryClient.invalidateQueries({ queryKey: ['atividades'] });
       setSelectedAtiv(null); setAtivJustificativa('');
@@ -263,6 +267,7 @@ const Aprovacoes = () => {
       const { error } = await supabase.from('access_requests').update({ status: 'aprovado' } as any).eq('id', req.id);
       if (error) throw error;
       toast.success(`Acesso aprovado e usuário criado para ${req.nome}!`);
+      logAction('aprovar_acesso', 'access_request', req.id, { nome: req.nome, email: req.email });
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao aprovar.');
@@ -285,6 +290,7 @@ const Aprovacoes = () => {
           body: { type: 'acesso_negado', data: { nome: rejectAccess.nome, email: rejectAccess.email, motivo: rejectReason.trim() } },
         });
       } catch (e) { console.error('Email error:', e); }
+      logAction('rejeitar_acesso', 'access_request', rejectAccess.id, { nome: rejectAccess.nome, email: rejectAccess.email });
       toast.success('Solicitação recusada.');
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
       setRejectAccess(null); setRejectReason('');
