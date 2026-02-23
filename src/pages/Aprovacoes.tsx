@@ -17,8 +17,32 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Shield, Search, CheckCircle2, Clock, Undo2,
   ClipboardList, ShoppingCart, Users, UserPlus, Eye, XCircle, Trash2,
-  Download, FileText
+  Download, FileText, MessageSquareQuote
 } from 'lucide-react';
+
+/* ─── Cotacao type ─── */
+interface Cotacao {
+  id: string; nome: string; contato: string; email: string | null;
+  companhia_nome: string | null; produto_nome: string | null;
+  modalidade: string | null; quantidade_vidas: number; com_dental: boolean;
+  co_participacao: string | null; consultor_recomendado_id: string | null;
+  status: string; motivo_recusa: string | null; lead_id: string | null;
+  created_at: string; updated_at: string;
+}
+
+function useCotacoes() {
+  return useQuery({
+    queryKey: ['cotacoes'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('cotacoes')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as Cotacao[];
+    },
+  });
+}
 
 /* ─── Types ─── */
 interface AccessRequest {
@@ -117,6 +141,7 @@ const Aprovacoes = () => {
   const { data: vendas = [], isLoading: loadingVendas } = useTeamVendas();
   const { data: atividades = [], isLoading: loadingAtiv } = useTeamAtividades();
   const { data: accessRequests = [], isLoading: loadingAccess } = useAccessRequests();
+  const { data: cotacoes = [], isLoading: loadingCotacoes } = useCotacoes();
   const updateStatus = useUpdateVendaStatus();
   const queryClient = useQueryClient();
   const logAction = useLogAction();
@@ -142,6 +167,12 @@ const Aprovacoes = () => {
   const [rejectReason, setRejectReason] = useState('');
   const [savingAccess, setSavingAccess] = useState(false);
   const [deleteAccess, setDeleteAccess] = useState<AccessRequest | null>(null);
+
+  // Cotação dialog
+  const [viewCotacao, setViewCotacao] = useState<Cotacao | null>(null);
+  const [rejectCotacao, setRejectCotacao] = useState<Cotacao | null>(null);
+  const [rejectCotacaoReason, setRejectCotacaoReason] = useState('');
+  const [savingCotacao, setSavingCotacao] = useState(false);
 
   const isAdmin = role === 'administrador';
   const isSupervisorUp = role === 'supervisor' || role === 'gerente' || role === 'administrador';
@@ -189,10 +220,86 @@ const Aprovacoes = () => {
     return matchesSearch && matchesStatus && matchesDate;
   });
 
+  const filteredCotacoes = cotacoes.filter(c => {
+    const matchesSearch = !search || c.nome.toLowerCase().includes(search.toLowerCase()) || (c.contato && c.contato.includes(search));
+    const matchesStatus = filterStatus === 'todos' || c.status === filterStatus;
+    const matchesDate = !filterDate || c.created_at.startsWith(filterDate);
+    return matchesSearch && matchesStatus && matchesDate;
+  });
+
   const pendingVendas = vendas.filter(v => v.status === 'analise' || v.status === 'pendente').length;
   const pendingAtiv = atividades.filter(a => (a as any).status === 'pendente' || !(a as any).status).length;
   const pendingAccess = accessRequests.filter(r => r.status === 'pendente').length;
-  const totalPending = pendingVendas + pendingAtiv + pendingAccess;
+  const pendingCotacoes = cotacoes.filter(c => c.status === 'pendente').length;
+  const totalPending = pendingVendas + pendingAtiv + pendingAccess + pendingCotacoes;
+
+  /* ─── Cotação Actions ─── */
+  const handleApproveCotacao = async (cotacao: Cotacao) => {
+    setSavingCotacao(true);
+    try {
+      // Determine tipo based on modalidade
+      const tipoPF = ['PF', 'Familiar'];
+      const tipo = cotacao.modalidade && tipoPF.includes(cotacao.modalidade) ? 'Pessoa Física' : 'Empresa';
+
+      // Get first stage
+      const { data: firstStage } = await supabase
+        .from('lead_stages')
+        .select('id')
+        .order('ordem', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      // Create lead
+      const { data: newLead, error: leadError } = await supabase.from('leads').insert({
+        nome: cotacao.nome,
+        contato: cotacao.contato,
+        email: cotacao.email || null,
+        tipo,
+        origem: 'Landing Page',
+        livre: !cotacao.consultor_recomendado_id,
+        stage_id: firstStage?.id || null,
+        created_by: cotacao.consultor_recomendado_id || null,
+      } as any).select('id').single();
+
+      if (leadError) throw leadError;
+
+      // Update cotacao status
+      await supabase.from('cotacoes').update({
+        status: 'aprovado',
+        lead_id: newLead.id,
+      } as any).eq('id', cotacao.id);
+
+      logAction('aprovar_cotacao', 'cotacao', cotacao.id, { nome: cotacao.nome, lead_id: newLead.id });
+      toast.success(`Cotação aprovada! Lead "${cotacao.nome}" criado${cotacao.consultor_recomendado_id ? ' e vinculado ao consultor recomendado' : ' como lead livre'}.`);
+      queryClient.invalidateQueries({ queryKey: ['cotacoes'] });
+      queryClient.invalidateQueries({ queryKey: ['leads'] });
+      setViewCotacao(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao aprovar cotação.');
+    } finally {
+      setSavingCotacao(false);
+    }
+  };
+
+  const handleRejectCotacao = async () => {
+    if (!rejectCotacao) return;
+    if (!rejectCotacaoReason.trim()) { toast.error('Informe o motivo da recusa.'); return; }
+    setSavingCotacao(true);
+    try {
+      await supabase.from('cotacoes').update({
+        status: 'rejeitado',
+        motivo_recusa: rejectCotacaoReason.trim(),
+      } as any).eq('id', rejectCotacao.id);
+      logAction('rejeitar_cotacao', 'cotacao', rejectCotacao.id, { nome: rejectCotacao.nome });
+      toast.success('Cotação recusada.');
+      queryClient.invalidateQueries({ queryKey: ['cotacoes'] });
+      setRejectCotacao(null); setRejectCotacaoReason('');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao recusar.');
+    } finally {
+      setSavingCotacao(false);
+    }
+  };
 
   /* ─── Venda Actions ─── */
   const handleVendaAction = async (venda: Venda, action: 'aprovado' | 'devolvido') => {
@@ -348,6 +455,9 @@ const Aprovacoes = () => {
           <TabsTrigger value="vendas" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
             <ShoppingCart className="w-4 h-4" /> Vendas ({filteredVendas.length})
           </TabsTrigger>
+          <TabsTrigger value="cotacoes" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
+            <MessageSquareQuote className="w-4 h-4" /> Cotações ({filteredCotacoes.length})
+          </TabsTrigger>
           {isAdmin && (
             <TabsTrigger value="acesso" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
               <UserPlus className="w-4 h-4" /> Acesso ({filteredAccess.length})
@@ -477,6 +587,68 @@ const Aprovacoes = () => {
                       <div className="p-3 bg-muted/30 rounded-lg">
                         <p className="text-xs text-muted-foreground mb-1">Observações:</p>
                         <p className="text-sm text-foreground">{v.observacoes}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── Cotações Tab ── */}
+        <TabsContent value="cotacoes">
+          <div className="grid gap-3">
+            {loadingCotacoes ? (
+              <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+            ) : filteredCotacoes.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <MessageSquareQuote className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                Nenhuma cotação encontrada.
+              </div>
+            ) : (
+              filteredCotacoes.map((c) => {
+                const sc = statusColors[c.status] || statusColors.pendente;
+                const consultorName = c.consultor_recomendado_id ? (profiles.find(p => p.id === c.consultor_recomendado_id)?.nome_completo || '—') : null;
+                return (
+                  <div key={c.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground">{c.nome}</p>
+                          <Badge variant="outline" className={`text-[10px] ${sc}`}>{statusLabel[c.status] || c.status}</Badge>
+                          <Badge variant="outline" className="text-[10px] uppercase bg-muted/40">Cotação</Badge>
+                          {c.companhia_nome && <Badge variant="outline" className="text-[10px]">{c.companhia_nome}</Badge>}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
+                          <span>{c.contato}</span>
+                          {c.email && <><span>•</span><span>{c.email}</span></>}
+                          {c.modalidade && <><span>•</span><span>{c.modalidade}</span></>}
+                          <span>•</span><span>{c.quantidade_vidas} vida(s)</span>
+                          {consultorName && <><span>•</span><span>Indicação: <strong>{consultorName}</strong></span></>}
+                        </div>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {new Date(c.created_at).toLocaleDateString('pt-BR')} — Origem: Landing Page
+                        </p>
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        {c.status === 'pendente' && (
+                          <>
+                            <Button size="sm" className="gap-1 bg-success hover:bg-success/90 text-success-foreground font-semibold" onClick={() => handleApproveCotacao(c)} disabled={savingCotacao}>
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Aprovar
+                            </Button>
+                            <Button size="sm" variant="destructive" className="gap-1 font-semibold" onClick={() => { setRejectCotacao(c); setRejectCotacaoReason(''); }}>
+                              <XCircle className="w-3.5 h-3.5" /> Recusar
+                            </Button>
+                          </>
+                        )}
+                        {c.lead_id && <Badge className="bg-success/10 text-success text-[10px]">Lead criado</Badge>}
+                      </div>
+                    </div>
+                    {c.motivo_recusa && (
+                      <div className="p-3 bg-destructive/5 rounded-lg border border-destructive/10">
+                        <p className="text-xs text-muted-foreground mb-1">Motivo da recusa:</p>
+                        <p className="text-sm text-foreground">{c.motivo_recusa}</p>
                       </div>
                     )}
                   </div>
@@ -665,6 +837,23 @@ const Aprovacoes = () => {
               finally { setSavingAccess(false); }
             }} disabled={savingAccess} className="gap-1">
               {savingAccess ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Trash2 className="w-4 h-4" /> Excluir</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Reject Cotação Dialog ── */}
+      <Dialog open={!!rejectCotacao} onOpenChange={(v) => { if (!v) setRejectCotacao(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg text-destructive">Recusar Cotação</DialogTitle>
+            <DialogDescription>Informe o motivo da recusa para a cotação de {rejectCotacao?.nome}.</DialogDescription>
+          </DialogHeader>
+          <Textarea value={rejectCotacaoReason} onChange={(e) => setRejectCotacaoReason(e.target.value)} placeholder="Motivo da recusa (obrigatório)..." rows={3} />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRejectCotacao(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleRejectCotacao} disabled={savingCotacao} className="gap-1">
+              {savingCotacao ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><XCircle className="w-4 h-4" /> Recusar</>}
             </Button>
           </DialogFooter>
         </DialogContent>
