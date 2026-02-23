@@ -23,6 +23,7 @@ import { toast } from 'sonner';
 import { useProfile, useSupervisorProfile } from '@/hooks/useProfile';
 import { useCreateVenda, uploadVendaDocumento } from '@/hooks/useVendas';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLogAction } from '@/hooks/useAuditLog';
 import { useCompanhias, useProdutos, useModalidades, useLeads } from '@/hooks/useInventario';
 import { maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
 
@@ -135,6 +136,7 @@ export default function SalesWizard() {
   const { data: profile } = useProfile();
   const { data: supervisor } = useSupervisorProfile(profile?.supervisor_id);
   const createVenda = useCreateVenda();
+  const logAction = useLogAction();
 
   // Inventário data
   const { data: companhias = [] } = useCompanhias();
@@ -328,6 +330,7 @@ export default function SalesWizard() {
       }
 
       setShowConfirm(false);
+      logAction('criar_venda', 'venda', venda.id, { nome_titular: titulares[0]?.nome, modalidade, valor: unmaskCurrency(valorContrato) });
       toast.success('Venda enviada para análise!');
       // Reset
       setStep(0);
