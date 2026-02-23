@@ -215,6 +215,78 @@ export type Database = {
         }
         Relationships: []
       }
+      cotacoes: {
+        Row: {
+          co_participacao: string | null
+          com_dental: boolean | null
+          companhia_nome: string | null
+          consultor_recomendado_id: string | null
+          contato: string
+          created_at: string
+          email: string | null
+          id: string
+          lead_id: string | null
+          modalidade: string | null
+          motivo_recusa: string | null
+          nome: string
+          produto_nome: string | null
+          quantidade_vidas: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          co_participacao?: string | null
+          com_dental?: boolean | null
+          companhia_nome?: string | null
+          consultor_recomendado_id?: string | null
+          contato: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          modalidade?: string | null
+          motivo_recusa?: string | null
+          nome: string
+          produto_nome?: string | null
+          quantidade_vidas?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          co_participacao?: string | null
+          com_dental?: boolean | null
+          companhia_nome?: string | null
+          consultor_recomendado_id?: string | null
+          contato?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          modalidade?: string | null
+          motivo_recusa?: string | null
+          nome?: string
+          produto_nome?: string | null
+          quantidade_vidas?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotacoes_consultor_recomendado_id_fkey"
+            columns: ["consultor_recomendado_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotacoes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lead_stages: {
         Row: {
           cor: string
