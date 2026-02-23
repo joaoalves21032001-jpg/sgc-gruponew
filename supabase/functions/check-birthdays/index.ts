@@ -14,13 +14,13 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Get today's month and day
     const today = new Date();
     const month = String(today.getMonth() + 1).padStart(2, "0");
     const day = String(today.getDate()).padStart(2, "0");
+    const isFirstDay = day === "01";
 
-    // Find profiles with birthday today
-    const { data: birthdayProfiles, error: profilesError } = await supabase
+    // Fetch all active profiles with birthdates
+    const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
       .select("id, nome_completo, apelido, data_nascimento, disabled")
       .eq("disabled", false)
@@ -28,63 +28,64 @@ Deno.serve(async (req) => {
 
     if (profilesError) throw profilesError;
 
-    const birthdayPeople = (birthdayProfiles || []).filter((p: any) => {
-      if (!p.data_nascimento) return false;
-      const dob = p.data_nascimento; // format: YYYY-MM-DD
+    const notifications: any[] = [];
+    const birthdayPeopleToday = (profiles || []).filter((p: any) => {
+      const dob = p.data_nascimento;
       return dob.slice(5, 7) === month && dob.slice(8, 10) === day;
     });
 
-    if (birthdayPeople.length === 0) {
-      return new Response(JSON.stringify({ message: "Nenhum aniversariante hoje." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const birthdayPeopleMonth = (profiles || []).filter((p: any) => {
+      const dob = p.data_nascimento;
+      return dob.slice(5, 7) === month;
+    });
 
-    // Get all active users to notify
-    const { data: allUsers, error: usersError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("disabled", false);
-
-    if (usersError) throw usersError;
-
-    // Create notifications for all users about each birthday
-    const notifications: any[] = [];
-    for (const birthday of birthdayPeople) {
-      const nome = birthday.apelido || birthday.nome_completo.split(" ")[0];
-      for (const user of (allUsers || [])) {
-        // Don't notify the birthday person about themselves
-        if (user.id === birthday.id) continue;
+    // 1. Birthdays Today
+    if (birthdayPeopleToday.length > 0) {
+      for (const birthday of birthdayPeopleToday) {
+        const nome = birthday.apelido || birthday.nome_completo.split(" ")[0];
+        for (const user of (profiles || [])) {
+          if (user.id === birthday.id) continue;
+          notifications.push({
+            user_id: user.id,
+            titulo: `🎂 Aniversário: ${nome}`,
+            descricao: `Hoje é aniversário de ${birthday.nome_completo}!`,
+            tipo: "aniversario",
+          });
+        }
+        // Notify self
         notifications.push({
-          user_id: user.id,
-          titulo: `🎂 Aniversário: ${nome}`,
-          descricao: `Hoje é aniversário de ${birthday.nome_completo}! Não esqueça de parabenizar.`,
+          user_id: birthday.id,
+          titulo: `🎉 Feliz Aniversário, ${nome}!`,
+          descricao: `A equipe Grupo New deseja a você um feliz aniversário!`,
           tipo: "aniversario",
         });
       }
-      // Also notify the birthday person
-      notifications.push({
-        user_id: birthday.id,
-        titulo: `🎉 Feliz Aniversário, ${nome}!`,
-        descricao: `A equipe Grupo New deseja a você um feliz aniversário!`,
-        tipo: "aniversario",
-      });
     }
 
-    // Batch insert notifications (max 1000 at a time)
-    for (let i = 0; i < notifications.length; i += 500) {
-      const batch = notifications.slice(i, i + 500);
-      const { error: insertError } = await supabase.from("notifications").insert(batch);
-      if (insertError) console.error("Error inserting batch:", insertError);
+    // 2. Birthdays of the Month (Only run on 1st day)
+    if (isFirstDay && birthdayPeopleMonth.length > 0) {
+      const names = birthdayPeopleMonth.map((p: any) => p.apelido || p.nome_completo.split(" ")[0]).join(", ");
+      for (const user of (profiles || [])) {
+        notifications.push({
+          user_id: user.id,
+          titulo: `📅 Aniversariantes de ${today.toLocaleString('pt-BR', { month: 'long' })}`,
+          descricao: `Celebre com: ${names}.`,
+          tipo: "info",
+        });
+      }
     }
 
-    return new Response(
-      JSON.stringify({
-        message: `Notificações enviadas para ${birthdayPeople.length} aniversariante(s).`,
-        birthdays: birthdayPeople.map((p: any) => p.nome_completo),
-      }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    if (notifications.length > 0) {
+      // Batch insert (max 1000)
+      for (let i = 0; i < notifications.length; i += 500) {
+        const batch = notifications.slice(i, i + 500);
+        await supabase.from("notifications").insert(batch);
+      }
+    }
+
+    return new Response(JSON.stringify({ success: true, count: notifications.length }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,

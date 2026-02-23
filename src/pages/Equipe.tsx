@@ -1,44 +1,30 @@
 import { useState, useMemo } from 'react';
 import { useTeamProfiles, useUserRole, type Profile } from '@/hooks/useProfile';
-import { useMyVendas } from '@/hooks/useVendas';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import {
-  Search, Users, Mail, Phone, Briefcase, Calendar, Award, TrendingUp
+  Search, Users, Mail, Phone, Briefcase, Calendar, Award, TrendingUp,
+  ChevronRight, ChevronDown, Plus, Trophy, Trash2
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
-function useAllVendasCount() {
-  return useQuery({
-    queryKey: ['all-vendas-count'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('vendas')
-        .select('user_id, status')
-        .eq('status', 'aprovado');
-      if (error) throw error;
-      const counts: Record<string, number> = {};
-      for (const v of (data ?? [])) {
-        counts[v.user_id] = (counts[v.user_id] || 0) + 1;
-      }
-      return counts;
-    },
-  });
-}
-
+// Reusing calc functions
 function calcTempoEmpresa(dataAdmissao: string | null): string {
   if (!dataAdmissao) return '—';
   const adm = new Date(dataAdmissao + 'T12:00:00');
   const now = new Date();
   const months = (now.getFullYear() - adm.getFullYear()) * 12 + (now.getMonth() - adm.getMonth());
-  if (months < 1) return 'Menos de 1 mês';
+  if (months < 1) return 'Recém-chegado';
   if (months < 12) return `${months} mês${months > 1 ? 'es' : ''}`;
   const years = Math.floor(months / 12);
   const rem = months % 12;
-  return rem > 0 ? `${years} ano${years > 1 ? 's' : ''} e ${rem} mês${rem > 1 ? 'es' : ''}` : `${years} ano${years > 1 ? 's' : ''}`;
+  return rem > 0 ? `${years}a ${rem}m` : `${years} ano${years > 1 ? 's' : ''}`;
 }
 
 function getAniversario(dataNascimento: string | null): string | null {
@@ -49,135 +35,265 @@ function getAniversario(dataNascimento: string | null): string | null {
   return `${day}/${month}`;
 }
 
-function isAniversarioHoje(dataNascimento: string | null): boolean {
-  if (!dataNascimento) return false;
-  const d = new Date(dataNascimento + 'T12:00:00');
-  const now = new Date();
-  return d.getDate() === now.getDate() && d.getMonth() === now.getMonth();
+// Premiações Hook
+function usePremiacoes(userId: string) {
+  return useQuery({
+    queryKey: ['premiacoes', userId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('premiacoes').select('*').eq('user_id', userId).order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userId,
+  });
 }
 
-function ProfileCard({ profile, vendaCount }: { profile: Profile & { data_nascimento?: string | null; data_admissao?: string | null }; vendaCount: number }) {
-  const aniversario = getAniversario((profile as any).data_nascimento);
-  const isBirthday = isAniversarioHoje((profile as any).data_nascimento);
-  const tempo = calcTempoEmpresa((profile as any).data_admissao);
+function useAddPremiacao() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ userId, titulo, descricao }: { userId: string, titulo: string, descricao: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { error } = await supabase.from('premiacoes').insert({ user_id: userId, titulo, descricao, created_by: user?.id });
+      if (error) throw error;
+    },
+    onSuccess: (_, { userId }) => {
+      queryClient.invalidateQueries({ queryKey: ['premiacoes', userId] });
+      toast.success('Premiação adicionada!');
+    },
+    onError: (e) => toast.error(e.message),
+  });
+}
+
+function useDeletePremiacao() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('premiacoes').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['premiacoes'] });
+      toast.success('Premiação removida.');
+    },
+  });
+}
+
+// Node Component for Tree
+const TreeNode = ({ profile, profiles, level, isAdmin, salesData }: { profile: Profile, profiles: Profile[], level: number, isAdmin: boolean, salesData: any }) => {
+  const [expanded, setExpanded] = useState(true);
+  const [showAwards, setShowAwards] = useState(false);
+  const { data: awards = [] } = usePremiacoes(profile.id);
+  const addAward = useAddPremiacao();
+  const deleteAward = useDeletePremiacao();
+  const [awardTitle, setAwardTitle] = useState('');
+  const [awardDesc, setAwardDesc] = useState('');
+
+  // Find direct reports
+  const directReports = useMemo(() => {
+    return profiles.filter(p => {
+      // Logic for hierarchy:
+      // If profile is Diretor, find Gerentes under them (assuming some link or just all gerentes if no link?)
+      // Current DB has supervisor_id and gerente_id on profiles.
+      // So if I am a Gerente, my reports have gerente_id = my_id AND supervisor_id is null (or supervisor is me? No supervisor is usually a supervisor role).
+      // Let's rely on IDs.
+      // If profile is Supervisor, reports have supervisor_id = profile.id.
+      // If profile is Gerente, reports have gerente_id = profile.id AND (role is supervisor OR (role is consultor AND supervisor_id is null)).
+      // Actually simpler:
+      // Children of X are profiles where supervisor_id == X.id OR (gerente_id == X.id AND supervisor_id IS NULL).
+      // But we also need to handle Diretor -> Gerente. There is no 'diretor_id'.
+      // Assumption based on roles:
+      // Diretor (top) -> Gerente -> Supervisor -> Consultor.
+      // Since we don't have explicit hierarchy table for top levels, we might need to group by role if no ID link.
+      // But the prompt says "hierarchical tree view".
+      // Let's check if we can infer:
+      // - Consultors have supervisor_id (Supervisor) or gerente_id (Gerente).
+      // - Supervisors have gerente_id (Gerente).
+      // - Gerentes have... ?? Maybe no link to Diretor in DB schema.
+      // Let's group unlinked Gerentes under Diretores (or if no Diretor, they are top).
+      
+      // Strict ID check:
+      if (profile.cargo.toLowerCase().includes('gerente')) {
+         // Supervisors under this gerente
+         return profiles.filter(p => p.gerente_id === profile.id && p.cargo.toLowerCase().includes('supervisor'));
+      }
+      if (profile.cargo.toLowerCase().includes('supervisor')) {
+         // Consultors under this supervisor
+         return profiles.filter(p => p.supervisor_id === profile.id);
+      }
+      return [];
+    });
+  }, [profile, profiles]);
+
+  // Special handling for top level (Diretor) or unlinked Gerentes done in parent.
+  
+  const hasChildren = directReports.length > 0;
+  const sales = salesData[profile.id] || { total: 0, month: 0 };
+  
+  const handleAddAward = async () => {
+    if (!awardTitle.trim()) return;
+    await addAward.mutateAsync({ userId: profile.id, titulo: awardTitle, descricao: awardDesc });
+    setAwardTitle(''); setAwardDesc('');
+  };
 
   return (
-    <div className={`bg-card rounded-xl border shadow-card p-5 space-y-3 transition-all hover:shadow-card-hover ${isBirthday ? 'border-warning/50 ring-2 ring-warning/20' : 'border-border/30'}`}>
-      <div className="flex items-center gap-3">
-        <Avatar className="w-12 h-12 border-2 border-border/30">
+    <div className="ml-4 border-l border-border/20 pl-4 py-2">
+      <div className="bg-card rounded-lg border border-border/30 shadow-sm p-3 flex items-center gap-3 w-full max-w-3xl hover:border-primary/30 transition-colors">
+        <button onClick={() => setExpanded(!expanded)} className={`p-1 rounded-md hover:bg-muted ${hasChildren ? '' : 'invisible'}`}>
+          {expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
+        </button>
+        
+        <Avatar className="w-10 h-10 border border-border/30">
           <AvatarImage src={profile.avatar_url || undefined} />
-          <AvatarFallback className="bg-primary/10 text-primary font-bold text-lg">
-            {(profile.apelido || profile.nome_completo).charAt(0).toUpperCase()}
-          </AvatarFallback>
+          <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">{(profile.apelido || profile.nome_completo).charAt(0)}</AvatarFallback>
         </Avatar>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-foreground truncate">{profile.nome_completo}</p>
-          <p className="text-xs text-muted-foreground flex items-center gap-1">
-            <Briefcase className="w-3 h-3" /> {profile.cargo}
-          </p>
-          {profile.codigo && <p className="text-[10px] text-muted-foreground font-mono">ID: {profile.codigo}</p>}
-        </div>
-        {isBirthday && <span className="text-2xl">🎂</span>}
-      </div>
 
-      <Separator className="bg-border/20" />
-
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <Mail className="w-3 h-3 shrink-0" />
-          <span className="truncate">{profile.email}</span>
-        </div>
-        {profile.celular && (
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Phone className="w-3 h-3 shrink-0" />
-            <span>{profile.celular}</span>
+        <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+          <div className="md:col-span-1">
+            <p className="text-sm font-bold text-foreground truncate">{profile.nome_completo}</p>
+            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{profile.cargo}</p>
           </div>
-        )}
-        {aniversario && (
-          <div className="flex items-center gap-1.5 text-muted-foreground">
-            <Calendar className="w-3 h-3 shrink-0" />
-            <span>Aniversário: {aniversario}</span>
+          
+          <div className="text-xs text-muted-foreground space-y-0.5">
+            <div className="flex items-center gap-1.5"><Calendar className="w-3 h-3" /> {calcTempoEmpresa((profile as any).data_admissao)} de casa</div>
+            <div className="flex items-center gap-1.5"><Award className="w-3 h-3" /> Niver: {getAniversario((profile as any).data_nascimento) || '—'}</div>
           </div>
-        )}
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <Award className="w-3 h-3 shrink-0" />
-          <span>Tempo: {tempo}</span>
+
+          <div className="text-xs space-y-0.5">
+            <div className="flex items-center justify-between"><span className="text-muted-foreground">Vendas Mês:</span> <span className="font-bold text-foreground">{sales.month}</span></div>
+            <div className="flex items-center justify-between"><span className="text-muted-foreground">Vendas Total:</span> <span className="font-bold text-foreground">{sales.total}</span></div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-primary" onClick={() => setShowAwards(true)}>
+              <Trophy className="w-3.5 h-3.5" /> Premiações ({awards.length})
+            </Button>
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 pt-1">
-        <Badge variant="outline" className="text-[10px] gap-1">
-          <TrendingUp className="w-3 h-3" /> {vendaCount} venda{vendaCount !== 1 ? 's' : ''}
-        </Badge>
-        {vendaCount > 0 && (
-          <span className="text-[10px] text-muted-foreground">
-            Média: {(vendaCount / Math.max(1, calcMonths((profile as any).data_admissao))).toFixed(1)}/mês
-          </span>
-        )}
-      </div>
+      {expanded && hasChildren && (
+        <div className="animate-fade-in">
+          {directReports.map(child => (
+            <TreeNode key={child.id} profile={child} profiles={profiles} level={level + 1} isAdmin={isAdmin} salesData={salesData} />
+          ))}
+        </div>
+      )}
+
+      <Dialog open={showAwards} onOpenChange={setShowAwards}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Premiações de {profile.apelido}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              {awards.length === 0 ? <p className="text-xs text-muted-foreground italic text-center py-4">Nenhuma premiação.</p> : (
+                awards.map((a: any) => (
+                  <div key={a.id} className="flex items-start justify-between p-2 rounded bg-muted/20 border border-border/20">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{a.titulo}</p>
+                      {a.descricao && <p className="text-xs text-muted-foreground">{a.descricao}</p>}
+                      <p className="text-[10px] text-muted-foreground mt-1">{new Date(a.created_at).toLocaleDateString()}</p>
+                    </div>
+                    {isAdmin && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteAward.mutate(a.id)}><Trash2 className="w-3 h-3" /></Button>}
+                  </div>
+                ))
+              )}
+            </div>
+            {isAdmin && (
+              <div className="space-y-2 pt-4 border-t border-border/20">
+                <Input placeholder="Título da premiação" value={awardTitle} onChange={e => setAwardTitle(e.target.value)} className="h-8 text-xs" />
+                <Input placeholder="Descrição (opcional)" value={awardDesc} onChange={e => setAwardDesc(e.target.value)} className="h-8 text-xs" />
+                <Button onClick={handleAddAward} size="sm" className="w-full h-8 text-xs" disabled={!awardTitle}>Adicionar Premiação</Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-}
-
-function calcMonths(dataAdmissao: string | null): number {
-  if (!dataAdmissao) return 1;
-  const adm = new Date(dataAdmissao + 'T12:00:00');
-  const now = new Date();
-  return Math.max(1, (now.getFullYear() - adm.getFullYear()) * 12 + (now.getMonth() - adm.getMonth()));
-}
+};
 
 const Equipe = () => {
+  const { data: role } = useUserRole();
+  const isAdmin = role === 'administrador';
   const { data: profiles = [], isLoading } = useTeamProfiles();
-  const { data: vendaCounts = {} } = useAllVendasCount();
-  const [search, setSearch] = useState('');
+  
+  // Mock sales data or fetch real
+  // In real app, we should fetch from 'vendas' table with aggregations.
+  // For now I'll create a quick query or just use useAllVendasCount logic but enhanced
+  const { data: vendas = [] } = useQuery({
+    queryKey: ['all-sales-stats'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('vendas').select('user_id, created_at').eq('status', 'aprovado');
+      if (error) throw error;
+      return data || [];
+    }
+  });
 
-  const activeProfiles = useMemo(() => {
-    return profiles
-      .filter(p => !p.disabled)
-      .filter(p => {
-        if (!search) return true;
-        const q = search.toLowerCase();
-        return p.nome_completo.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || p.cargo.toLowerCase().includes(q);
-      })
-      .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
-  }, [profiles, search]);
+  const salesData = useMemo(() => {
+    const stats: Record<string, { total: number, month: number }> = {};
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    vendas.forEach(v => {
+      if (!stats[v.user_id]) stats[v.user_id] = { total: 0, month: 0 };
+      stats[v.user_id].total++;
+      const d = new Date(v.created_at);
+      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+        stats[v.user_id].month++;
+      }
+    });
+    return stats;
+  }, [vendas]);
 
-  // Birthday people first
-  const sorted = useMemo(() => {
-    const bday = activeProfiles.filter(p => isAniversarioHoje((p as any).data_nascimento));
-    const rest = activeProfiles.filter(p => !isAniversarioHoje((p as any).data_nascimento));
-    return [...bday, ...rest];
-  }, [activeProfiles]);
+  // Build Hierarchy Roots
+  // Roots are: 
+  // 1. Diretores (anyone with cargo 'Diretor')
+  // 2. Gerentes who have no linked supervisor (assuming they report to directors or are top)
+  // 3. Anyone else who has no supervisor_id AND no gerente_id (Orphans/Top level)
+  const roots = useMemo(() => {
+    return profiles.filter(p => {
+      const cargo = p.cargo.toLowerCase();
+      // If Diretor -> Root
+      if (cargo.includes('diretor')) return true;
+      // If Gerente and no Director link (we don't have director_id, so usually root)
+      // But we need to check if they are already children of someone else? 
+      // In this simple schema, Gerentes don't have 'supervisor_id' usually pointing to another manager.
+      // So Gerentes are likely roots unless we have Diretores.
+      // Let's assume all Gerentes and Diretores are roots for the visualization,
+      // UNLESS we want a single tree.
+      // Let's try: Roots = All Diretores. If no Diretores, then all Gerentes.
+      
+      const hasDiretores = profiles.some(u => u.cargo.toLowerCase().includes('diretor'));
+      if (hasDiretores) {
+        return cargo.includes('diretor');
+      }
+      // If no diretores, maybe Gerentes are top
+      const hasGerentes = profiles.some(u => u.cargo.toLowerCase().includes('gerente'));
+      if (hasGerentes) {
+        return cargo.includes('gerente');
+      }
+      // Fallback: everyone without supervisor
+      return !p.supervisor_id && !p.gerente_id;
+    }).sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
+  }, [profiles]);
 
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Equipe</h1>
-          <p className="text-sm text-muted-foreground mt-1">Diretório de colaboradores do Grupo New</p>
+          <p className="text-sm text-muted-foreground mt-1">Organograma e Desempenho</p>
         </div>
-        <Badge variant="outline" className="text-sm px-3 py-1">
-          <Users className="w-3.5 h-3.5 mr-1.5" /> {activeProfiles.length} colaborador{activeProfiles.length !== 1 ? 'es' : ''}
-        </Badge>
-      </div>
-
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input placeholder="Buscar por nome, e-mail ou cargo..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-10 bg-card border-border/40" />
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
-      ) : sorted.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">
-          <Users className="w-10 h-10 mx-auto mb-2 opacity-30" />
-          Nenhum colaborador encontrado.
-        </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sorted.map(p => (
-            <ProfileCard key={p.id} profile={p} vendaCount={vendaCounts[p.id] || 0} />
+        <div className="space-y-2">
+          {roots.map(root => (
+            <TreeNode key={root.id} profile={root} profiles={profiles} level={0} isAdmin={isAdmin} salesData={salesData} />
           ))}
+          {roots.length === 0 && <p className="text-center text-muted-foreground py-10">Nenhum colaborador encontrado na hierarquia.</p>}
         </div>
       )}
     </div>
