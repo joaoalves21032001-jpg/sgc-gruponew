@@ -82,9 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) { setHasProfile(null); return; }
 
     const checkProfile = async () => {
+      // First: check if profile exists (essential columns only)
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, disabled, cargo, perfil')
+        .select('id, disabled')
         .eq('id', user.id)
         .maybeSingle();
 
@@ -92,14 +93,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setHasProfile(false);
         setCargo(null);
         setPerfil(null);
-      } else if ((data as any).disabled) {
+        return;
+      }
+      if ((data as any).disabled) {
         setHasProfile(false);
         setCargo(null);
         setPerfil(null);
-      } else {
-        setHasProfile(true);
-        setCargo((data as any).cargo ?? null);
-        setPerfil((data as any).perfil ?? null);
+        return;
+      }
+
+      setHasProfile(true);
+
+      // Second: try to fetch cargo/perfil (non-blocking, won't break login if columns don't exist)
+      try {
+        const { data: extraData } = await supabase
+          .from('profiles')
+          .select('cargo, perfil')
+          .eq('id', user.id)
+          .maybeSingle();
+        if (extraData) {
+          setCargo((extraData as any).cargo ?? null);
+          setPerfil((extraData as any).perfil ?? null);
+        }
+      } catch {
+        // cargo/perfil columns may not exist yet — ignore silently
       }
     };
     checkProfile();
