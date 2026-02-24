@@ -1,4 +1,5 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { format, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -133,6 +134,7 @@ export default function SalesWizard() {
   const { data: supervisor } = useSupervisorProfile(profile?.supervisor_id);
   const createVenda = useCreateVenda();
   const logAction = useLogAction();
+  const location = useLocation();
 
   // Inventário data
   const { data: companhias = [] } = useCompanhias();
@@ -174,6 +176,30 @@ export default function SalesWizard() {
 
   // Upload ref for bulk
   const uploadRef = useRef<HTMLInputElement>(null);
+
+  // Prefill from CRM lead
+  useEffect(() => {
+    const prefillLead = (location.state as any)?.prefillLead;
+    if (prefillLead) {
+      // Set modalidade from lead tipo
+      const tipo = prefillLead.tipo as VendaModalidade;
+      if (['PF', 'Familiar', 'PME Multi', 'Empresarial', 'Adesão'].includes(tipo)) {
+        setModalidade(tipo);
+        handleModalidadeChange(tipo);
+      }
+      // Set lead
+      setLeadId(prefillLead.id);
+      // Set titular from lead
+      if (prefillLead.nome) {
+        setTitulares([{ nome: prefillLead.nome, idade: prefillLead.idade ? String(prefillLead.idade) : '', produto_id: '' }]);
+      }
+      // Jump to step 1
+      setStep(1);
+      toast.info('Dados do lead pré-carregados do CRM!');
+      // Clear navigation state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Computed
   const isRetroativo = !isToday(dataLancamento);
@@ -233,20 +259,6 @@ export default function SalesWizard() {
   const removeDependente = (idx: number) => setDependentes(prev => prev.filter((_, i) => i !== idx));
 
   // Documents logic
-  const getRequiredDocs = () => {
-    const docs: { label: string; required: boolean }[] = [];
-    // From modalidade
-    if (selectedModalidade) {
-      selectedModalidade.documentos_obrigatorios.forEach(d => docs.push({ label: d, required: true }));
-      selectedModalidade.documentos_opcionais.forEach(d => docs.push({ label: d, required: false }));
-    }
-    // CNPJ for empresa
-    if (isEmpresa) {
-      docs.push({ label: 'Comprovação de Vínculo (FGTS/Holerite/CTPS)', required: modalidade === 'Empresarial' });
-    }
-    return docs;
-  };
-
   const getBenefDocs = (isConjuge: boolean) => {
     const docs: { label: string; required: boolean }[] = [
       { label: 'Documento com foto', required: true },
@@ -263,7 +275,7 @@ export default function SalesWizard() {
     { label: 'Últimos 3 boletos pagos', required: false },
   ] : [];
 
-  // Validation
+  // Validation - fixed to properly sync doc state
   const canNext = () => {
     if (step === 0) return modalidade !== '';
     if (step === 1) {
@@ -283,11 +295,13 @@ export default function SalesWizard() {
         if (!aprovOk) return false;
       }
       // Check beneficiary docs
-      const allBenefs = [...titulares.map((t, i) => ({ key: `titular_${i}`, isConjuge: false })), ...dependentes.map((d, i) => ({ key: `dep_${i}`, isConjuge: d.is_conjuge || d.descricao === 'Cônjuge' }))];
+      const allBenefs = [...titulares.map((_, i) => ({ key: `titular_${i}`, isConjuge: false })), ...dependentes.map((d, i) => ({ key: `dep_${i}`, isConjuge: d.is_conjuge || d.descricao === 'Cônjuge' }))];
       for (const b of allBenefs) {
         const bDocs = getBenefDocs(b.isConjuge);
-        const ok = bDocs.filter(d => d.required).every(d => benefDocs[b.key]?.[d.label]);
-        if (!ok) return false;
+        const requiredDocs = bDocs.filter(d => d.required);
+        for (const rd of requiredDocs) {
+          if (!benefDocs[b.key]?.[rd.label]) return false;
+        }
       }
       return true;
     }
@@ -380,13 +394,45 @@ export default function SalesWizard() {
               <FileUp className="w-5 h-5 text-primary shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground">Importar vendas em massa</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Baixe o modelo, preencha e faça upload.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Selecione uma modalidade acima para habilitar os botões.</p>
               </div>
               <div className="flex gap-2 shrink-0">
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40">
+                <Button
+                  variant="outline" size="sm" className="gap-1.5 text-xs border-border/40"
+                  disabled={!modalidade}
+                  onClick={() => {
+                    if (!modalidade) return;
+                    // Dynamic CSV based on modalidade
+                    const baseHeaders = ['Nome Titular', 'Vidas', 'Valor Contrato', 'Observações'];
+                    let extraHeaders: string[] = [];
+                    if (modalidade === 'PME Multi' || modalidade === 'Empresarial') {
+                      extraHeaders = ['CNPJ'];
+                    }
+                    if (modalidade === 'Empresarial') {
+                      extraHeaders.push('Comprovação de Vínculo');
+                    }
+                    const headers = [...baseHeaders, ...extraHeaders];
+                    const bom = '\uFEFF';
+                    const csvContent = bom + headers.join(';') + '\n';
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `modelo_vendas_${modalidade.replace(/\s/g, '_')}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    toast.success(`Modelo para ${modalidade} baixado!`);
+                  }}
+                >
                   <Download className="w-3.5 h-3.5" /> Modelo
                 </Button>
-                <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => uploadRef.current?.click()}>
+                <Button
+                  variant="outline" size="sm" className="gap-1.5 text-xs border-border/40"
+                  disabled={!modalidade}
+                  onClick={() => uploadRef.current?.click()}
+                >
                   <Upload className="w-3.5 h-3.5" /> Upload
                 </Button>
                 <input ref={uploadRef} type="file" accept=".csv,.xlsx" className="hidden" />
@@ -440,7 +486,7 @@ export default function SalesWizard() {
                   <AlertCircle className="w-4 h-4 text-warning shrink-0" />
                   <p className="text-sm font-medium text-foreground">Lançamento retroativo detectado</p>
                 </div>
-                <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada para o <strong>Supervisor</strong>, <strong>Gerente</strong> e <strong>Diretor</strong>.</p>
+                <p className="text-xs text-muted-foreground">A justificativa é obrigatória.</p>
                 <Textarea placeholder="Justifique o motivo do lançamento fora da data correta..." value={justificativa} onChange={(e) => setJustificativa(e.target.value)} rows={3} className="border-warning/30 focus:border-warning" />
               </div>
             )}
@@ -496,7 +542,6 @@ export default function SalesWizard() {
                     {possuiAproveitamento ? 'Sim' : 'Não'}
                   </div>
                 </FieldWithTooltip>
-
               </div>
             </div>
 
@@ -522,7 +567,6 @@ export default function SalesWizard() {
                 </FieldWithTooltip>
               </div>
 
-              {/* Smart Fill - only for first titular */}
               {selectedLead && titulares.length > 0 && (
                 <div className="mt-3 flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
                   <Switch
@@ -676,17 +720,11 @@ export default function SalesWizard() {
                               </SelectContent>
                             </Select>
                             {d.descricao === 'Outro' && (
-                              <Input
-                                className="h-9 border-border/40"
-                                placeholder="Especifique..."
-                                value={d.descricao_custom || ''}
-                                onChange={(e) => updateDependente(i, 'descricao_custom', e.target.value)}
-                              />
+                              <Input className="h-9 border-border/40" placeholder="Especifique..." value={d.descricao_custom || ''} onChange={(e) => updateDependente(i, 'descricao_custom', e.target.value)} />
                             )}
                           </div>
                         </div>
                         <div className="flex items-end pb-1">
-                          {/* Cônjuge is set automatically by description dropdown */}
                           {(d.is_conjuge || d.descricao === 'Cônjuge') && (
                             <Badge className="text-[9px] bg-warning/10 text-warning border-warning/20">Certidão obrigatória</Badge>
                           )}
@@ -736,7 +774,6 @@ export default function SalesWizard() {
           <div className="space-y-6">
             <SectionHeader icon={FileText} title="Documentos" subtitle="Faça upload dos documentos obrigatórios e opcionais" />
 
-            {/* Lead documents auto-populated notice */}
             {selectedLead && (
               <div className="p-3 bg-accent/50 rounded-lg border border-border/30 flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-success mt-0.5 shrink-0" />
@@ -746,8 +783,6 @@ export default function SalesWizard() {
               </div>
             )}
 
-            {/* Main documents from modalidade REMOVED as per requirements */}
-            
             {/* Aproveitamento docs */}
             {possuiAproveitamento && (
               <div className="space-y-3 pt-4 border-t border-border/20">
@@ -832,7 +867,6 @@ export default function SalesWizard() {
               ))}
             </div>
 
-            {/* Titulares */}
             <div className="space-y-2">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Titulares ({titulares.length})</p>
               {titulares.map((t, i) => (
@@ -858,13 +892,8 @@ export default function SalesWizard() {
               </div>
             )}
 
-            {/* Documents summary */}
             <div className="space-y-2">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Documentos Anexados</p>
-              <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg text-sm">
-                <span className="text-muted-foreground">Documentos Principais</span>
-                <span className="font-medium text-success">{Object.values(titularDocs).filter(Boolean).length} doc(s)</span>
-              </div>
               {possuiAproveitamento && (
                 <div className="flex justify-between p-2.5 bg-muted/30 rounded-lg text-sm">
                   <span className="text-muted-foreground">Aproveitamento de Carência</span>
