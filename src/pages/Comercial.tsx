@@ -197,7 +197,7 @@ function parseCSVVendas(text: string): ParsedVenda[] {
     const modalidade = modalidadeMap[modalidadeRaw.toLowerCase()] || modalidadeRaw;
     const validModalidades = ['PF', 'Familiar', 'PME Multi', 'Empresarial', 'Adesão'];
     if (!validModalidades.includes(modalidade)) continue;
-    
+
     rows.push({
       nome_titular: cols[0] || '',
       modalidade,
@@ -436,7 +436,7 @@ function AtividadesTab() {
             <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={downloadAtividadesModelo}>
               <Download className="w-3.5 h-3.5" /> Modelo
             </Button>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => uploadRef.current?.click()} disabled={!form.ligacoes}>
+            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => uploadRef.current?.click()}>
               <Upload className="w-3.5 h-3.5" /> Upload
             </Button>
             <input ref={uploadRef} type="file" accept=".csv" className="hidden" onChange={handleBulkUpload} />

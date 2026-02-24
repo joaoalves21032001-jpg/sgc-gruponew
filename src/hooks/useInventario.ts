@@ -190,6 +190,11 @@ export interface Lead {
   livre: boolean;
   origem: string | null;
   stage_id: string | null;
+  produto: string | null;
+  quantidade_vidas: number | null;
+  companhia_nome: string | null;
+  valor: number | null;
+  plano_anterior: boolean;
 }
 
 export function useLeads() {

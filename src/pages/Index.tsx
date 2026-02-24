@@ -6,7 +6,8 @@ import { useMyVendas } from '@/hooks/useVendas';
 import { PatenteBadge } from '@/components/PatenteBadge';
 import { getFraseMotivacional } from '@/lib/gamification';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { useMemo } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
+import confetti from 'canvas-confetti';
 
 const Index = () => {
   const { data: profile } = useProfile();
@@ -48,6 +49,15 @@ const Index = () => {
   }, [atividades]);
 
   const displayName = profile?.apelido || profile?.nome_completo?.split(' ')[0] || '';
+
+  // Confetti celebration when meta reaches 100%
+  const confettiFired = useRef(false);
+  useEffect(() => {
+    if (percentMeta >= 100 && !confettiFired.current) {
+      confettiFired.current = true;
+      confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+    }
+  }, [percentMeta]);
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -97,9 +107,8 @@ const Index = () => {
         </div>
         <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
           <div
-            className={`h-2.5 rounded-full transition-all duration-700 ease-out ${
-              percentMeta >= 100 ? 'bg-success' : percentMeta >= 80 ? 'bg-warning' : 'bg-destructive'
-            }`}
+            className={`h-2.5 rounded-full transition-all duration-700 ease-out ${percentMeta >= 100 ? 'bg-success' : percentMeta >= 80 ? 'bg-warning' : 'bg-destructive'
+              }`}
             style={{ width: `${Math.min(percentMeta, 100)}%` }}
           />
         </div>
@@ -121,6 +130,16 @@ const Index = () => {
             </h3>
             <ResponsiveContainer width="100%" height={240}>
               <BarChart data={activityData} barGap={4}>
+                <defs>
+                  <linearGradient id="gradLigacoes" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(194 53% 26%)" stopOpacity={0.85} />
+                    <stop offset="100%" stopColor="hsl(194 53% 26%)" stopOpacity={0.15} />
+                  </linearGradient>
+                  <linearGradient id="gradCotacoes" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(152 60% 40%)" stopOpacity={0.85} />
+                    <stop offset="100%" stopColor="hsl(152 60% 40%)" stopOpacity={0.15} />
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(220 13% 90%)" vertical={false} />
                 <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'hsl(220 10% 46%)' }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fontSize: 11, fill: 'hsl(220 10% 46%)' }} axisLine={false} tickLine={false} />
@@ -133,8 +152,8 @@ const Index = () => {
                     boxShadow: '0 4px 12px hsl(220 25% 10% / 0.08)',
                   }}
                 />
-                <Bar dataKey="ligacoes" name="Ligações" fill="hsl(194 53% 26%)" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="cotacoes" name="Cotações" fill="hsl(152 60% 40%)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="ligacoes" name="Ligações" fill="url(#gradLigacoes)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="cotacoes" name="Cotações" fill="url(#gradCotacoes)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
