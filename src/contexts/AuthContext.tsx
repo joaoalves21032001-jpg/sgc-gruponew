@@ -9,6 +9,8 @@ interface AuthContextType {
   mfaVerified: boolean;
   needsMfa: boolean;
   hasProfile: boolean | null;
+  cargo: string | null;
+  perfil: string | null;
   setMfaVerified: (v: boolean) => void;
   signOut: () => Promise<void>;
 }
@@ -20,8 +22,10 @@ const AuthContext = createContext<AuthContextType>({
   mfaVerified: false,
   needsMfa: false,
   hasProfile: null,
-  setMfaVerified: () => {},
-  signOut: async () => {},
+  cargo: null,
+  perfil: null,
+  setMfaVerified: () => { },
+  signOut: async () => { },
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -33,6 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [mfaVerified, setMfaVerified] = useState(false);
   const [needsMfa, setNeedsMfa] = useState(false);
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
+  const [cargo, setCargo] = useState<string | null>(null);
+  const [perfil, setPerfil] = useState<string | null>(null);
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -49,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             user_id: prevUser.id,
             user_name: prevUser.email,
             action: 'logout',
-          } as any).then(() => {});
+          } as any).then(() => { });
         }
       } else if (!prevUser && session?.user && _event === 'SIGNED_IN') {
         // Log login
@@ -57,7 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           user_id: session.user.id,
           user_name: session.user.email,
           action: 'login',
-        } as any).then(() => {});
+        } as any).then(() => { });
       }
       setLoading(false);
     });
@@ -74,20 +80,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check if user has a profile (is authorized)
   useEffect(() => {
     if (!user) { setHasProfile(null); return; }
-    
+
     const checkProfile = async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, disabled')
+        .select('id, disabled, cargo, perfil')
         .eq('id', user.id)
         .maybeSingle();
-      
+
       if (error || !data) {
         setHasProfile(false);
+        setCargo(null);
+        setPerfil(null);
       } else if ((data as any).disabled) {
         setHasProfile(false);
+        setCargo(null);
+        setPerfil(null);
       } else {
         setHasProfile(true);
+        setCargo((data as any).cargo ?? null);
+        setPerfil((data as any).perfil ?? null);
       }
     };
     checkProfile();
@@ -148,7 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, mfaVerified, needsMfa, hasProfile, setMfaVerified, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, mfaVerified, needsMfa, hasProfile, cargo, perfil, setMfaVerified, signOut }}>
       {children}
     </AuthContext.Provider>
   );
