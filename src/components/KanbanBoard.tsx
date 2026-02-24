@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useLeadStages, useMoveLeadToStage, type LeadStage } from '@/hooks/useLeadStages';
 import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, type Lead } from '@/hooks/useInventario';
-import { useModalidades } from '@/hooks/useInventario';
+import { useModalidades, useCompanhias, useProdutos } from '@/hooks/useInventario';
 import { useUserRole, useProfile, useTeamProfiles } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLogAction } from '@/hooks/useAuditLog';
@@ -9,23 +10,29 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
-  Plus, Pencil, Trash2, X, Upload, MoreHorizontal, Phone, Mail, Shield, User
+  Plus, Pencil, Trash2, X, Upload, MoreHorizontal, Phone, Mail, Shield, User, FileText
 } from 'lucide-react';
 import { maskCPF, maskPhone } from '@/lib/masks';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 /* ─── Lead Card ─── */
-function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName }: {
+function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName, stageName }: {
   lead: Lead; isAdmin: boolean;
   onEdit: (l: Lead) => void; onDelete: (l: Lead) => void;
   onDragStart: (e: React.DragEvent, leadId: string) => void;
   leaderName?: string;
+  stageName?: string;
 }) {
+  const isEnvioCotacao = stageName?.toLowerCase().includes('envio de cotação') || stageName?.toLowerCase().includes('cotação');
+  
   return (
     <div
       draggable
@@ -62,10 +69,55 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName }: 
           {lead.boletos_path && <span className="text-[8px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Cotação</span>}
         </div>
       )}
+      
+      {/* Upload cotações when in "Envio de Cotação" stage */}
+      {isEnvioCotacao && (
+        <CotacaoUploadSection lead={lead} />
+      )}
+      
       {leaderName && (
         <div className="mt-2 pt-1.5 border-t border-border/20">
           <p className="text-[10px] text-muted-foreground flex items-center gap-1"><User className="w-3 h-3" /> {leaderName}</p>
         </div>
+      )}
+    </div>
+  );
+}
+
+/* ─── Cotação Upload Section (up to 3 PDFs) ─── */
+function CotacaoUploadSection({ lead }: { lead: Lead }) {
+  const [uploading, setUploading] = useState(false);
+  const [files, setFiles] = useState<string[]>([]);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (files.length >= 3) { toast.error('Máximo de 3 cotações.'); return; }
+    if (!file.name.toLowerCase().endsWith('.pdf')) { toast.error('Apenas arquivos PDF.'); return; }
+    setUploading(true);
+    try {
+      const filePath = `${lead.id}/cotacao_${Date.now()}_${file.name}`;
+      const { error } = await supabase.storage.from('lead-documentos').upload(filePath, file);
+      if (error) throw error;
+      setFiles(prev => [...prev, file.name]);
+      // Also update lead's boletos_path
+      await supabase.from('leads').update({ boletos_path: filePath } as any).eq('id', lead.id);
+      toast.success('Cotação anexada!');
+    } catch (err: any) { toast.error(err.message); }
+    finally { setUploading(false); e.target.value = ''; }
+  };
+
+  return (
+    <div className="mt-2 pt-2 border-t border-border/20 space-y-1.5">
+      <p className="text-[10px] font-semibold text-primary flex items-center gap-1"><FileText className="w-3 h-3" /> Cotações (máx. 3)</p>
+      {files.map((f, i) => <p key={i} className="text-[10px] text-success truncate">✓ {f}</p>)}
+      {files.length < 3 && (
+        <label className="cursor-pointer">
+          <input type="file" className="hidden" accept=".pdf" onChange={handleUpload} disabled={uploading} />
+          <span className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border/30 text-[10px] text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer">
+            <Upload className="w-3 h-3" /> {uploading ? 'Enviando...' : 'Anexar PDF'}
+          </span>
+        </label>
       )}
     </div>
   );
@@ -96,7 +148,7 @@ function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, on
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-320px)] min-h-[120px]">
         {leads.map(l => (
-          <LeadCard key={l.id} lead={l} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} onDragStart={onDragStart} leaderName={getLeaderName(l.created_by)} />
+          <LeadCard key={l.id} lead={l} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} onDragStart={onDragStart} leaderName={getLeaderName(l.created_by)} stageName={stage.nome} />
         ))}
         {leads.length === 0 && (
           <div className="text-center py-6 text-muted-foreground/50 text-xs">Arraste leads para cá</div>
@@ -111,6 +163,7 @@ function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, on
 
 /* ─── Main Kanban Board ─── */
 export function KanbanBoard() {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { data: role } = useUserRole();
   const { data: profile } = useProfile();
@@ -119,6 +172,8 @@ export function KanbanBoard() {
   const { data: stages = [], isLoading: stagesLoading } = useLeadStages();
   const { data: leads = [], isLoading: leadsLoading } = useLeads();
   const { data: modalidadesList = [] } = useModalidades();
+  const { data: companhias = [] } = useCompanhias();
+  const { data: produtos = [] } = useProdutos();
   const createMut = useCreateLead();
   const updateMut = useUpdateLead();
   const deleteMut = useDeleteLead();
@@ -126,12 +181,14 @@ export function KanbanBoard() {
   const logAction = useLogAction();
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
 
-  // Lead form state
+  // Lead form state - full sales draft
   const [showForm, setShowForm] = useState(false);
   const [editItem, setEditItem] = useState<Lead | null>(null);
   const [formStageId, setFormStageId] = useState<string | null>(null);
-  const defaultTipo = modalidadesList.length > 0 ? modalidadesList[0].nome : 'PF';
-  const [form, setForm] = useState({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false });
+  const [form, setForm] = useState({
+    tipo: '', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '',
+    livre: false, possuiAproveitamento: false,
+  });
   const [saving, setSaving] = useState(false);
   const [deleteItem, setDeleteItem] = useState<Lead | null>(null);
 
@@ -146,14 +203,12 @@ export function KanbanBoard() {
   const [comprovanteEndereco, setComprovanteEndereco] = useState<File | null>(null);
   const [cotacaoPdf, setCotacaoPdf] = useState<File | null>(null);
 
-  const isPessoaFisica = (tipo: string) => tipo === 'PF' || tipo === 'Familiar' || tipo === 'pessoa_fisica';
+  const isPessoaFisica = (tipo: string) => tipo === 'PF' || tipo === 'Familiar' || tipo === 'pessoa_fisica' || tipo === 'Adesão';
 
-  // Get leader name for a lead's creator
   const getLeaderName = (createdBy: string | null): string | undefined => {
     if (!createdBy) return undefined;
     const creator = allProfiles.find(p => p.id === createdBy);
     if (!creator) return undefined;
-    // Show supervisor name, or gerente if no supervisor
     if (creator.supervisor_id) {
       const sup = allProfiles.find(p => p.id === creator.supervisor_id);
       return sup ? `Sup: ${sup.apelido || sup.nome_completo.split(' ')[0]}` : undefined;
@@ -182,20 +237,17 @@ export function KanbanBoard() {
     e.dataTransfer.effectAllowed = 'move';
   };
 
-  // Gatekeeper: validate required fields before allowing stage moves
   const validateLeadForStage = (lead: Lead, targetStageId: string | null): string | null => {
     if (!targetStageId) return null;
     const stage = stages.find(s => s.id === targetStageId);
     if (!stage) return null;
     const stageName = stage.nome.toLowerCase();
 
-    // Stages that require contact info
     const contactRequiredStages = ['envio de cotação', 'negociação', 'fechamento', 'pós-venda'];
     if (contactRequiredStages.some(s => stageName.includes(s))) {
       if (!lead.contato && !lead.email) return `Para mover para "${stage.nome}", o lead precisa ter Contato ou E-mail preenchido.`;
     }
 
-    // Stages that require documents
     const docRequiredStages = ['fechamento', 'pós-venda'];
     if (docRequiredStages.some(s => stageName.includes(s))) {
       const pf = isPessoaFisica(lead.tipo);
@@ -217,6 +269,22 @@ export function KanbanBoard() {
         return;
       }
     }
+
+    // Check if target stage is "Venda Realizada"
+    if (stageId) {
+      const stage = stages.find(s => s.id === stageId);
+      if (stage && stage.nome.toLowerCase().includes('venda realizada')) {
+        // Redirect to sales form with lead data pre-filled
+        moveMut.mutate({ leadId: draggedLeadId, stageId });
+        setDraggedLeadId(null);
+        // Navigate to commercial page with lead data in state
+        if (lead) {
+          navigate('/comercial', { state: { prefillLead: lead } });
+        }
+        return;
+      }
+    }
+
     moveMut.mutate({ leadId: draggedLeadId, stageId });
     setDraggedLeadId(null);
   };
@@ -233,6 +301,7 @@ export function KanbanBoard() {
       cpf: l.cpf || '', cnpj: l.cnpj || '', endereco: l.endereco || '',
       idade: (l as any).idade ? String((l as any).idade) : '',
       livre: (l as any).livre || false,
+      possuiAproveitamento: false,
     });
     setFormStageId((l as any).stage_id || null);
     setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null);
@@ -250,7 +319,7 @@ export function KanbanBoard() {
 
   const openAdd = (stageId?: string | null) => {
     setEditItem(null);
-    setForm({ tipo: defaultTipo, nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false });
+    setForm({ tipo: '', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false, possuiAproveitamento: false });
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
     setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null);
     setShowForm(true);
@@ -265,6 +334,7 @@ export function KanbanBoard() {
 
   const handleSave = async () => {
     if (!form.nome.trim()) { toast.error('Informe o nome.'); return; }
+    if (!form.tipo) { toast.error('Selecione o Tipo / Modalidade.'); return; }
     setSaving(true);
     const { data: { user: currentUser } } = await supabase.auth.getUser();
     const payload: any = {
@@ -372,10 +442,10 @@ export function KanbanBoard() {
         ))}
       </div>
 
-      {/* Lead Form Dialog */}
+      {/* Lead Form Dialog - Full Sales Draft */}
       <Dialog open={showForm} onOpenChange={v => { if (!v) { setShowForm(false); setEditItem(null); } }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle className="font-display">{editItem ? 'Editar' : 'Novo'} Lead</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle className="font-display">{editItem ? 'Editar' : 'Novo'} Lead (Rascunho de Venda)</DialogTitle></DialogHeader>
           <div className="space-y-3">
             {stages.length > 0 && (
               <div>
@@ -390,16 +460,17 @@ export function KanbanBoard() {
               </div>
             )}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Tipo / Modalidade</label>
+              <label className="text-xs font-semibold text-muted-foreground">Tipo / Modalidade <span className="text-destructive">*</span></label>
               <Select value={form.tipo} onValueChange={v => setForm(p => ({ ...p, tipo: v }))}>
-                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Selecione a modalidade..." /></SelectTrigger>
                 <SelectContent>
                   {modalidadesList.map(m => <SelectItem key={m.id} value={m.nome}>{m.nome}</SelectItem>)}
                 </SelectContent>
               </Select>
+              {!form.tipo && <p className="text-[10px] text-destructive mt-1">Obrigatório</p>}
             </div>
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Nome</label>
+              <label className="text-xs font-semibold text-muted-foreground">Nome <span className="text-destructive">*</span></label>
               <Input value={form.nome} onChange={e => setForm(p => ({ ...p, nome: e.target.value }))} className="h-10" />
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -413,10 +484,15 @@ export function KanbanBoard() {
             )}
             <div><label className="text-xs font-semibold text-muted-foreground">Endereço</label><Input value={form.endereco} onChange={e => setForm(p => ({ ...p, endereco: e.target.value }))} className="h-10" /></div>
             
-            {/* Idade */}
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Idade</label>
               <Input type="number" value={form.idade} onChange={e => setForm(p => ({ ...p, idade: e.target.value }))} placeholder="Ex: 30" className="h-10" />
+            </div>
+
+            {/* Aproveitamento de Carência */}
+            <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
+              <Switch checked={form.possuiAproveitamento} onCheckedChange={v => setForm(p => ({ ...p, possuiAproveitamento: v }))} />
+              <Label className="text-sm text-foreground">Possui plano anterior (Aproveitamento de Carência)?</Label>
             </div>
 
             {/* Lead Livre (Admin only) */}
@@ -440,7 +516,7 @@ export function KanbanBoard() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving}>{saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Salvar'}</Button>
+            <Button onClick={handleSave} disabled={saving || !form.tipo}>{saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Salvar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
