@@ -118,7 +118,7 @@ function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, se
               <div className="space-y-2">{docs.map(doc => (
                 <div key={doc.id} className="flex items-center gap-3 p-3 rounded-lg border border-border/30 bg-muted/10">
                   <FileText className="w-4 h-4 text-primary shrink-0" />
-                  <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{doc.nome}</p><p className="text-[10px] text-muted-foreground">{doc.tipo}{doc.file_size ? ` • ${(doc.file_size/1024).toFixed(0)} KB` : ''}</p></div>
+                  <div className="flex-1 min-w-0"><p className="text-sm font-medium truncate">{doc.nome}</p><p className="text-[10px] text-muted-foreground">{doc.tipo}{doc.file_size ? ` • ${(doc.file_size / 1024).toFixed(0)} KB` : ''}</p></div>
                   <Button variant="outline" size="sm" className="gap-1 shrink-0" onClick={() => handleDownload(doc.file_path)} disabled={downloadingDoc === doc.file_path}><Download className="w-3.5 h-3.5" /> Baixar</Button>
                 </div>
               ))}</div>
@@ -357,34 +357,40 @@ const Aprovacoes = () => {
         if (cpfCheck) { toast.error(`Já existe usuário com CPF ${req.cpf}.`); setSavingAccess(false); return; }
       }
       // Create the user via admin edge function with ALL form data
+      // Sanitize: send null instead of undefined to prevent edge function failures
+      const payload = {
+        email: req.email,
+        nome_completo: req.nome,
+        celular: req.telefone ?? null,
+        cpf: req.cpf ?? null,
+        rg: req.rg ?? null,
+        endereco: req.endereco ?? null,
+        cargo: req.cargo || 'Consultor de Vendas',
+        role: req.nivel_acesso || 'consultor',
+        numero_emergencia_1: req.numero_emergencia_1 ?? null,
+        numero_emergencia_2: req.numero_emergencia_2 ?? null,
+        supervisor_id: req.supervisor_id ?? null,
+        gerente_id: req.gerente_id ?? null,
+        data_admissao: req.data_admissao ?? null,
+        data_nascimento: req.data_nascimento ?? null,
+      };
       const { data: createResult, error: createError } = await supabase.functions.invoke('admin-create-user', {
-        body: {
-          email: req.email,
-          nome_completo: req.nome,
-          celular: req.telefone,
-          cpf: req.cpf,
-          rg: req.rg,
-          endereco: req.endereco,
-          cargo: req.cargo || 'Consultor de Vendas',
-          role: req.nivel_acesso || 'consultor',
-          numero_emergencia_1: req.numero_emergencia_1,
-          numero_emergencia_2: req.numero_emergencia_2,
-          supervisor_id: req.supervisor_id,
-          gerente_id: req.gerente_id,
-          data_admissao: req.data_admissao,
-          data_nascimento: req.data_nascimento,
-        },
+        body: payload,
       });
-      if (createError) throw createError;
+      if (createError) {
+        const errorMsg = createError.message || 'Erro na Edge Function ao criar usuário.';
+        throw new Error(errorMsg);
+      }
       if (createResult?.error) throw new Error(createResult.error);
-      
+
       const { error } = await supabase.from('access_requests').update({ status: 'aprovado' } as any).eq('id', req.id);
       if (error) throw error;
       toast.success(`Acesso aprovado e usuário criado para ${req.nome}!`);
       logAction('aprovar_acesso', 'access_request', req.id, { nome: req.nome, email: req.email });
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao aprovar.');
+      console.error('Erro ao aprovar acesso:', err);
+      toast.error(err.message || 'Erro ao aprovar. Verifique as configurações da Edge Function.');
     } finally {
       setSavingAccess(false);
     }

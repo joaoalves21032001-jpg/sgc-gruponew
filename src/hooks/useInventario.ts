@@ -230,6 +230,9 @@ export function useDeleteLead() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      // Delete cotacoes first to avoid foreign key constraint (cotacoes_lead_id_fkey)
+      const { error: cotacoesError } = await supabase.from('cotacoes').delete().eq('lead_id', id);
+      if (cotacoesError) throw cotacoesError;
       const { error } = await supabase.from('leads').delete().eq('id', id);
       if (error) throw error;
     },

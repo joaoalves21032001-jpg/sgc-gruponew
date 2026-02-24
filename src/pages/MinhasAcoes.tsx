@@ -167,7 +167,7 @@ const MinhasAcoes = () => {
       if (!user) throw new Error('Não autenticado');
       const { error } = await supabase.from('correction_requests').insert({
         user_id: user.id,
-        tipo: requestDialog.type === 'atividade' ? 'atividade_edit' : 'venda_edit',
+        tipo: requestDialog.type === 'atividade' ? 'atividade' : 'venda',
         registro_id: requestDialog.id,
         motivo: requestJustificativa.trim(),
       } as any);
