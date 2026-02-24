@@ -148,7 +148,7 @@ const sections: HelpSection[] = [
   {
     icon: Trophy,
     title: 'Sistema de Gamificação',
-    access: 'all',
+    access: 'supervisor_up',
     tabKey: 'progresso',
     content: [
       '💎 Diamante (≥200%): Desempenho lendário!',
