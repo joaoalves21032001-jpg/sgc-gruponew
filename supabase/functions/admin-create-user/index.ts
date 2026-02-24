@@ -35,12 +35,19 @@ serve(async (req) => {
           }
         }
       } catch {
-        // Token might be anon key or invalid - allow for now
+        // Token might be anon key or invalid
       }
     }
 
     const body = await req.json();
     const { email, nome_completo, celular, cpf, rg, endereco, cargo, role, supervisor_id, gerente_id, numero_emergencia_1, numero_emergencia_2, data_admissao, data_nascimento } = body;
+
+    if (!email || !nome_completo) {
+      return new Response(JSON.stringify({ error: "E-mail e nome completo são obrigatórios." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Check if a disabled profile with this email exists (reusable)
     const { data: existingProfile } = await supabaseAdmin
@@ -54,6 +61,11 @@ serve(async (req) => {
     if (existingProfile && existingProfile.disabled) {
       // Reuse existing auth user
       userId = existingProfile.id;
+    } else if (existingProfile && !existingProfile.disabled) {
+      return new Response(JSON.stringify({ error: `Já existe um usuário ativo com o e-mail ${email}.` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     } else {
       // Create new auth user (trigger will create profile + default role)
       const { data: newUser, error: createError } = await supabaseAdmin.auth.admin.createUser({
@@ -62,8 +74,28 @@ serve(async (req) => {
         user_metadata: { full_name: nome_completo },
       });
 
-      if (createError) throw createError;
-      userId = newUser.user.id;
+      if (createError) {
+        // If user exists in auth but not in profiles, try to get the ID
+        if (createError.message?.includes('already been registered') || createError.message?.includes('already exists')) {
+          const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+          const existingAuthUser = users?.find(u => u.email === email);
+          if (existingAuthUser) {
+            userId = existingAuthUser.id;
+          } else {
+            return new Response(JSON.stringify({ error: createError.message }), {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+        } else {
+          return new Response(JSON.stringify({ error: createError.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      } else {
+        userId = newUser.user.id;
+      }
     }
 
     // Generate next codigo
@@ -93,7 +125,12 @@ serve(async (req) => {
       disabled: false,
     }).eq("id", userId);
 
-    if (profileError) throw profileError;
+    if (profileError) {
+      return new Response(JSON.stringify({ error: `Erro ao atualizar perfil: ${profileError.message}` }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Update role if not consultor
     if (role && role !== "consultor") {
@@ -101,7 +138,12 @@ serve(async (req) => {
         .from("user_roles")
         .update({ role })
         .eq("user_id", userId);
-      if (roleError) throw roleError;
+      if (roleError) {
+        return new Response(JSON.stringify({ error: `Erro ao atualizar papel: ${roleError.message}` }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     return new Response(JSON.stringify({ success: true, user_id: userId, codigo: nextCode }), {
