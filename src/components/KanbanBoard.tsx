@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import confetti from 'canvas-confetti';
 import { useLeadStages, useMoveLeadToStage, type LeadStage } from '@/hooks/useLeadStages';
 import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, type Lead } from '@/hooks/useInventario';
 import { useModalidades, useCompanhias, useProdutos } from '@/hooks/useInventario';
@@ -43,7 +44,8 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName, st
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground truncate">{lead.nome}</p>
           <Badge variant="outline" className="text-[9px] mt-1">{lead.tipo}</Badge>
-          {(lead as any).livre && <Badge className="text-[9px] mt-1 bg-success/10 text-success border-success/20">Livre</Badge>}
+          {lead.produto && <Badge variant="outline" className="text-[9px] mt-1 bg-primary/10 text-primary border-primary/20">{lead.produto}</Badge>}
+          {lead.livre && <Badge className="text-[9px] mt-1 bg-success/10 text-success border-success/20">Livre</Badge>}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -188,6 +190,7 @@ export function KanbanBoard() {
   const [form, setForm] = useState({
     tipo: '', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '',
     livre: false, possuiAproveitamento: false,
+    produto: '', quantidade_vidas: '', companhia_nome: '', valor: '',
   });
   const [saving, setSaving] = useState(false);
   const [deleteItem, setDeleteItem] = useState<Lead | null>(null);
@@ -277,6 +280,8 @@ export function KanbanBoard() {
         // Redirect to sales form with lead data pre-filled
         moveMut.mutate({ leadId: draggedLeadId, stageId });
         setDraggedLeadId(null);
+        // Celebrate!
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.5 } });
         // Navigate to commercial page with lead data in state
         if (lead) {
           navigate('/comercial', { state: { prefillLead: lead } });
@@ -299,11 +304,13 @@ export function KanbanBoard() {
     setForm({
       tipo: l.tipo, nome: l.nome, contato: l.contato || '', email: l.email || '',
       cpf: l.cpf || '', cnpj: l.cnpj || '', endereco: l.endereco || '',
-      idade: (l as any).idade ? String((l as any).idade) : '',
-      livre: (l as any).livre || false,
-      possuiAproveitamento: false,
+      idade: l.idade ? String(l.idade) : '',
+      livre: l.livre || false,
+      possuiAproveitamento: l.plano_anterior || false,
+      produto: l.produto || '', quantidade_vidas: l.quantidade_vidas ? String(l.quantidade_vidas) : '',
+      companhia_nome: l.companhia_nome || '', valor: l.valor ? String(l.valor) : '',
     });
-    setFormStageId((l as any).stage_id || null);
+    setFormStageId(l.stage_id || null);
     setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null);
     setShowForm(true);
   };
@@ -319,7 +326,7 @@ export function KanbanBoard() {
 
   const openAdd = (stageId?: string | null) => {
     setEditItem(null);
-    setForm({ tipo: '', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false, possuiAproveitamento: false });
+    setForm({ tipo: '', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false, possuiAproveitamento: false, produto: '', quantidade_vidas: '', companhia_nome: '', valor: '' });
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
     setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null);
     setShowForm(true);
@@ -341,6 +348,11 @@ export function KanbanBoard() {
       tipo: form.tipo, nome: form.nome.trim(), contato: form.contato || null,
       email: form.email || null, endereco: form.endereco || null, stage_id: formStageId,
       idade: form.idade ? parseInt(form.idade) : null,
+      produto: form.produto || null,
+      quantidade_vidas: form.quantidade_vidas ? parseInt(form.quantidade_vidas) : null,
+      companhia_nome: form.companhia_nome || null,
+      valor: form.valor ? parseFloat(form.valor) : null,
+      plano_anterior: form.possuiAproveitamento,
     };
     payload.livre = form.livre;
     if (isPessoaFisica(form.tipo)) { payload.cpf = form.cpf || null; payload.cnpj = null; }
@@ -484,9 +496,31 @@ export function KanbanBoard() {
             )}
             <div><label className="text-xs font-semibold text-muted-foreground">Endereço</label><Input value={form.endereco} onChange={e => setForm(p => ({ ...p, endereco: e.target.value }))} className="h-10" /></div>
 
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Idade</label>
+                <Input type="number" value={form.idade} onChange={e => setForm(p => ({ ...p, idade: e.target.value }))} placeholder="Ex: 30" className="h-10" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Qtd. de Vidas</label>
+                <Input type="number" value={form.quantidade_vidas} onChange={e => setForm(p => ({ ...p, quantidade_vidas: e.target.value }))} placeholder="Ex: 3" className="h-10" />
+              </div>
+            </div>
+
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Idade</label>
-              <Input type="number" value={form.idade} onChange={e => setForm(p => ({ ...p, idade: e.target.value }))} placeholder="Ex: 30" className="h-10" />
+              <label className="text-xs font-semibold text-muted-foreground">Produto</label>
+              <Input value={form.produto} onChange={e => setForm(p => ({ ...p, produto: e.target.value }))} placeholder="Nome do produto" className="h-10" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Companhia</label>
+                <Input value={form.companhia_nome} onChange={e => setForm(p => ({ ...p, companhia_nome: e.target.value }))} placeholder="Nome da companhia" className="h-10" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Valor (R$)</label>
+                <Input type="number" step="0.01" value={form.valor} onChange={e => setForm(p => ({ ...p, valor: e.target.value }))} placeholder="0,00" className="h-10" />
+              </div>
             </div>
 
             {/* Aproveitamento de Carência */}

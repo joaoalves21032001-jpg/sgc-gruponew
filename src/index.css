@@ -212,4 +212,29 @@
   .bg-flag-amarelo { background-color: hsl(45 93% 47%); }
   .bg-flag-laranja { background-color: hsl(25 95% 53%); }
   .bg-flag-vermelho { background-color: hsl(0 84% 40%); }
+
+  /* ── Shimmer Animation (Gamification) ── */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      hsl(0 0% 100% / 0.15) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2.5s infinite ease-in-out;
+  }
+
+  /* ── Glassmorphism Empty State ── */
+  .glass-empty {
+    background: hsl(var(--glass-bg));
+    backdrop-filter: blur(20px) saturate(1.3);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    border: 1px solid hsl(var(--glass-border));
+  }
 }
