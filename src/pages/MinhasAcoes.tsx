@@ -47,10 +47,49 @@ const MinhasAcoes = () => {
   const [editVendaForm, setEditVendaForm] = useState({ nome_titular: '', vidas: '', valor: '', observacoes: '' });
   const [editVendaSaving, setEditVendaSaving] = useState(false);
 
-  // Solicitar Alteração state
-  const [requestDialog, setRequestDialog] = useState<{ type: 'atividade' | 'venda'; id: string; label: string } | null>(null);
+  // Solicitar Alteração state (structured De/Para)
+  const [requestDialog, setRequestDialog] = useState<{
+    type: 'atividade' | 'venda'; id: string; label: string;
+    originalData: Record<string, any>;
+  } | null>(null);
+  const [requestEditForm, setRequestEditForm] = useState<Record<string, string>>({});
   const [requestJustificativa, setRequestJustificativa] = useState('');
   const [sendingRequest, setSendingRequest] = useState(false);
+
+  // Atividade field definitions for the De/Para modal
+  const atividadeFields = [
+    { key: 'ligacoes', label: 'Ligações Realizadas' },
+    { key: 'mensagens', label: 'Mensagens Enviadas' },
+    { key: 'cotacoes_enviadas', label: 'Cotações Enviadas' },
+    { key: 'cotacoes_fechadas', label: 'Cotações Respondidas' },
+    { key: 'follow_up', label: 'Follow-up' },
+  ];
+  const vendaFields = [
+    { key: 'nome_titular', label: 'Nome do Titular' },
+    { key: 'vidas', label: 'Vidas' },
+    { key: 'valor', label: 'Valor (R$)' },
+    { key: 'observacoes', label: 'Observações' },
+  ];
+
+  // Compute which fields have been changed
+  const alteracoesPropostas = useMemo(() => {
+    if (!requestDialog) return [];
+    const fields = requestDialog.type === 'atividade' ? atividadeFields : vendaFields;
+    return fields
+      .filter(f => {
+        const original = String(requestDialog.originalData[f.key] ?? '');
+        const novo = requestEditForm[f.key] ?? '';
+        return original !== novo;
+      })
+      .map(f => ({
+        campo: f.key,
+        label: f.label,
+        valorAntigo: requestDialog.originalData[f.key],
+        valorNovo: requestEditForm[f.key],
+      }));
+  }, [requestDialog, requestEditForm]);
+
+  const canSubmitRequest = alteracoesPropostas.length > 0 && requestJustificativa.trim().length > 0;
 
   const getStatusFilter = () => {
     if (mainTab === 'pendentes') return ['pendente', 'analise', 'devolvido'];
@@ -112,7 +151,21 @@ const MinhasAcoes = () => {
   const openEditAtiv = (a: any) => {
     const status = (a as any).status || 'pendente';
     if (canRequestChange(status)) {
-      setRequestDialog({ type: 'atividade', id: a.id, label: a.data });
+      const originalData = {
+        ligacoes: a.ligacoes,
+        mensagens: a.mensagens,
+        cotacoes_enviadas: a.cotacoes_enviadas,
+        cotacoes_fechadas: a.cotacoes_fechadas,
+        follow_up: a.follow_up,
+      };
+      setRequestDialog({ type: 'atividade', id: a.id, label: a.data, originalData });
+      setRequestEditForm({
+        ligacoes: String(a.ligacoes),
+        mensagens: String(a.mensagens),
+        cotacoes_enviadas: String(a.cotacoes_enviadas),
+        cotacoes_fechadas: String(a.cotacoes_fechadas),
+        follow_up: String(a.follow_up),
+      });
       setRequestJustificativa('');
       return;
     }
@@ -132,7 +185,19 @@ const MinhasAcoes = () => {
 
   const openEditVenda = (v: Venda) => {
     if (canRequestChange(v.status)) {
-      setRequestDialog({ type: 'venda', id: v.id, label: v.nome_titular });
+      const originalData = {
+        nome_titular: v.nome_titular,
+        vidas: v.vidas,
+        valor: v.valor ?? '',
+        observacoes: v.observacoes ?? '',
+      };
+      setRequestDialog({ type: 'venda', id: v.id, label: v.nome_titular, originalData });
+      setRequestEditForm({
+        nome_titular: v.nome_titular,
+        vidas: String(v.vidas),
+        valor: v.valor ? String(v.valor) : '',
+        observacoes: v.observacoes || '',
+      });
       setRequestJustificativa('');
       return;
     }
@@ -158,21 +223,32 @@ const MinhasAcoes = () => {
   };
 
   const sendChangeRequest = async () => {
-    if (!requestDialog || !requestJustificativa.trim()) {
-      toast.error('Informe a justificativa.');
+    if (!requestDialog || !canSubmitRequest) {
+      toast.error('Altere ao menos um campo e informe a justificativa.');
       return;
     }
     setSendingRequest(true);
     try {
       if (!user) throw new Error('Não autenticado');
+      // Build structured payload
+      const structuredPayload = {
+        registroId: requestDialog.id,
+        statusAtual: 'pendente',
+        justificativa: requestJustificativa.trim(),
+        alteracoesPropostas: alteracoesPropostas.map(a => ({
+          campo: a.campo,
+          valorAntigo: a.valorAntigo,
+          valorNovo: a.valorNovo,
+        })),
+      };
       const { error } = await supabase.from('correction_requests').insert({
         user_id: user.id,
         tipo: requestDialog.type === 'atividade' ? 'atividade' : 'venda',
         registro_id: requestDialog.id,
-        motivo: requestJustificativa.trim(),
+        motivo: JSON.stringify(structuredPayload),
       } as any);
       if (error) throw error;
-      toast.success('Solicitação de alteração enviada ao administrador!');
+      toast.success('Solicitação de alteração enviada ao supervisor!');
       setRequestDialog(null);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao enviar solicitação.');
@@ -402,20 +478,72 @@ const MinhasAcoes = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Solicitar Alteração Dialog */}
+      {/* Solicitar Alteração Dialog — Structured De/Para */}
       <Dialog open={!!requestDialog} onOpenChange={v => { if (!v) setRequestDialog(null); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-display">Solicitar Alteração</DialogTitle>
             <DialogDescription>
-              Este registro está com status que não permite edição direta. Envie uma justificativa para o administrador avaliar sua solicitação.
+              Edite os campos que deseja alterar. As mudanças aparecerão em <strong>destaque</strong> e serão enviadas para aprovação do seu superior.
             </DialogDescription>
           </DialogHeader>
-          <Textarea value={requestJustificativa} onChange={e => setRequestJustificativa(e.target.value)} placeholder="Descreva o que precisa ser alterado e o motivo..." rows={4} />
+
+          {/* Editable Fields */}
+          <div className="space-y-3">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Campos da {requestDialog?.type === 'atividade' ? 'Atividade' : 'Venda'}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {(requestDialog?.type === 'atividade' ? atividadeFields : vendaFields).map(f => {
+                const originalVal = String(requestDialog?.originalData[f.key] ?? '');
+                const currentVal = requestEditForm[f.key] ?? '';
+                const isChanged = originalVal !== currentVal;
+                return (
+                  <div key={f.key} className={`space-y-1 p-2.5 rounded-lg border transition-colors ${isChanged ? 'bg-primary/5 border-primary/30' : 'bg-muted/30 border-border/20'
+                    }`}>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-muted-foreground">{f.label}</label>
+                      {isChanged && <span className="text-[9px] font-bold text-primary bg-primary/10 px-1.5 py-0.5 rounded">Alterado</span>}
+                    </div>
+                    <Input
+                      type={f.key === 'nome_titular' || f.key === 'observacoes' ? 'text' : 'number'}
+                      value={currentVal}
+                      onChange={e => setRequestEditForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      className={`h-9 text-sm ${isChanged ? 'border-primary/40 font-semibold' : ''}`}
+                    />
+                    {isChanged && (
+                      <p className="text-[10px] text-muted-foreground">
+                        <span className="text-destructive line-through">De: {originalVal}</span>
+                        <span className="mx-1">→</span>
+                        <span className="text-primary font-semibold">Para: {currentVal}</span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Changes Summary */}
+          {alteracoesPropostas.length > 0 && (
+            <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
+              <p className="text-xs font-bold text-primary mb-1">{alteracoesPropostas.length} campo(s) alterado(s)</p>
+              {alteracoesPropostas.map(a => (
+                <p key={a.campo} className="text-[11px] text-muted-foreground">
+                  <strong>{a.label}:</strong> <span className="text-destructive line-through">{String(a.valorAntigo)}</span> → <span className="text-primary font-semibold">{a.valorNovo}</span>
+                </p>
+              ))}
+            </div>
+          )}
+
+          {/* Justificativa */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-semibold text-muted-foreground">Justificativa <span className="text-destructive">*</span></label>
+            <Textarea value={requestJustificativa} onChange={e => setRequestJustificativa(e.target.value)} placeholder="Explique o motivo da alteração..." rows={3} />
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setRequestDialog(null)}>Cancelar</Button>
-            <Button onClick={sendChangeRequest} disabled={sendingRequest || !requestJustificativa.trim()}>
-              {sendingRequest ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Enviar Solicitação'}
+            <Button onClick={sendChangeRequest} disabled={sendingRequest || !canSubmitRequest}>
+              {sendingRequest ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : `Enviar Solicitação (${alteracoesPropostas.length})`}
             </Button>
           </DialogFooter>
         </DialogContent>
