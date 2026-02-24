@@ -60,8 +60,10 @@ const MinhasAcoes = () => {
   const atividadeFields = [
     { key: 'ligacoes', label: 'Ligações Realizadas' },
     { key: 'mensagens', label: 'Mensagens Enviadas' },
+    { key: 'cotacoes_coletadas', label: 'Cotações Coletadas' },
     { key: 'cotacoes_enviadas', label: 'Cotações Enviadas' },
     { key: 'cotacoes_fechadas', label: 'Cotações Respondidas' },
+    { key: 'cotacoes_nao_respondidas', label: 'Cotações Não Respondidas' },
     { key: 'follow_up', label: 'Follow-up' },
   ];
   const vendaFields = [
@@ -154,16 +156,20 @@ const MinhasAcoes = () => {
       const originalData = {
         ligacoes: a.ligacoes,
         mensagens: a.mensagens,
+        cotacoes_coletadas: a.cotacoes_coletadas ?? 0,
         cotacoes_enviadas: a.cotacoes_enviadas,
         cotacoes_fechadas: a.cotacoes_fechadas,
+        cotacoes_nao_respondidas: a.cotacoes_nao_respondidas ?? 0,
         follow_up: a.follow_up,
       };
       setRequestDialog({ type: 'atividade', id: a.id, label: a.data, originalData });
       setRequestEditForm({
         ligacoes: String(a.ligacoes),
         mensagens: String(a.mensagens),
+        cotacoes_coletadas: String(a.cotacoes_coletadas ?? 0),
         cotacoes_enviadas: String(a.cotacoes_enviadas),
         cotacoes_fechadas: String(a.cotacoes_fechadas),
+        cotacoes_nao_respondidas: String(a.cotacoes_nao_respondidas ?? 0),
         follow_up: String(a.follow_up),
       });
       setRequestJustificativa('');
