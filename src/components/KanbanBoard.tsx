@@ -32,7 +32,7 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName, st
   stageName?: string;
 }) {
   const isEnvioCotacao = stageName?.toLowerCase().includes('envio de cotação') || stageName?.toLowerCase().includes('cotação');
-  
+
   return (
     <div
       draggable
@@ -69,12 +69,12 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName, st
           {lead.boletos_path && <span className="text-[8px] px-1.5 py-0.5 rounded bg-primary/10 text-primary font-medium">Cotação</span>}
         </div>
       )}
-      
+
       {/* Upload cotações when in "Envio de Cotação" stage */}
       {isEnvioCotacao && (
         <CotacaoUploadSection lead={lead} />
       )}
-      
+
       {leaderName && (
         <div className="mt-2 pt-1.5 border-t border-border/20">
           <p className="text-[10px] text-muted-foreground flex items-center gap-1"><User className="w-3 h-3" /> {leaderName}</p>
@@ -377,8 +377,8 @@ export function KanbanBoard() {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) throw new Error('Não autenticado');
       const { error } = await supabase.from('correction_requests').insert({
-        user_id: currentUser.id, tipo: approvalDialog.type === 'edit' ? 'lead_edit' : 'lead_delete',
-        registro_id: approvalDialog.lead.id, motivo: approvalJustificativa.trim(),
+        user_id: currentUser.id, tipo: 'lead',
+        registro_id: approvalDialog.lead.id, motivo: `[${approvalDialog.type === 'edit' ? 'Edição' : 'Exclusão'}] ${approvalJustificativa.trim()}`,
       } as any);
       if (error) throw error;
       toast.success('Solicitação enviada ao supervisor!');
@@ -483,7 +483,7 @@ export function KanbanBoard() {
               <div><label className="text-xs font-semibold text-muted-foreground">CNPJ</label><Input value={form.cnpj} onChange={e => setForm(p => ({ ...p, cnpj: e.target.value }))} className="h-10" /></div>
             )}
             <div><label className="text-xs font-semibold text-muted-foreground">Endereço</label><Input value={form.endereco} onChange={e => setForm(p => ({ ...p, endereco: e.target.value }))} className="h-10" /></div>
-            
+
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Idade</label>
               <Input type="number" value={form.idade} onChange={e => setForm(p => ({ ...p, idade: e.target.value }))} placeholder="Ex: 30" className="h-10" />
