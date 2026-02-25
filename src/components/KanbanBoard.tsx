@@ -358,6 +358,7 @@ export function KanbanBoard() {
       estagiarios: form.estagiarios,
       qtdEstagiarios: form.qtdEstagiarios,
       observacoes: form.observacoes,
+      companhia_nome: form.companhia_nome,
       titulares: titulares.filter(t => t.nome.trim()),
       dependentes: dependentes.filter(d => d.nome.trim()),
     });
@@ -367,7 +368,6 @@ export function KanbanBoard() {
       idade: form.idade ? parseInt(form.idade) : null,
       produto: form.produto || null,
       quantidade_vidas: form.quantidade_vidas ? parseInt(form.quantidade_vidas) : null,
-      companhia_nome: form.companhia_nome || null,
       valor: form.valor ? parseFloat(form.valor) : null,
       plano_anterior: form.possuiAproveitamento,
       origem: extendedData,
@@ -527,7 +527,13 @@ export function KanbanBoard() {
 
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Produto</label>
-              <Input value={form.produto} onChange={e => setForm(p => ({ ...p, produto: e.target.value }))} placeholder="Nome do produto" className="h-10" />
+              <Select value={form.produto || '__none__'} onValueChange={v => setForm(p => ({ ...p, produto: v === '__none__' ? '' : v }))}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Nenhum</SelectItem>
+                  {produtos.map(p => <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

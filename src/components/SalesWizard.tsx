@@ -1,10 +1,10 @@
-import { useState, useRef, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { format, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ChevronRight, ChevronLeft, Upload, AlertCircle, CalendarIcon, DollarSign,
-  ShoppingCart, FileText, Plus, Trash2, Download, FileUp,
+  ShoppingCart, FileText, Plus, Trash2,
   CheckCircle2, User, Building2, Users, Heart, Briefcase, Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -176,8 +176,6 @@ export default function SalesWizard() {
   const [aproveitamentoDocs, setAproveitamentoDocs] = useState<Record<string, File | null>>({});
   const [benefDocs, setBenefDocs] = useState<Record<string, Record<string, File | null>>>({});
 
-  // Upload ref for bulk
-  const uploadRef = useRef<HTMLInputElement>(null);
 
   // Prefill from CRM lead
   useEffect(() => {
@@ -427,136 +425,6 @@ export default function SalesWizard() {
                 </div>
               </div>
 
-              {/* CSV Bulk Import Section */}
-              <div className="mt-5 p-5 bg-muted/30 rounded-xl border border-border/20 space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
-                    <FileUp className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-sm font-bold text-foreground font-display">Importação em Massa</h3>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Caso deseje importar múltiplas vendas, baixe o modelo CSV e preencha os campos. Caso não deseje, siga para os campos abaixo.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-card rounded-lg border border-border/20 space-y-2 text-xs text-muted-foreground">
-                  <p className="font-semibold text-foreground text-xs">Colunas do modelo:</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
-                    <span>A: <strong>Modalidade</strong> * ({modalidades.map(m => m.nome).join(', ') || '—'})</span>
-                    <span>B: <strong>Plano Anterior</strong> (Sim / Não)</span>
-                    <span>C: <strong>Data de Lançamento</strong> * (dd/mm/aaaa)</span>
-                    <span>D: <strong>Justificativa Retroativo</strong> (se data anterior)</span>
-                    <span>E: <strong>Companhia</strong> * ({companhias.map(c => c.nome).join(', ') || '—'})</span>
-                    <span>F: <strong>Data de Vigência</strong> * (dd/mm/aaaa)</span>
-                    <span>G: <strong>Venda c/ Dental</strong> (Sim / Não)</span>
-                    <span>H: <strong>Qtd de Vidas</strong> *</span>
-                    <span>I: <strong>Lead / Responsável</strong> * (nome do lead)</span>
-                    <span>J: <strong>Co-Participação</strong> (Sem / Parcial / Completa)</span>
-                    <span>K: <strong>Estagiários</strong> (Sim / Não)</span>
-                    <span>L: <strong>Qtd Estagiários</strong></span>
-                    <span>M: <strong>Titular 1 - Nome</strong> *</span>
-                    <span>N: <strong>Titular 1 - Idade</strong> *</span>
-                    <span>O: <strong>Titular 1 - Produto</strong> *</span>
-                    <span className="text-muted-foreground/60">P-R: Titular 2, S-U: Titular 3…</span>
-                    <span className="text-muted-foreground/60">V+: Dependentes (Nome/Idade/Produto/Descrição)</span>
-                    <span>Última: <strong>Valor Contrato</strong> * (R$)</span>
-                    <span>Última+1: <strong>Observações</strong></span>
-                  </div>
-                  <p className="text-[10px] text-muted-foreground/50 mt-1">* Campos obrigatórios. Consultor é preenchido automaticamente.</p>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline" size="sm" className="gap-1.5 text-xs border-border/40"
-                    onClick={() => {
-                      const headers = [
-                        'Modalidade',
-                        'Plano Anterior (Sim/Não)',
-                        'Data de Lançamento (dd/mm/aaaa)',
-                        'Justificativa Retroativo',
-                        'Companhia',
-                        'Data de Vigência (dd/mm/aaaa)',
-                        'Venda c/ Dental (Sim/Não)',
-                        'Qtd de Vidas',
-                        'Lead / Responsável',
-                        'Co-Participação (Sem/Parcial/Completa)',
-                        'Estagiários (Sim/Não)',
-                        'Qtd Estagiários',
-                        'Titular 1 - Nome',
-                        'Titular 1 - Idade',
-                        'Titular 1 - Produto',
-                        'Titular 2 - Nome',
-                        'Titular 2 - Idade',
-                        'Titular 2 - Produto',
-                        'Titular 3 - Nome',
-                        'Titular 3 - Idade',
-                        'Titular 3 - Produto',
-                        'Dependente 1 - Nome',
-                        'Dependente 1 - Idade',
-                        'Dependente 1 - Produto',
-                        'Dependente 1 - Descrição',
-                        'Dependente 2 - Nome',
-                        'Dependente 2 - Idade',
-                        'Dependente 2 - Produto',
-                        'Dependente 2 - Descrição',
-                        'Dependente 3 - Nome',
-                        'Dependente 3 - Idade',
-                        'Dependente 3 - Produto',
-                        'Dependente 3 - Descrição',
-                        'Valor Contrato (R$)',
-                        'Observações',
-                      ];
-                      // Add reference row with valid values as example
-                      const modalidadeNames = modalidades.map(m => m.nome).join(' / ');
-                      const companhiaNames = companhias.map(c => c.nome).join(' / ');
-                      const produtoNames = produtos.slice(0, 3).map(p => p.nome).join(' / ');
-                      const exampleRow = [
-                        modalidadeNames || 'PF',
-                        'Não',
-                        format(new Date(), 'dd/MM/yyyy'),
-                        '',
-                        companhiaNames || '',
-                        '',
-                        'Não',
-                        '1',
-                        '',
-                        'Sem',
-                        'Não',
-                        '',
-                        '',
-                        '',
-                        produtoNames || '',
-                        '', '', '', '', '', '',
-                        '', '', '', '',
-                        '', '', '', '',
-                        '', '', '', '',
-                        '',
-                        '',
-                      ];
-                      const bom = '\uFEFF';
-                      const csvContent = bom + headers.join(';') + '\n' + exampleRow.join(';') + '\n';
-                      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      a.download = `modelo_vendas_completo.csv`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                      toast.success('Modelo CSV completo baixado!');
-                    }}
-                  >
-                    <Download className="w-3.5 h-3.5" /> Modelo CSV
-                  </Button>
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => uploadRef.current?.click()}>
-                    <Upload className="w-3.5 h-3.5" /> Upload CSV
-                  </Button>
-                  <input ref={uploadRef} type="file" accept=".csv,.xlsx" className="hidden" />
-                </div>
-              </div>
             </div>
 
             <Separator className="bg-border/20" />

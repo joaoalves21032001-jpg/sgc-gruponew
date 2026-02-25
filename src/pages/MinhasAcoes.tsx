@@ -44,7 +44,7 @@ const MinhasAcoes = () => {
 
   // Edit venda state
   const [editVenda, setEditVenda] = useState<Venda | null>(null);
-  const [editVendaForm, setEditVendaForm] = useState({ nome_titular: '', vidas: '', valor: '', observacoes: '' });
+  const [editVendaForm, setEditVendaForm] = useState({ nome_titular: '', modalidade: '', vidas: '', valor: '', data_lancamento: '', observacoes: '' });
   const [editVendaSaving, setEditVendaSaving] = useState(false);
 
   // Solicitar Alteração state (structured De/Para)
@@ -71,6 +71,8 @@ const MinhasAcoes = () => {
     { key: 'modalidade', label: 'Modalidade' },
     { key: 'vidas', label: 'Vidas' },
     { key: 'valor', label: 'Valor (R$)' },
+    { key: 'data_lancamento', label: 'Data de Lançamento' },
+    { key: 'justificativa_retroativo', label: 'Justificativa Retroativo' },
     { key: 'observacoes', label: 'Observações' },
   ];
 
@@ -197,6 +199,8 @@ const MinhasAcoes = () => {
         modalidade: v.modalidade,
         vidas: v.vidas,
         valor: v.valor ?? '',
+        data_lancamento: (v as any).data_lancamento ?? '',
+        justificativa_retroativo: (v as any).justificativa_retroativo ?? '',
         observacoes: v.observacoes ?? '',
       };
       setRequestDialog({ type: 'venda', id: v.id, label: v.nome_titular, originalData });
@@ -205,6 +209,8 @@ const MinhasAcoes = () => {
         modalidade: v.modalidade,
         vidas: String(v.vidas),
         valor: v.valor ? String(v.valor) : '',
+        data_lancamento: (v as any).data_lancamento || '',
+        justificativa_retroativo: (v as any).justificativa_retroativo || '',
         observacoes: v.observacoes || '',
       });
       setRequestJustificativa('');
@@ -217,8 +223,10 @@ const MinhasAcoes = () => {
     setEditVenda(v);
     setEditVendaForm({
       nome_titular: v.nome_titular,
+      modalidade: v.modalidade,
       vidas: String(v.vidas),
       valor: v.valor ? String(v.valor) : '',
+      data_lancamento: (v as any).data_lancamento || '',
       observacoes: v.observacoes || '',
     });
   };
@@ -295,6 +303,7 @@ const MinhasAcoes = () => {
     try {
       const { error } = await supabase.from('vendas').update({
         nome_titular: editVendaForm.nome_titular,
+        modalidade: editVendaForm.modalidade,
         vidas: parseInt(editVendaForm.vidas) || 1,
         valor: editVendaForm.valor ? parseFloat(editVendaForm.valor) : null,
         observacoes: editVendaForm.observacoes || null,
@@ -599,6 +608,19 @@ const MinhasAcoes = () => {
               <label className="text-xs font-semibold text-muted-foreground">Nome do Titular</label>
               <Input value={editVendaForm.nome_titular} onChange={(e) => setEditVendaForm(prev => ({ ...prev, nome_titular: e.target.value }))} className="h-9" />
             </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Modalidade</label>
+              <Select value={editVendaForm.modalidade} onValueChange={(v) => setEditVendaForm(prev => ({ ...prev, modalidade: v }))}>
+                <SelectTrigger className="h-9"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PF">PF</SelectItem>
+                  <SelectItem value="Familiar">Familiar</SelectItem>
+                  <SelectItem value="PME Multi">PME Multi</SelectItem>
+                  <SelectItem value="Empresarial">Empresarial</SelectItem>
+                  <SelectItem value="Adesão">Adesão</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground">Vidas</label>
@@ -608,6 +630,10 @@ const MinhasAcoes = () => {
                 <label className="text-xs font-semibold text-muted-foreground">Valor (R$)</label>
                 <Input type="number" value={editVendaForm.valor} onChange={(e) => setEditVendaForm(prev => ({ ...prev, valor: e.target.value }))} className="h-9" />
               </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-muted-foreground">Data de Lançamento</label>
+              <Input type="date" value={editVendaForm.data_lancamento} onChange={(e) => setEditVendaForm(prev => ({ ...prev, data_lancamento: e.target.value }))} className="h-9" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-muted-foreground">Observações</label>

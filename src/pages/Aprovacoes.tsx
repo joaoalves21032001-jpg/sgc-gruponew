@@ -396,20 +396,42 @@ const Aprovacoes = () => {
         }
       }
 
-      // 2. Generate next codigo (GN001, GN002, ...)
-      const { data: allProfiles } = await supabase
-        .from('profiles')
-        .select('codigo')
-        .order('codigo', { ascending: false })
-        .limit(1);
-      let nextCode = 'GN001';
-      if (allProfiles && allProfiles.length > 0 && allProfiles[0].codigo) {
-        const num = parseInt(allProfiles[0].codigo.replace('GN', ''), 10);
-        nextCode = `GN${String(num + 1).padStart(3, '0')}`;
+      // 2. Wait a moment for the profile trigger to create the row (if new user)
+      if (!existing) {
+        await new Promise(r => setTimeout(r, 1500));
       }
 
-      // 3. Update profile with full data and ENABLE user
-      const { error: profileError } = await supabase.from('profiles').update({
+      // 3. Check if profile already has a codigo
+      const { data: currentProfile } = await supabase.from('profiles').select('codigo, disabled').eq('id', userId).maybeSingle();
+
+      let nextCode = currentProfile?.codigo || null;
+
+      // Only generate a new codigo if the profile doesn't have one yet
+      if (!nextCode) {
+        // Get all existing GN codes to find the max
+        const { data: allCodes } = await supabase
+          .from('profiles')
+          .select('codigo')
+          .not('codigo', 'is', null)
+          .like('codigo', 'GN%')
+          .order('codigo', { ascending: false })
+          .limit(10);
+
+        let maxNum = 0;
+        if (allCodes) {
+          for (const row of allCodes) {
+            const match = row.codigo?.match(/^GN(\d+)$/);
+            if (match) {
+              const num = parseInt(match[1], 10);
+              if (num > maxNum) maxNum = num;
+            }
+          }
+        }
+        nextCode = `GN${String(maxNum + 1).padStart(3, '0')}`;
+      }
+
+      // 4. Update profile with full data and ENABLE user
+      const profilePayload: any = {
         nome_completo: req.nome,
         apelido: req.nome.split(' ')[0],
         celular: req.telefone || null,
@@ -425,8 +447,23 @@ const Aprovacoes = () => {
         data_admissao: req.data_admissao || null,
         data_nascimento: req.data_nascimento || null,
         disabled: false,
-      } as any).eq('id', userId);
-      if (profileError) throw new Error(`Erro ao atualizar perfil: ${profileError.message}`);
+      };
+
+      const { error: profileError } = await supabase.from('profiles').update(profilePayload).eq('id', userId);
+
+      if (profileError) {
+        // If codigo conflict, retry without setting codigo (keep existing)
+        if (profileError.message?.includes('profiles_codigo_key')) {
+          const { codigo, ...payloadWithoutCodigo } = profilePayload;
+          const { error: retryError } = await supabase.from('profiles').update(payloadWithoutCodigo as any).eq('id', userId);
+          if (retryError) throw new Error(`Erro ao atualizar perfil: ${retryError.message}`);
+          // Fetch the actual codigo for the success message
+          const { data: finalProfile } = await supabase.from('profiles').select('codigo').eq('id', userId).maybeSingle();
+          nextCode = finalProfile?.codigo || nextCode;
+        } else {
+          throw new Error(`Erro ao atualizar perfil: ${profileError.message}`);
+        }
+      }
 
       // 4. Update role if not default 'consultor'
       const role = req.nivel_acesso || 'consultor';
@@ -559,8 +596,10 @@ const Aprovacoes = () => {
                         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
                           <span>Lig: <strong>{a.ligacoes}</strong></span>
                           <span>Msg: <strong>{a.mensagens}</strong></span>
+                          <span>Cot.Col: <strong>{(a as any).cotacoes_coletadas ?? 0}</strong></span>
                           <span>Cot.Env: <strong>{a.cotacoes_enviadas}</strong></span>
                           <span>Cot.Fech: <strong>{a.cotacoes_fechadas}</strong></span>
+                          <span>Cot.NResp: <strong>{(a as any).cotacoes_nao_respondidas ?? 0}</strong></span>
                           <span>Follow: <strong>{a.follow_up}</strong></span>
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">
@@ -812,14 +851,18 @@ const Aprovacoes = () => {
           </DialogHeader>
           {selectedAtiv && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Consultor</span><p className="font-semibold text-foreground mt-0.5">{getConsultorName(selectedAtiv.user_id)}</p></div>
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Data</span><p className="font-semibold text-foreground mt-0.5">{selectedAtiv.data.split('-').reverse().join('/')}</p></div>
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Ligações</span><p className="font-semibold text-foreground mt-0.5">{selectedAtiv.ligacoes}</p></div>
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Mensagens</span><p className="font-semibold text-foreground mt-0.5">{selectedAtiv.mensagens}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Cot. Coletadas</span><p className="font-semibold text-foreground mt-0.5">{(selectedAtiv as any).cotacoes_coletadas ?? 0}</p></div>
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Cot. Enviadas</span><p className="font-semibold text-foreground mt-0.5">{selectedAtiv.cotacoes_enviadas}</p></div>
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Cot. Fechadas</span><p className="font-semibold text-foreground mt-0.5">{selectedAtiv.cotacoes_fechadas}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Cot. Não Resp.</span><p className="font-semibold text-foreground mt-0.5">{(selectedAtiv as any).cotacoes_nao_respondidas ?? 0}</p></div>
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Follow-up</span><p className="font-semibold text-foreground mt-0.5">{selectedAtiv.follow_up}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Criado em</span><p className="font-semibold text-foreground mt-0.5">{new Date(selectedAtiv.created_at).toLocaleDateString('pt-BR')}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">ID</span><p className="font-semibold text-foreground mt-0.5 font-mono text-xs">{selectedAtiv.id.slice(0, 12)}...</p></div>
               </div>
               <div className="space-y-1.5">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-[0.08em]">Justificativa da Devolução <span className="text-destructive">*</span></label>
