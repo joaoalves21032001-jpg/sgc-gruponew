@@ -359,6 +359,7 @@ export function KanbanBoard() {
       qtdEstagiarios: form.qtdEstagiarios,
       observacoes: form.observacoes,
       companhia_nome: form.companhia_nome,
+      plano_anterior: form.possuiAproveitamento,
       titulares: titulares.filter(t => t.nome.trim()),
       dependentes: dependentes.filter(d => d.nome.trim()),
     });
@@ -369,7 +370,6 @@ export function KanbanBoard() {
       produto: form.produto || null,
       quantidade_vidas: form.quantidade_vidas ? parseInt(form.quantidade_vidas) : null,
       valor: form.valor ? parseFloat(form.valor) : null,
-      plano_anterior: form.possuiAproveitamento,
       origem: extendedData,
     };
     payload.livre = form.livre;
@@ -525,21 +525,10 @@ export function KanbanBoard() {
               </div>
             </div>
 
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground">Produto</label>
-              <Select value={form.produto || '__none__'} onValueChange={v => setForm(p => ({ ...p, produto: v === '__none__' ? '' : v }))}>
-                <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">Nenhum</SelectItem>
-                  {produtos.map(p => <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground">Companhia</label>
-                <Select value={form.companhia_nome || '__none__'} onValueChange={v => setForm(p => ({ ...p, companhia_nome: v === '__none__' ? '' : v }))}>
+                <Select value={form.companhia_nome || '__none__'} onValueChange={v => { setForm(p => ({ ...p, companhia_nome: v === '__none__' ? '' : v, produto: '' })); }}>
                   <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="__none__">Nenhuma</SelectItem>
@@ -548,9 +537,26 @@ export function KanbanBoard() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs font-semibold text-muted-foreground">Valor (R$)</label>
-                <Input type="number" step="0.01" value={form.valor} onChange={e => setForm(p => ({ ...p, valor: e.target.value }))} placeholder="0,00" className="h-10" />
+                <label className="text-xs font-semibold text-muted-foreground">Produto</label>
+                <Select value={form.produto || '__none__'} onValueChange={v => setForm(p => ({ ...p, produto: v === '__none__' ? '' : v }))}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {(() => {
+                      const selectedCompanhia = companhias.find(c => c.nome === form.companhia_nome);
+                      const filtered = selectedCompanhia
+                        ? produtos.filter(p => p.companhia_id === selectedCompanhia.id)
+                        : produtos;
+                      return filtered.map(p => <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>);
+                    })()}
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Valor (R$)</label>
+              <Input type="number" step="0.01" value={form.valor} onChange={e => setForm(p => ({ ...p, valor: e.target.value }))} placeholder="0,00" className="h-10" />
             </div>
 
             {/* Toggles Section */}
