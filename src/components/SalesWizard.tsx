@@ -163,6 +163,7 @@ export default function SalesWizard() {
   const [coParticipacao, setCoParticipacao] = useState('sem');
   const [estagiarios, setEstagiarios] = useState(false);
   const [qtdEstagiarios, setQtdEstagiarios] = useState('');
+  const [useResponsavelTitular, setUseResponsavelTitular] = useState(false);
   const [titulares, setTitulares] = useState<TitularData[]>([{ nome: '', idade: '', produto_id: '' }]);
   const [dependentes, setDependentes] = useState<DependenteData[]>([]);
   const [valorContrato, setValorContrato] = useState('');
@@ -393,41 +394,132 @@ export default function SalesWizard() {
                 </div>
               </div>
 
-              <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-muted/40 rounded-lg border border-border/20">
-                <FileUp className="w-5 h-5 text-primary shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Importar vendas em massa</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Selecione uma modalidade para habilitar.</p>
+              {/* CSV Bulk Import Section */}
+              <div className="mt-5 p-5 bg-muted/30 rounded-xl border border-border/20 space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-primary/8 flex items-center justify-center shrink-0">
+                    <FileUp className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-sm font-bold text-foreground font-display">Importação em Massa</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Caso deseje importar múltiplas vendas, baixe o modelo CSV e preencha os campos. Caso não deseje, siga para os campos abaixo.
+                    </p>
+                  </div>
                 </div>
-                <div className="flex gap-2 shrink-0">
+
+                <div className="p-3 bg-card rounded-lg border border-border/20 space-y-2 text-xs text-muted-foreground">
+                  <p className="font-semibold text-foreground text-xs">Colunas do modelo:</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-0.5">
+                    <span>A: <strong>Modalidade</strong> * ({modalidades.map(m => m.nome).join(', ') || '—'})</span>
+                    <span>B: <strong>Plano Anterior</strong> (Sim / Não)</span>
+                    <span>C: <strong>Data de Lançamento</strong> * (dd/mm/aaaa)</span>
+                    <span>D: <strong>Justificativa Retroativo</strong> (se data anterior)</span>
+                    <span>E: <strong>Companhia</strong> * ({companhias.map(c => c.nome).join(', ') || '—'})</span>
+                    <span>F: <strong>Data de Vigência</strong> * (dd/mm/aaaa)</span>
+                    <span>G: <strong>Venda c/ Dental</strong> (Sim / Não)</span>
+                    <span>H: <strong>Qtd de Vidas</strong> *</span>
+                    <span>I: <strong>Lead / Responsável</strong> * (nome do lead)</span>
+                    <span>J: <strong>Co-Participação</strong> (Sem / Parcial / Completa)</span>
+                    <span>K: <strong>Estagiários</strong> (Sim / Não)</span>
+                    <span>L: <strong>Qtd Estagiários</strong></span>
+                    <span>M: <strong>Titular 1 - Nome</strong> *</span>
+                    <span>N: <strong>Titular 1 - Idade</strong> *</span>
+                    <span>O: <strong>Titular 1 - Produto</strong> *</span>
+                    <span className="text-muted-foreground/60">P-R: Titular 2, S-U: Titular 3…</span>
+                    <span className="text-muted-foreground/60">V+: Dependentes (Nome/Idade/Produto/Descrição)</span>
+                    <span>Última: <strong>Valor Contrato</strong> * (R$)</span>
+                    <span>Última+1: <strong>Observações</strong></span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/50 mt-1">* Campos obrigatórios. Consultor é preenchido automaticamente.</p>
+                </div>
+
+                <div className="flex gap-2">
                   <Button
                     variant="outline" size="sm" className="gap-1.5 text-xs border-border/40"
-                    disabled={!modalidade}
                     onClick={() => {
-                      if (!modalidade) return;
-                      const baseHeaders = ['Nome Titular', 'Vidas', 'Valor Contrato', 'Observações'];
-                      let extraHeaders: string[] = [];
-                      if (modalidade === 'PME Multi' || modalidade === 'Empresarial') extraHeaders = ['CNPJ'];
-                      if (modalidade === 'Empresarial') extraHeaders.push('Comprovação de Vínculo');
-                      const headers = [...baseHeaders, ...extraHeaders];
+                      const headers = [
+                        'Modalidade',
+                        'Plano Anterior (Sim/Não)',
+                        'Data de Lançamento (dd/mm/aaaa)',
+                        'Justificativa Retroativo',
+                        'Companhia',
+                        'Data de Vigência (dd/mm/aaaa)',
+                        'Venda c/ Dental (Sim/Não)',
+                        'Qtd de Vidas',
+                        'Lead / Responsável',
+                        'Co-Participação (Sem/Parcial/Completa)',
+                        'Estagiários (Sim/Não)',
+                        'Qtd Estagiários',
+                        'Titular 1 - Nome',
+                        'Titular 1 - Idade',
+                        'Titular 1 - Produto',
+                        'Titular 2 - Nome',
+                        'Titular 2 - Idade',
+                        'Titular 2 - Produto',
+                        'Titular 3 - Nome',
+                        'Titular 3 - Idade',
+                        'Titular 3 - Produto',
+                        'Dependente 1 - Nome',
+                        'Dependente 1 - Idade',
+                        'Dependente 1 - Produto',
+                        'Dependente 1 - Descrição',
+                        'Dependente 2 - Nome',
+                        'Dependente 2 - Idade',
+                        'Dependente 2 - Produto',
+                        'Dependente 2 - Descrição',
+                        'Dependente 3 - Nome',
+                        'Dependente 3 - Idade',
+                        'Dependente 3 - Produto',
+                        'Dependente 3 - Descrição',
+                        'Valor Contrato (R$)',
+                        'Observações',
+                      ];
+                      // Add reference row with valid values as example
+                      const modalidadeNames = modalidades.map(m => m.nome).join(' / ');
+                      const companhiaNames = companhias.map(c => c.nome).join(' / ');
+                      const produtoNames = produtos.slice(0, 3).map(p => p.nome).join(' / ');
+                      const exampleRow = [
+                        modalidadeNames || 'PF',
+                        'Não',
+                        format(new Date(), 'dd/MM/yyyy'),
+                        '',
+                        companhiaNames || '',
+                        '',
+                        'Não',
+                        '1',
+                        '',
+                        'Sem',
+                        'Não',
+                        '',
+                        '',
+                        '',
+                        produtoNames || '',
+                        '', '', '', '', '', '',
+                        '', '', '', '',
+                        '', '', '', '',
+                        '', '', '', '',
+                        '',
+                        '',
+                      ];
                       const bom = '\uFEFF';
-                      const csvContent = bom + headers.join(';') + '\n';
+                      const csvContent = bom + headers.join(';') + '\n' + exampleRow.join(';') + '\n';
                       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement('a');
                       a.href = url;
-                      a.download = `modelo_vendas_${modalidade.replace(/\s/g, '_')}.csv`;
+                      a.download = `modelo_vendas_completo.csv`;
                       document.body.appendChild(a);
                       a.click();
                       document.body.removeChild(a);
                       URL.revokeObjectURL(url);
-                      toast.success(`Modelo para ${modalidade} baixado!`);
+                      toast.success('Modelo CSV completo baixado!');
                     }}
                   >
-                    <Download className="w-3.5 h-3.5" /> Modelo
+                    <Download className="w-3.5 h-3.5" /> Modelo CSV
                   </Button>
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" disabled={!modalidade} onClick={() => uploadRef.current?.click()}>
-                    <Upload className="w-3.5 h-3.5" /> Upload
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => uploadRef.current?.click()}>
+                    <Upload className="w-3.5 h-3.5" /> Upload CSV
                   </Button>
                   <input ref={uploadRef} type="file" accept=".csv,.xlsx" className="hidden" />
                 </div>
@@ -562,15 +654,20 @@ export default function SalesWizard() {
               {selectedLead && titulares.length > 0 && (
                 <div className="mt-3 flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
                   <Switch
-                    checked={false}
+                    checked={useResponsavelTitular}
                     onCheckedChange={(checked) => {
+                      setUseResponsavelTitular(checked);
                       if (checked && selectedLead) {
                         updateTitular(0, 'nome', selectedLead.nome);
                         if (selectedLead.idade) updateTitular(0, 'idade', String(selectedLead.idade));
                         toast.success('Dados do responsável aplicados ao 1º titular!');
+                      } else {
+                        updateTitular(0, 'nome', '');
+                        updateTitular(0, 'idade', '');
                       }
                     }}
                   />
+                  <span className="text-sm text-foreground">{useResponsavelTitular ? 'Sim' : 'Não'}</span>
                   <Label className="text-sm text-foreground">Utilizar os dados do responsável para preenchimento do 1º Titular</Label>
                 </div>
               )}
