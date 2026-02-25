@@ -19,7 +19,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
-  Plus, Pencil, Trash2, X, Upload, MoreHorizontal, Phone, Mail, Shield, User, FileText
+  Plus, Pencil, Trash2, X, Upload, MoreHorizontal, Phone, Mail, Shield, User, FileText, Building2, Users, Heart
 } from 'lucide-react';
 import { maskCPF, maskPhone } from '@/lib/masks';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -188,7 +188,11 @@ export function KanbanBoard() {
     tipo: '', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '',
     livre: false, possuiAproveitamento: false,
     produto: '', quantidade_vidas: '', companhia_nome: '', valor: '',
+    vendaDental: false, coParticipacao: 'sem' as string, estagiarios: false, qtdEstagiarios: '',
+    observacoes: '',
   });
+  const [titulares, setTitulares] = useState<{ nome: string; idade: string; produto: string }[]>([{ nome: '', idade: '', produto: '' }]);
+  const [dependentes, setDependentes] = useState<{ nome: string; idade: string; produto: string; descricao: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [deleteItem, setDeleteItem] = useState<Lead | null>(null);
 
@@ -291,6 +295,9 @@ export function KanbanBoard() {
       return;
     }
     setEditItem(l);
+    // Parse extended data from origem JSON
+    let ext: any = {};
+    try { if (l.origem) ext = JSON.parse(l.origem); } catch { /* not JSON */ }
     setForm({
       tipo: l.tipo, nome: l.nome, contato: l.contato || '', email: l.email || '',
       cpf: l.cpf || '', cnpj: l.cnpj || '', endereco: l.endereco || '',
@@ -299,7 +306,14 @@ export function KanbanBoard() {
       possuiAproveitamento: l.plano_anterior || false,
       produto: l.produto || '', quantidade_vidas: l.quantidade_vidas ? String(l.quantidade_vidas) : '',
       companhia_nome: l.companhia_nome || '', valor: l.valor ? String(l.valor) : '',
+      vendaDental: ext.vendaDental || false,
+      coParticipacao: ext.coParticipacao || 'sem',
+      estagiarios: ext.estagiarios || false,
+      qtdEstagiarios: ext.qtdEstagiarios || '',
+      observacoes: ext.observacoes || '',
     });
+    setTitulares(ext.titulares?.length ? ext.titulares : [{ nome: '', idade: '', produto: '' }]);
+    setDependentes(ext.dependentes?.length ? ext.dependentes : []);
     setFormStageId(l.stage_id || null);
     setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null);
     setShowForm(true);
@@ -317,7 +331,9 @@ export function KanbanBoard() {
 
   const openAdd = (stageId?: string | null) => {
     setEditItem(null);
-    setForm({ tipo: '', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false, possuiAproveitamento: false, produto: '', quantidade_vidas: '', companhia_nome: '', valor: '' });
+    setForm({ tipo: '', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false, possuiAproveitamento: false, produto: '', quantidade_vidas: '', companhia_nome: '', valor: '', vendaDental: false, coParticipacao: 'sem', estagiarios: false, qtdEstagiarios: '', observacoes: '' });
+    setTitulares([{ nome: '', idade: '', produto: '' }]);
+    setDependentes([]);
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
     setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null);
     setShowForm(true);
@@ -335,6 +351,16 @@ export function KanbanBoard() {
     if (!form.tipo) { toast.error('Selecione o Tipo / Modalidade.'); return; }
     setSaving(true);
     const { data: { user: currentUser } } = await supabase.auth.getUser();
+    // Build extended draft data JSON
+    const extendedData = JSON.stringify({
+      vendaDental: form.vendaDental,
+      coParticipacao: form.coParticipacao,
+      estagiarios: form.estagiarios,
+      qtdEstagiarios: form.qtdEstagiarios,
+      observacoes: form.observacoes,
+      titulares: titulares.filter(t => t.nome.trim()),
+      dependentes: dependentes.filter(d => d.nome.trim()),
+    });
     const payload: any = {
       tipo: form.tipo, nome: form.nome.trim(), contato: form.contato || null,
       email: form.email || null, endereco: form.endereco || null, stage_id: formStageId,
@@ -344,6 +370,7 @@ export function KanbanBoard() {
       companhia_nome: form.companhia_nome || null,
       valor: form.valor ? parseFloat(form.valor) : null,
       plano_anterior: form.possuiAproveitamento,
+      origem: extendedData,
     };
     payload.livre = form.livre;
     if (isPessoaFisica(form.tipo)) { payload.cpf = form.cpf || null; payload.cnpj = null; }
@@ -506,7 +533,13 @@ export function KanbanBoard() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground">Companhia</label>
-                <Input value={form.companhia_nome} onChange={e => setForm(p => ({ ...p, companhia_nome: e.target.value }))} placeholder="Nome da companhia" className="h-10" />
+                <Select value={form.companhia_nome || '__none__'} onValueChange={v => setForm(p => ({ ...p, companhia_nome: v === '__none__' ? '' : v }))}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhuma</SelectItem>
+                    {companhias.map(c => <SelectItem key={c.id} value={c.nome}>{c.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <label className="text-xs font-semibold text-muted-foreground">Valor (R$)</label>
@@ -514,10 +547,127 @@ export function KanbanBoard() {
               </div>
             </div>
 
-            {/* Aproveitamento de Carência */}
+            {/* Toggles Section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
+                <Switch checked={form.possuiAproveitamento} onCheckedChange={v => setForm(p => ({ ...p, possuiAproveitamento: v }))} />
+                <Label className="text-sm text-foreground">Plano anterior (Aproveitamento de Carência)?</Label>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
+                <Switch checked={form.vendaDental} onCheckedChange={v => setForm(p => ({ ...p, vendaDental: v }))} />
+                <Label className="text-sm text-foreground">Venda c/ Dental</Label>
+                <span className="text-xs text-muted-foreground ml-auto">{form.vendaDental ? 'Sim' : 'Não'}</span>
+              </div>
+            </div>
+
+            {/* Co-Participação */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Co-Participação</label>
+              <Select value={form.coParticipacao} onValueChange={v => setForm(p => ({ ...p, coParticipacao: v }))}>
+                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sem">Sem Co-Participação</SelectItem>
+                  <SelectItem value="parcial">Parcial</SelectItem>
+                  <SelectItem value="completa">Completa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Estagiários */}
             <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
-              <Switch checked={form.possuiAproveitamento} onCheckedChange={v => setForm(p => ({ ...p, possuiAproveitamento: v }))} />
-              <Label className="text-sm text-foreground">Possui plano anterior (Aproveitamento de Carência)?</Label>
+              <Switch checked={form.estagiarios} onCheckedChange={v => setForm(p => ({ ...p, estagiarios: v }))} />
+              <Label className="text-sm text-foreground">Estagiários</Label>
+              <span className="text-xs text-muted-foreground ml-auto">{form.estagiarios ? 'Sim' : 'Não'}</span>
+            </div>
+            {form.estagiarios && (
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Qtd. Estagiários</label>
+                <Input type="number" min={1} value={form.qtdEstagiarios} onChange={e => setForm(p => ({ ...p, qtdEstagiarios: e.target.value }))} placeholder="Ex: 2" className="h-10" />
+              </div>
+            )}
+
+            {/* Titulares Section */}
+            <div className="border-t border-border/20 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.08em] flex items-center gap-1.5"><Users className="w-3.5 h-3.5" />Titulares ({titulares.length})</p>
+                <Button type="button" variant="outline" size="sm" className="text-xs h-7" onClick={() => setTitulares(t => [...t, { nome: '', idade: '', produto: '' }])}>
+                  + Adicionar
+                </Button>
+              </div>
+              {titulares.map((t, i) => (
+                <div key={i} className="grid grid-cols-[1fr_70px_1fr_32px] gap-2 mb-2 items-end">
+                  <div>
+                    {i === 0 && <label className="text-[10px] text-muted-foreground">Nome</label>}
+                    <Input value={t.nome} onChange={e => { const arr = [...titulares]; arr[i] = { ...t, nome: e.target.value }; setTitulares(arr); }} placeholder="Nome" className="h-9 text-sm" />
+                  </div>
+                  <div>
+                    {i === 0 && <label className="text-[10px] text-muted-foreground">Idade</label>}
+                    <Input type="number" value={t.idade} onChange={e => { const arr = [...titulares]; arr[i] = { ...t, idade: e.target.value }; setTitulares(arr); }} placeholder="30" className="h-9 text-sm" />
+                  </div>
+                  <div>
+                    {i === 0 && <label className="text-[10px] text-muted-foreground">Produto</label>}
+                    <Select value={t.produto || '__none__'} onValueChange={v => { const arr = [...titulares]; arr[i] = { ...t, produto: v === '__none__' ? '' : v }; setTitulares(arr); }}>
+                      <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Produto" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">—</SelectItem>
+                        {produtos.map(p => <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button type="button" variant="ghost" size="sm" className="h-9 w-8 p-0 text-destructive" onClick={() => { if (titulares.length > 1) setTitulares(t2 => t2.filter((_, j) => j !== i)); }} disabled={titulares.length <= 1}>
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            {/* Dependentes Section */}
+            <div className="border-t border-border/20 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-[0.08em] flex items-center gap-1.5"><Heart className="w-3.5 h-3.5" />Dependentes ({dependentes.length})</p>
+                <Button type="button" variant="outline" size="sm" className="text-xs h-7" onClick={() => setDependentes(d => [...d, { nome: '', idade: '', produto: '', descricao: '' }])}>
+                  + Adicionar
+                </Button>
+              </div>
+              {dependentes.map((d, i) => (
+                <div key={i} className="space-y-1.5 mb-3 p-2.5 bg-muted/30 rounded-lg border border-border/10">
+                  <div className="grid grid-cols-[1fr_70px_32px] gap-2 items-end">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Nome</label>
+                      <Input value={d.nome} onChange={e => { const arr = [...dependentes]; arr[i] = { ...d, nome: e.target.value }; setDependentes(arr); }} placeholder="Nome" className="h-9 text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Idade</label>
+                      <Input type="number" value={d.idade} onChange={e => { const arr = [...dependentes]; arr[i] = { ...d, idade: e.target.value }; setDependentes(arr); }} placeholder="30" className="h-9 text-sm" />
+                    </div>
+                    <Button type="button" variant="ghost" size="sm" className="h-9 w-8 p-0 text-destructive" onClick={() => setDependentes(d2 => d2.filter((_, j) => j !== i))}>
+                      <X className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Produto</label>
+                      <Select value={d.produto || '__none__'} onValueChange={v => { const arr = [...dependentes]; arr[i] = { ...d, produto: v === '__none__' ? '' : v }; setDependentes(arr); }}>
+                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="—" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">—</SelectItem>
+                          {produtos.map(p => <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground">Descrição</label>
+                      <Input value={d.descricao} onChange={e => { const arr = [...dependentes]; arr[i] = { ...d, descricao: e.target.value }; setDependentes(arr); }} placeholder="Ex: Cônjuge" className="h-9 text-sm" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Observações */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Observações</label>
+              <Textarea value={form.observacoes} onChange={e => setForm(p => ({ ...p, observacoes: e.target.value }))} placeholder="Observações adicionais..." rows={3} />
             </div>
 
             {/* Lead Livre (Admin only) */}
