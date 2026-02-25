@@ -227,10 +227,11 @@ export default function SalesWizard() {
   const isRetroativo = !isToday(dataLancamento);
   const isEmpresa = modalidade === 'PME Multi' || modalidade === 'Empresarial';
 
-  // Filter leads to show the current user's leads AND free leads
+  // Filter leads: only show leads that are on the KanbanBoard (have a stage_id)
+  // and belong to current user or are free
   const filteredLeads = useMemo(() => {
     if (!user) return [];
-    return leads.filter(l => l.created_by === user.id || l.livre);
+    return leads.filter(l => l.stage_id && (l.created_by === user.id || l.livre));
   }, [leads, user]);
 
   // Selected lead
