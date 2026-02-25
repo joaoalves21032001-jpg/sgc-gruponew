@@ -257,7 +257,7 @@ function AtividadesTab() {
           onClick={handleSave}
           disabled={!canSave}
           size="lg"
-          className="gradient-hero text-white font-bold px-8 h-14 shadow-brand text-sm tracking-wide rounded-full hover:scale-105 transition-transform"
+          className="gradient-hero text-white font-bold px-8 h-14 shadow-brand text-sm tracking-wide rounded-full hover:scale-105 transition-all duration-300 fab-animated disabled:animate-none"
         >
           <Save className="w-5 h-5 mr-2" /> REGISTRAR ATIVIDADES
         </Button>
@@ -318,7 +318,7 @@ function NovaVendaTab() {
 /* ═══════════════════════════════════════════════ */
 const Comercial = () => {
   return (
-    <div className="max-w-5xl space-y-6 animate-fade-in-up">
+    <div className="max-w-5xl space-y-6 page-enter">
       <div>
         <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Registro de Atividades</h1>
         <p className="text-sm text-muted-foreground mt-1">Atividades diárias e registro de vendas</p>

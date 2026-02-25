@@ -168,10 +168,10 @@ export function AppSidebar() {
 
           <NavLink
             to={item.to}
-            className={`flex items-center gap-3 flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 ${
+            className={`flex items-center gap-3 flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200 ${
               isActive
-                ? 'bg-white/[0.12] text-white shadow-sm'
-                : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
+                ? 'bg-white/[0.14] text-white shadow-sm backdrop-blur-sm'
+                : 'text-white/50 hover:bg-white/[0.08] hover:text-white/80 hover:translate-x-0.5'
             } ${collapsed ? 'justify-center' : ''}`}
           >
             <div className="relative shrink-0">
@@ -310,7 +310,7 @@ export function AppSidebar() {
       {/* Collapse toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-[72px] w-6 h-6 rounded-full bg-card border border-border shadow-elevated flex items-center justify-center hover:scale-110 transition-transform"
+        className="absolute -right-3 top-[72px] w-6 h-6 rounded-full bg-card border border-border shadow-elevated flex items-center justify-center hover:scale-125 hover:shadow-brand transition-all duration-300"
       >
         {collapsed ? <ChevronRight className="w-3 h-3 text-foreground" /> : <ChevronLeft className="w-3 h-3 text-foreground" />}
       </button>
