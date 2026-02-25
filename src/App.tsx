@@ -51,8 +51,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, mfaVerified, needsMfa, setMfaVerified, hasProfile } = useAuth();
   
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-background">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+      <div className="relative">
+        <div className="h-10 w-10 rounded-full border-3 border-muted animate-spin border-t-primary" />
+        <div className="absolute inset-0 h-10 w-10 rounded-full border-3 border-transparent animate-spin border-b-secondary" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+      </div>
+      <p className="text-xs text-muted-foreground animate-pulse">Carregando...</p>
     </div>
   );
   
@@ -66,8 +70,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // Still checking profile
   if (hasProfile === null) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+        <div className="relative">
+          <div className="h-10 w-10 rounded-full border-3 border-muted animate-spin border-t-primary" />
+          <div className="absolute inset-0 h-10 w-10 rounded-full border-3 border-transparent animate-spin border-b-secondary" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+        </div>
+        <p className="text-xs text-muted-foreground animate-pulse">Verificando acesso...</p>
       </div>
     );
   }

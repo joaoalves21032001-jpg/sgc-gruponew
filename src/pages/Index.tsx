@@ -60,7 +60,7 @@ const Index = () => {
   }, [percentMeta]);
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
+    <div className="space-y-6 page-enter">
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
@@ -76,7 +76,7 @@ const Index = () => {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-stagger">
         <StatCard title="Ligações" value={stats.ligacoes} icon={Phone} subtitle="Este mês" />
         <StatCard title="Cotações Enviadas" value={stats.cotacoes_enviadas} icon={FileText} subtitle="Este mês" />
         <StatCard title="Cotações Fechadas" value={stats.cotacoes_fechadas} icon={CheckCircle2} variant="success" subtitle={`${stats.follow_up} follow-ups`} />
@@ -107,7 +107,7 @@ const Index = () => {
         </div>
         <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
           <div
-            className={`h-2.5 rounded-full transition-all duration-700 ease-out ${percentMeta >= 100 ? 'bg-success' : percentMeta >= 80 ? 'bg-warning' : 'bg-destructive'
+            className={`h-2.5 rounded-full transition-all duration-1000 ease-out progress-animated ${percentMeta >= 100 ? 'bg-success' : percentMeta >= 80 ? 'bg-warning' : 'bg-destructive'
               }`}
             style={{ width: `${Math.min(percentMeta, 100)}%` }}
           />

@@ -37,11 +37,11 @@ export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = 
   const s = styles[variant];
 
   return (
-    <div className={`rounded-xl p-5 shadow-card hover:shadow-card-hover transition-all duration-300 border border-border/30 ${s.bg} group`}>
+    <div className={`rounded-xl p-5 shadow-card card-interactive border border-border/30 ${s.bg} group cursor-default`}>
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <p className={`text-[11px] font-semibold uppercase tracking-widest ${s.subtitle}`}>{title}</p>
-          <p className={`text-[28px] font-bold font-display leading-none ${s.text}`}>{value}</p>
+          <p className={`text-[28px] font-bold font-display leading-none ${s.text} number-animate`}>{value}</p>
           {subtitle && (
             <p className={`text-xs mt-0.5 ${s.subtitle}`}>{subtitle}</p>
           )}
@@ -52,7 +52,7 @@ export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = 
             </div>
           )}
         </div>
-        <div className={`w-11 h-11 rounded-lg flex items-center justify-center ${s.iconBg} group-hover:scale-105 transition-transform`}>
+        <div className={`w-11 h-11 rounded-lg flex items-center justify-center ${s.iconBg} group-hover:scale-110 group-hover:rotate-3 transition-all duration-300`}>
           <Icon className={`w-5 h-5 ${s.iconColor}`} />
         </div>
       </div>

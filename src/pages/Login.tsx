@@ -127,25 +127,25 @@ const Login = () => {
       {/* Left Panel - Brand */}
       <div className="hidden lg:flex lg:w-[55%] gradient-hero relative overflow-hidden">
         <div className="absolute inset-0">
-          <div className="absolute top-[-10%] right-[-15%] w-[500px] h-[500px] rounded-full bg-white/[0.03]" />
-          <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-white/[0.02]" />
-          <div className="absolute top-[40%] right-[10%] w-[200px] h-[200px] rounded-full bg-white/[0.04]" />
+          <div className="absolute top-[-10%] right-[-15%] w-[500px] h-[500px] rounded-full bg-white/[0.03] animate-[pulse_8s_ease-in-out_infinite]" />
+          <div className="absolute bottom-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-white/[0.02] animate-[pulse_12s_ease-in-out_infinite_2s]" />
+          <div className="absolute top-[40%] right-[10%] w-[200px] h-[200px] rounded-full bg-white/[0.04] animate-[pulse_6s_ease-in-out_infinite_1s]" />
           <div className="absolute top-[20%] left-[5%] w-[1px] h-[200px] bg-gradient-to-b from-transparent via-white/20 to-transparent" />
           <div className="absolute bottom-[30%] right-[25%] w-[1px] h-[150px] bg-gradient-to-b from-transparent via-white/10 to-transparent" />
         </div>
 
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
-          <div>
+          <div className="page-enter">
             <img src={logoWhite} alt="Grupo New" className="h-10 opacity-90" />
           </div>
-          <div className="max-w-md">
+          <div className="max-w-md page-enter" style={{ animationDelay: '0.15s' }}>
             <h1 className="text-4xl font-extrabold text-white font-display leading-[1.1] tracking-tight">
               Sistema de Gestão Comercial
             </h1>
             <p className="text-white/60 text-base mt-4 leading-relaxed">
               Gerencie sua equipe, acompanhe metas e potencialize resultados com inteligência e eficiência.
             </p>
-            <div className="mt-10 flex items-center gap-6">
+            <div className="mt-10 flex items-center gap-6 animate-stagger">
               <div className="flex flex-col">
                 <span className="text-2xl font-bold text-white font-display">100%</span>
                 <span className="text-xs text-white/40 uppercase tracking-wider mt-1">Digital</span>
@@ -170,12 +170,12 @@ const Login = () => {
 
       {/* Right Panel - Login */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-background">
-        <div className="w-full max-w-[420px] space-y-8">
+        <div className="w-full max-w-[420px] space-y-8 page-enter" style={{ animationDelay: '0.1s' }}>
           <div className="lg:hidden mb-8">
             <img src={logo} alt="Grupo New" className="h-12 mx-auto" />
           </div>
           <div className="text-center space-y-2">
-            <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4 shadow-brand">
+            <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4 shadow-brand animate-[pulse_3s_ease-in-out_infinite]">
               <Shield className="w-7 h-7 text-white" />
             </div>
             <h2 className="text-2xl font-bold font-display text-foreground tracking-tight">
@@ -190,13 +190,13 @@ const Login = () => {
             onClick={handleGoogleLogin}
             disabled={loading}
             variant="outline"
-            className="w-full h-14 border-border/60 bg-card hover:bg-accent transition-all duration-200 group text-foreground font-medium text-[15px] shadow-card"
+            className="w-full h-14 border-border/60 bg-card hover:bg-accent hover:border-primary/30 hover:shadow-brand transition-all duration-300 group text-foreground font-medium text-[15px] shadow-card"
           >
             {loading ? (
               <div className="h-5 w-5 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
             ) : (
               <>
-                <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
+                <svg className="w-5 h-5 mr-3 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/>
                   <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
                   <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>

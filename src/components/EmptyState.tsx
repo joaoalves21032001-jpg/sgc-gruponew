@@ -9,8 +9,8 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon: Icon = Package, title, description, action }: EmptyStateProps) {
     return (
-        <div className="glass-empty rounded-2xl p-10 flex flex-col items-center text-center max-w-md mx-auto my-8 shadow-elevated">
-            <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center mb-5">
+        <div className="glass-empty rounded-2xl p-10 flex flex-col items-center text-center max-w-md mx-auto my-8 shadow-elevated page-enter">
+            <div className="w-16 h-16 rounded-2xl bg-primary/8 flex items-center justify-center mb-5 group-hover:scale-110 transition-transform duration-300">
                 <Icon className="w-8 h-8 text-primary/60" />
             </div>
             <h3 className="text-lg font-bold font-display text-foreground mb-2">{title}</h3>
