@@ -369,7 +369,9 @@ export function KanbanBoard() {
       idade: form.idade ? parseInt(form.idade) : null,
       produto: form.produto || null,
       quantidade_vidas: form.quantidade_vidas ? parseInt(form.quantidade_vidas) : null,
-      valor: form.valor ? unmaskCurrency(form.valor) || null : null,
+      valor: form.valor ? (() => { const v = unmaskCurrency(form.valor); return isNaN(v) || v === 0 ? null : v; })() : null,
+      companhia_nome: form.companhia_nome || null,
+      plano_anterior: form.possuiAproveitamento || false,
       origem: extendedData,
     };
     payload.livre = form.livre;
