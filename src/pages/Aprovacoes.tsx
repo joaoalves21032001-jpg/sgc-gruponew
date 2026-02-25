@@ -349,48 +349,102 @@ const Aprovacoes = () => {
   const handleApproveAccess = async (req: AccessRequest) => {
     setSavingAccess(true);
     try {
-      // Check for existing ACTIVE user with same email (disabled profiles can be reused)
+      // 1. Check for existing ACTIVE user with same email
       const { data: existing } = await supabase.from('profiles').select('id, disabled').eq('email', req.email).maybeSingle();
-      if (existing && !existing.disabled) { toast.error(`Já existe usuário ativo com e-mail ${req.email}.`); setSavingAccess(false); return; }
+      if (existing && !existing.disabled) {
+        toast.error(`Já existe usuário ativo com e-mail ${req.email}.`);
+        setSavingAccess(false);
+        return;
+      }
       if (req.cpf) {
         const { data: cpfCheck } = await supabase.from('profiles').select('id').eq('cpf', req.cpf).maybeSingle();
         if (cpfCheck) { toast.error(`Já existe usuário com CPF ${req.cpf}.`); setSavingAccess(false); return; }
       }
-      // Create the user via admin edge function with ALL form data
-      // Sanitize: send null instead of undefined to prevent edge function failures
-      const payload = {
-        email: req.email,
-        nome_completo: req.nome,
-        celular: req.telefone ?? null,
-        cpf: req.cpf ?? null,
-        rg: req.rg ?? null,
-        endereco: req.endereco ?? null,
-        cargo: req.cargo || 'Consultor de Vendas',
-        role: req.nivel_acesso || 'consultor',
-        numero_emergencia_1: req.numero_emergencia_1 ?? null,
-        numero_emergencia_2: req.numero_emergencia_2 ?? null,
-        supervisor_id: req.supervisor_id ?? null,
-        gerente_id: req.gerente_id ?? null,
-        data_admissao: req.data_admissao ?? null,
-        data_nascimento: req.data_nascimento ?? null,
-      };
-      const { data: createResult, error: createError } = await supabase.functions.invoke('admin-create-user', {
-        body: payload,
-      });
-      if (createError) {
-        const errorMsg = createError.message || 'Erro na Edge Function ao criar usuário.';
-        throw new Error(errorMsg);
-      }
-      if (createResult?.error) throw new Error(createResult.error);
 
+      let userId: string;
+
+      if (existing && existing.disabled) {
+        // Reuse existing disabled profile
+        userId = existing.id;
+      } else {
+        // Create auth user via signUp (doesn't require admin privileges)
+        // Generate a secure random password — user will use "Forgot Password" to set their own
+        const tempPassword = crypto.randomUUID() + 'A1!';
+        const { data: signUpResult, error: signUpError } = await supabase.auth.signUp({
+          email: req.email,
+          password: tempPassword,
+          options: {
+            data: { full_name: req.nome },
+          },
+        });
+        if (signUpError) {
+          // If already exists in auth, try to find profile
+          if (signUpError.message?.includes('already') || signUpError.message?.includes('User already registered')) {
+            const { data: existProfile } = await supabase.from('profiles').select('id').eq('email', req.email).maybeSingle();
+            if (existProfile) {
+              userId = existProfile.id;
+            } else {
+              throw new Error(`Erro ao criar usuário: ${signUpError.message}`);
+            }
+          } else {
+            throw new Error(`Erro ao criar usuário: ${signUpError.message}`);
+          }
+        } else if (signUpResult?.user) {
+          userId = signUpResult.user.id;
+        } else {
+          throw new Error('Erro desconhecido ao criar usuário.');
+        }
+      }
+
+      // 2. Generate next codigo (GN001, GN002, ...)
+      const { data: allProfiles } = await supabase
+        .from('profiles')
+        .select('codigo')
+        .order('codigo', { ascending: false })
+        .limit(1);
+      let nextCode = 'GN001';
+      if (allProfiles && allProfiles.length > 0 && allProfiles[0].codigo) {
+        const num = parseInt(allProfiles[0].codigo.replace('GN', ''), 10);
+        nextCode = `GN${String(num + 1).padStart(3, '0')}`;
+      }
+
+      // 3. Update profile with full data and ENABLE user
+      const { error: profileError } = await supabase.from('profiles').update({
+        nome_completo: req.nome,
+        apelido: req.nome.split(' ')[0],
+        celular: req.telefone || null,
+        cpf: req.cpf || null,
+        rg: req.rg || null,
+        endereco: req.endereco || null,
+        cargo: req.cargo || 'Consultor de Vendas',
+        codigo: nextCode,
+        supervisor_id: req.supervisor_id || null,
+        gerente_id: req.gerente_id || null,
+        numero_emergencia_1: req.numero_emergencia_1 || null,
+        numero_emergencia_2: req.numero_emergencia_2 || null,
+        data_admissao: req.data_admissao || null,
+        data_nascimento: req.data_nascimento || null,
+        disabled: false,
+      } as any).eq('id', userId);
+      if (profileError) throw new Error(`Erro ao atualizar perfil: ${profileError.message}`);
+
+      // 4. Update role if not default 'consultor'
+      const role = req.nivel_acesso || 'consultor';
+      if (role !== 'consultor') {
+        await supabase.from('user_roles').update({ role } as any).eq('user_id', userId);
+      }
+
+      // 5. Mark access request as approved
       const { error } = await supabase.from('access_requests').update({ status: 'aprovado' } as any).eq('id', req.id);
       if (error) throw error;
-      toast.success(`Acesso aprovado e usuário criado para ${req.nome}!`);
-      logAction('aprovar_acesso', 'access_request', req.id, { nome: req.nome, email: req.email });
+
+      toast.success(`Acesso aprovado e usuário criado para ${req.nome}! (Código: ${nextCode})`);
+      logAction('aprovar_acesso', 'access_request', req.id, { nome: req.nome, email: req.email, codigo: nextCode });
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
     } catch (err: any) {
       console.error('Erro ao aprovar acesso:', err);
-      toast.error(err.message || 'Erro ao aprovar. Verifique as configurações da Edge Function.');
+      toast.error(err.message || 'Erro ao aprovar acesso.');
     } finally {
       setSavingAccess(false);
     }
@@ -471,7 +525,7 @@ const Aprovacoes = () => {
           <TabsTrigger value="cotacoes" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
             <MessageSquareQuote className="w-4 h-4" /> Cotações ({filteredCotacoes.length})
           </TabsTrigger>
-          {isAdmin && (
+          {isSupervisorUp && (
             <TabsTrigger value="acesso" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
               <UserPlus className="w-4 h-4" /> Acesso ({filteredAccess.length})
             </TabsTrigger>
@@ -671,8 +725,8 @@ const Aprovacoes = () => {
           </div>
         </TabsContent>
 
-        {/* ── Acesso Tab (Admin only) ── */}
-        {isAdmin && (
+        {/* ── Acesso Tab (Supervisor+) ── */}
+        {isSupervisorUp && (
           <TabsContent value="acesso">
             <div className="grid gap-3">
               {loadingAccess ? (
