@@ -35,6 +35,10 @@ export function unmaskCurrency(value: string): number {
   return parseInt(digits, 10) / 100;
 }
 
+export function formatCurrencyDisplay(value: number): string {
+  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 export function unmask(value: string): string {
   return value.replace(/\D/g, '');
 }

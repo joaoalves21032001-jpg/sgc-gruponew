@@ -214,7 +214,7 @@ export default function SalesWizard() {
       }
       // Set valor
       if (prefillLead.valor) {
-        setValorContrato(String(prefillLead.valor));
+        setValorContrato(maskCurrency(String(Math.round(prefillLead.valor * 100))));
       }
       // Set aproveitamento carência
       if (prefillLead.plano_anterior) {
@@ -245,7 +245,7 @@ export default function SalesWizard() {
       }
       // Set valor
       if (editVenda.valor) {
-        setValorContrato(String(editVenda.valor));
+        setValorContrato(maskCurrency(String(Math.round(editVenda.valor * 100))));
       }
       // Set observacoes
       if (editVenda.observacoes) {

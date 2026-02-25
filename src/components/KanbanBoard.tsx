@@ -21,7 +21,7 @@ import { toast } from 'sonner';
 import {
   Plus, Pencil, Trash2, X, Upload, MoreHorizontal, Phone, Mail, Shield, User, FileText, Building2, Users, Heart
 } from 'lucide-react';
-import { maskCPF, maskPhone } from '@/lib/masks';
+import { maskCPF, maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 /* ─── Lead Card ─── */
@@ -305,7 +305,7 @@ export function KanbanBoard() {
       livre: l.livre || false,
       possuiAproveitamento: l.plano_anterior || false,
       produto: l.produto || '', quantidade_vidas: l.quantidade_vidas ? String(l.quantidade_vidas) : '',
-      companhia_nome: l.companhia_nome || '', valor: l.valor ? String(l.valor) : '',
+      companhia_nome: l.companhia_nome || '', valor: l.valor ? maskCurrency(String(Math.round(l.valor * 100))) : '',
       vendaDental: ext.vendaDental || false,
       coParticipacao: ext.coParticipacao || 'sem',
       estagiarios: ext.estagiarios || false,
@@ -369,7 +369,7 @@ export function KanbanBoard() {
       idade: form.idade ? parseInt(form.idade) : null,
       produto: form.produto || null,
       quantidade_vidas: form.quantidade_vidas ? parseInt(form.quantidade_vidas) : null,
-      valor: form.valor ? parseFloat(form.valor) : null,
+      valor: form.valor ? unmaskCurrency(form.valor) || null : null,
       origem: extendedData,
     };
     payload.livre = form.livre;
@@ -556,7 +556,10 @@ export function KanbanBoard() {
 
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Valor (R$)</label>
-              <Input type="number" step="0.01" value={form.valor} onChange={e => setForm(p => ({ ...p, valor: e.target.value }))} placeholder="0,00" className="h-10" />
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-primary/50 font-medium">R$</span>
+                <Input value={form.valor} onChange={e => setForm(p => ({ ...p, valor: maskCurrency(e.target.value) }))} placeholder="0,00" className="h-10 pl-10" />
+              </div>
             </div>
 
             {/* Toggles Section */}
