@@ -27,8 +27,9 @@ serve(async (req) => {
             .select("role")
             .eq("user_id", caller.id)
             .maybeSingle();
-          if (roleData?.role !== "administrador") {
-            return new Response(JSON.stringify({ error: "Somente administradores podem criar usuários." }), {
+          const allowedRoles = ["administrador", "gerente", "supervisor", "diretor"];
+          if (!roleData?.role || !allowedRoles.includes(roleData.role)) {
+            return new Response(JSON.stringify({ error: "Somente administradores, gerentes, supervisores ou diretores podem criar usuários." }), {
               status: 403,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
