@@ -46,6 +46,7 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName, st
           <Badge variant="outline" className="text-[9px] mt-1">{lead.tipo}</Badge>
           {lead.produto && <Badge variant="outline" className="text-[9px] mt-1 bg-primary/10 text-primary border-primary/20">{lead.produto}</Badge>}
           {lead.livre && <Badge className="text-[9px] mt-1 bg-success/10 text-success border-success/20">Livre</Badge>}
+          {leaderName && <span className="block text-[10px] text-muted-foreground mt-1 flex items-center gap-1"><User className="w-3 h-3" />{leaderName}</span>}
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -77,11 +78,7 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName, st
         <CotacaoUploadSection lead={lead} />
       )}
 
-      {leaderName && (
-        <div className="mt-2 pt-1.5 border-t border-border/20">
-          <p className="text-[10px] text-muted-foreground flex items-center gap-1"><User className="w-3 h-3" /> {leaderName}</p>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -212,15 +209,7 @@ export function KanbanBoard() {
     if (!createdBy) return undefined;
     const creator = allProfiles.find(p => p.id === createdBy);
     if (!creator) return undefined;
-    if (creator.supervisor_id) {
-      const sup = allProfiles.find(p => p.id === creator.supervisor_id);
-      return sup ? `Sup: ${sup.apelido || sup.nome_completo.split(' ')[0]}` : undefined;
-    }
-    if (creator.gerente_id) {
-      const ger = allProfiles.find(p => p.id === creator.gerente_id);
-      return ger ? `Ger: ${ger.apelido || ger.nome_completo.split(' ')[0]}` : undefined;
-    }
-    return undefined;
+    return creator.apelido || creator.nome_completo?.split(' ')[0] || undefined;
   };
 
   const leadsByStage = useMemo(() => {
@@ -295,7 +284,8 @@ export function KanbanBoard() {
   };
 
   const openEdit = (l: Lead) => {
-    if (!isAdmin) {
+    const canEdit = isAdmin || l.created_by === user?.id;
+    if (!canEdit) {
       setApprovalDialog({ type: 'edit', lead: l });
       setApprovalJustificativa('');
       return;
@@ -316,7 +306,8 @@ export function KanbanBoard() {
   };
 
   const requestDelete = (l: Lead) => {
-    if (!isAdmin) {
+    const canDel = isAdmin || l.created_by === user?.id;
+    if (!canDel) {
       setApprovalDialog({ type: 'delete', lead: l });
       setApprovalJustificativa('');
       return;
@@ -431,7 +422,7 @@ export function KanbanBoard() {
         <div className="bg-accent/50 rounded-xl p-3 border border-border/30 flex items-start gap-2">
           <Shield className="w-4 h-4 text-primary mt-0.5 shrink-0" />
           <p className="text-xs text-muted-foreground">
-            Você pode criar leads e movê-los entre colunas. Para <strong>editar</strong> ou <strong>excluir</strong>, envie uma solicitação ao supervisor.
+            Você pode criar, editar e excluir <strong>seus próprios leads</strong>. Para editar leads de outros consultores, envie uma solicitação ao supervisor.
           </p>
         </div>
       )}

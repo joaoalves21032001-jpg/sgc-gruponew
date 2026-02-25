@@ -3,6 +3,62 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
 
+/**
+ * Send notifications to a user's supervisor, manager, and directors.
+ * Call this after creating atividades, vendas, devoluções, alterações, etc.
+ */
+export async function notifyHierarchy(
+  userId: string,
+  titulo: string,
+  descricao: string,
+  tipo: string,
+  link?: string
+) {
+  try {
+    // Fetch user's profile for supervisor_id and gerente_id
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('supervisor_id, gerente_id, nome_completo')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!profile) return;
+
+    const recipients: string[] = [];
+    if (profile.supervisor_id) recipients.push(profile.supervisor_id);
+    if (profile.gerente_id && profile.gerente_id !== profile.supervisor_id) {
+      recipients.push(profile.gerente_id);
+    }
+
+    // Also notify directors (cargo = 'diretor') if any
+    const { data: directors } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('cargo', 'diretor');
+    if (directors) {
+      for (const d of directors) {
+        if (!recipients.includes(d.id) && d.id !== userId) {
+          recipients.push(d.id);
+        }
+      }
+    }
+
+    if (recipients.length === 0) return;
+
+    const notifications = recipients.map(rid => ({
+      user_id: rid,
+      titulo,
+      descricao,
+      tipo,
+      link: link || null,
+      lida: false,
+    }));
+
+    await supabase.from('notifications').insert(notifications as any);
+  } catch (err) {
+    console.error('notifyHierarchy error:', err);
+  }
+}
+
 export interface Notification {
   id: string;
   user_id: string;

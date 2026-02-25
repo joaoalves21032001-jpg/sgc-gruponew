@@ -27,6 +27,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { useCompanhias, useProdutos, useModalidades, useLeads } from '@/hooks/useInventario';
 import { maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
+import { notifyHierarchy } from '@/hooks/useNotifications';
 
 /* ─── Shared ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
@@ -192,7 +193,29 @@ export default function SalesWizard() {
       setLeadId(prefillLead.id);
       // Set titular from lead
       if (prefillLead.nome) {
-        setTitulares([{ nome: prefillLead.nome, idade: prefillLead.idade ? String(prefillLead.idade) : '', produto_id: '' }]);
+        const produtoMatch = produtos.find(p => p.nome === prefillLead.produto);
+        setTitulares([{
+          nome: prefillLead.nome,
+          idade: prefillLead.idade ? String(prefillLead.idade) : '',
+          produto_id: produtoMatch?.id || '',
+        }]);
+      }
+      // Set companhia from lead
+      if (prefillLead.companhia_nome) {
+        const comp = companhias.find(c => c.nome === prefillLead.companhia_nome);
+        if (comp) setCompanhiaId(comp.id);
+      }
+      // Set quantidade vidas
+      if (prefillLead.quantidade_vidas) {
+        setQtdVidas(String(prefillLead.quantidade_vidas));
+      }
+      // Set valor
+      if (prefillLead.valor) {
+        setValorContrato(String(prefillLead.valor));
+      }
+      // Set aproveitamento carência
+      if (prefillLead.plano_anterior) {
+        setPossuiAproveitamento(true);
       }
       // Stay on step 0 (combined form)
       setStep(0);
@@ -341,6 +364,16 @@ export default function SalesWizard() {
       setShowConfirm(false);
       logAction('criar_venda', 'venda', venda.id, { nome_titular: titulares[0]?.nome, modalidade, valor: unmaskCurrency(valorContrato) });
       toast.success('Venda enviada para análise!');
+      // Notify hierarchy
+      if (user) {
+        notifyHierarchy(
+          user.id,
+          'Nova Venda Registrada',
+          `${profile?.nome_completo || 'Consultor'} registrou uma venda (${modalidade}) - R$ ${valorContrato}`,
+          'venda',
+          '/aprovacoes'
+        );
+      }
       // Reset
       setStep(0);
       setModalidade('');
