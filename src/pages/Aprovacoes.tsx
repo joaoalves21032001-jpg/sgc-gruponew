@@ -104,7 +104,7 @@ function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, se
             <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Modalidade</span><p className="font-semibold mt-0.5">{venda.modalidade}</p></div>
             <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Consultor</span><p className="font-semibold mt-0.5">{getConsultorName(venda.user_id)}</p></div>
             <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Vidas</span><p className="font-semibold mt-0.5">{venda.vidas}</p></div>
-            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Valor</span><p className="font-semibold mt-0.5">{venda.valor ? `R$ ${venda.valor.toLocaleString('pt-BR')}` : '—'}</p></div>
+            <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Valor</span><p className="font-semibold mt-0.5">{venda.valor ? `R$ ${venda.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}</p></div>
             <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Status</span><p className="font-semibold mt-0.5">{venda.status}</p></div>
             <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Data de Lançamento</span><p className="font-semibold mt-0.5">{(venda as any).data_lancamento ? new Date((venda as any).data_lancamento + 'T12:00:00').toLocaleDateString('pt-BR') : new Date(venda.created_at).toLocaleDateString('pt-BR')}</p></div>
             <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Criado em</span><p className="font-semibold mt-0.5">{new Date(venda.created_at).toLocaleDateString('pt-BR')}</p></div>
@@ -662,7 +662,7 @@ const Aprovacoes = () => {
                           <span>{getConsultorName(v.user_id)}</span>
                           <span>•</span>
                           <span>{v.vidas} vida(s)</span>
-                          {v.valor && <><span>•</span><span>R$ {v.valor.toLocaleString('pt-BR')}</span></>}
+                          {v.valor && <><span>•</span><span>R$ {v.valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></>}
                           <span>•</span>
                           <span>{new Date(v.created_at).toLocaleDateString('pt-BR')}</span>
                         </div>

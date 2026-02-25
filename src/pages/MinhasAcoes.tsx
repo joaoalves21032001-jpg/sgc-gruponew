@@ -17,6 +17,7 @@ import {
   ClipboardList, ShoppingCart, Search, Pencil, Trash2, Plus,
   CheckCircle2, Clock, XCircle, Undo2, AlertCircle, Send
 } from 'lucide-react';
+import { maskCurrency, unmaskCurrency, formatCurrencyDisplay } from '@/lib/masks';
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; className: string }> = {
   pendente: { label: 'Pendente', icon: Clock, className: 'bg-warning/10 text-warning border-warning/20' },
@@ -208,7 +209,7 @@ const MinhasAcoes = () => {
       nome_titular: v.nome_titular,
       modalidade: v.modalidade,
       vidas: String(v.vidas),
-      valor: v.valor ? String(v.valor) : '',
+      valor: v.valor ? maskCurrency(String(Math.round(v.valor * 100))) : '',
       data_lancamento: (v as any).data_lancamento || '',
       observacoes: v.observacoes || '',
     });
@@ -288,7 +289,7 @@ const MinhasAcoes = () => {
         nome_titular: editVendaForm.nome_titular,
         modalidade: editVendaForm.modalidade,
         vidas: parseInt(editVendaForm.vidas) || 1,
-        valor: editVendaForm.valor ? parseFloat(editVendaForm.valor) : null,
+        valor: editVendaForm.valor ? unmaskCurrency(editVendaForm.valor) : null,
         observacoes: editVendaForm.observacoes || null,
         status: 'analise',
       } as any).eq('id', editVenda.id);
@@ -367,7 +368,7 @@ const MinhasAcoes = () => {
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
               <span>{v.vidas} vida(s)</span>
-              {v.valor && <span>R$ {v.valor.toLocaleString('pt-BR')}</span>}
+              {v.valor && <span>R$ {formatCurrencyDisplay(v.valor)}</span>}
               <span>{new Date(v.created_at).toLocaleDateString('pt-BR')}</span>
             </div>
             {v.observacoes && <p className="text-xs text-muted-foreground mt-1 italic">{v.observacoes}</p>}
@@ -611,7 +612,10 @@ const MinhasAcoes = () => {
               </div>
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-muted-foreground">Valor (R$)</label>
-                <Input type="number" value={editVendaForm.valor} onChange={(e) => setEditVendaForm(prev => ({ ...prev, valor: e.target.value }))} className="h-9" />
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-primary/50 font-medium">R$</span>
+                  <Input value={editVendaForm.valor} onChange={(e) => setEditVendaForm(prev => ({ ...prev, valor: maskCurrency(e.target.value) }))} placeholder="0,00" className="h-9 pl-10" />
+                </div>
               </div>
             </div>
             <div className="space-y-1">
