@@ -68,6 +68,7 @@ const MinhasAcoes = () => {
   ];
   const vendaFields = [
     { key: 'nome_titular', label: 'Nome do Titular' },
+    { key: 'modalidade', label: 'Modalidade' },
     { key: 'vidas', label: 'Vidas' },
     { key: 'valor', label: 'Valor (R$)' },
     { key: 'observacoes', label: 'Observações' },
@@ -193,6 +194,7 @@ const MinhasAcoes = () => {
     if (canRequestChange(v.status)) {
       const originalData = {
         nome_titular: v.nome_titular,
+        modalidade: v.modalidade,
         vidas: v.vidas,
         valor: v.valor ?? '',
         observacoes: v.observacoes ?? '',
@@ -200,6 +202,7 @@ const MinhasAcoes = () => {
       setRequestDialog({ type: 'venda', id: v.id, label: v.nome_titular, originalData });
       setRequestEditForm({
         nome_titular: v.nome_titular,
+        modalidade: v.modalidade,
         vidas: String(v.vidas),
         valor: v.valor ? String(v.valor) : '',
         observacoes: v.observacoes || '',
