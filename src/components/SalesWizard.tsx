@@ -105,7 +105,7 @@ interface DependenteData {
 
 const DESCRICAO_OPTIONS = ['Cônjuge', 'Filho(a)', 'Sobrinho(a)', 'Enteado(a)', 'Mãe/Pai', 'Outro'];
 
-const STEPS = ['Modalidade', 'Formulário de Venda', 'Documentos', 'Revisão'];
+const STEPS = ['Formulário de Venda', 'Documentos', 'Revisão'];
 
 function StepIndicator({ steps, current }: { steps: string[]; current: number }) {
   return (
@@ -115,8 +115,8 @@ function StepIndicator({ steps, current }: { steps: string[]; current: number })
           <div className={cn(
             "flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold transition-all",
             i === current ? 'bg-primary text-primary-foreground shadow-brand' :
-            i < current ? 'bg-success text-success-foreground' :
-            'bg-muted text-muted-foreground'
+              i < current ? 'bg-success text-success-foreground' :
+                'bg-muted text-muted-foreground'
           )}>
             {i < current ? <CheckCircle2 className="w-3.5 h-3.5" /> : <span>{i + 1}</span>}
             <span className="hidden sm:inline">{step}</span>
@@ -193,8 +193,8 @@ export default function SalesWizard() {
       if (prefillLead.nome) {
         setTitulares([{ nome: prefillLead.nome, idade: prefillLead.idade ? String(prefillLead.idade) : '', produto_id: '' }]);
       }
-      // Jump to step 1
-      setStep(1);
+      // Stay on step 0 (combined form)
+      setStep(0);
       toast.info('Dados do lead pré-carregados do CRM!');
       // Clear navigation state
       window.history.replaceState({}, document.title);
@@ -277,8 +277,9 @@ export default function SalesWizard() {
 
   // Validation - fixed to properly sync doc state
   const canNext = () => {
-    if (step === 0) return modalidade !== '';
-    if (step === 1) {
+    if (step === 0) {
+      // Combined Modalidade + Formulário step
+      if (!modalidade) return false;
       if (!companhiaId || !dataVigencia) return false;
       if (!leadId) return false;
       if (!qtdVidas || parseInt(qtdVidas) < 1) return false;
@@ -288,13 +289,12 @@ export default function SalesWizard() {
       if (isRetroativo && !justificativa.trim()) return false;
       return true;
     }
-    if (step === 2) {
-      // Aproveitamento docs required only if possuiAproveitamento
+    if (step === 1) {
+      // Documentos step
       if (possuiAproveitamento) {
         const aprovOk = aproveitamentoDefs.filter(d => d.required).every(d => aproveitamentoDocs[d.label]);
         if (!aprovOk) return false;
       }
-      // Check beneficiary docs
       const allBenefs = [...titulares.map((_, i) => ({ key: `titular_${i}`, isConjuge: false })), ...dependentes.map((d, i) => ({ key: `dep_${i}`, isConjuge: d.is_conjuge || d.descricao === 'Cônjuge' }))];
       for (const b of allBenefs) {
         const bDocs = getBenefDocs(b.isConjuge);
@@ -367,84 +367,76 @@ export default function SalesWizard() {
       <StepIndicator steps={STEPS} current={step} />
 
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
-        {/* ═══ STEP 0: MODALIDADE ═══ */}
+        {/* ═══ STEP 0: FORMULÁRIO DE VENDA (includes Modalidade) ═══ */}
         {step === 0 && (
-          <div className="space-y-5">
-            <SectionHeader icon={ShoppingCart} title="Selecione a Modalidade" subtitle="Cada modalidade possui documentação e regras específicas" />
-            <FieldWithTooltip label="Modalidade do Plano" tooltip="Escolha o tipo de plano para esta venda." required>
-              <Select value={modalidade} onValueChange={(v) => handleModalidadeChange(v as VendaModalidade)}>
-                <SelectTrigger className="h-11 border-border/40"><SelectValue placeholder="Escolha a modalidade..." /></SelectTrigger>
-                <SelectContent>
-                  {modalidades.map((m) => (
-                    <SelectItem key={m.id} value={m.nome}>
-                      {m.nome === 'PF' ? 'Pessoa Física (PF)' : m.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FieldWithTooltip>
-
-            <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
-              <Switch checked={possuiAproveitamento} onCheckedChange={setPossuiAproveitamento} />
-              <Label className="text-sm text-foreground">Possui plano anterior (Aproveitamento de Carência)?</Label>
-            </div>
-
-            <Separator className="my-4 bg-border/20" />
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-muted/40 rounded-lg border border-border/20">
-              <FileUp className="w-5 h-5 text-primary shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-foreground">Importar vendas em massa</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Selecione uma modalidade acima para habilitar os botões.</p>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <Button
-                  variant="outline" size="sm" className="gap-1.5 text-xs border-border/40"
-                  disabled={!modalidade}
-                  onClick={() => {
-                    if (!modalidade) return;
-                    // Dynamic CSV based on modalidade
-                    const baseHeaders = ['Nome Titular', 'Vidas', 'Valor Contrato', 'Observações'];
-                    let extraHeaders: string[] = [];
-                    if (modalidade === 'PME Multi' || modalidade === 'Empresarial') {
-                      extraHeaders = ['CNPJ'];
-                    }
-                    if (modalidade === 'Empresarial') {
-                      extraHeaders.push('Comprovação de Vínculo');
-                    }
-                    const headers = [...baseHeaders, ...extraHeaders];
-                    const bom = '\uFEFF';
-                    const csvContent = bom + headers.join(';') + '\n';
-                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `modelo_vendas_${modalidade.replace(/\s/g, '_')}.csv`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    toast.success(`Modelo para ${modalidade} baixado!`);
-                  }}
-                >
-                  <Download className="w-3.5 h-3.5" /> Modelo
-                </Button>
-                <Button
-                  variant="outline" size="sm" className="gap-1.5 text-xs border-border/40"
-                  disabled={!modalidade}
-                  onClick={() => uploadRef.current?.click()}
-                >
-                  <Upload className="w-3.5 h-3.5" /> Upload
-                </Button>
-                <input ref={uploadRef} type="file" accept=".csv,.xlsx" className="hidden" />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ═══ STEP 1: FORMULÁRIO DE VENDA ═══ */}
-        {step === 1 && (
           <div className="space-y-6">
-            {/* Dados do Consultor */}
+            {/* Modalidade */}
+            <div>
+              <SectionHeader icon={ShoppingCart} title="Modalidade" subtitle="Cada modalidade possui documentação e regras específicas" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FieldWithTooltip label="Modalidade do Plano" tooltip="Escolha o tipo de plano para esta venda." required>
+                  <Select value={modalidade} onValueChange={(v) => handleModalidadeChange(v as VendaModalidade)}>
+                    <SelectTrigger className="h-11 border-border/40"><SelectValue placeholder="Escolha a modalidade..." /></SelectTrigger>
+                    <SelectContent>
+                      {modalidades.map((m) => (
+                        <SelectItem key={m.id} value={m.nome}>
+                          {m.nome === 'PF' ? 'Pessoa Física (PF)' : m.nome}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FieldWithTooltip>
+
+                <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20 self-end">
+                  <Switch checked={possuiAproveitamento} onCheckedChange={setPossuiAproveitamento} />
+                  <Label className="text-sm text-foreground">Plano anterior (Aproveitamento de Carência)?</Label>
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-muted/40 rounded-lg border border-border/20">
+                <FileUp className="w-5 h-5 text-primary shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Importar vendas em massa</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Selecione uma modalidade para habilitar.</p>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    variant="outline" size="sm" className="gap-1.5 text-xs border-border/40"
+                    disabled={!modalidade}
+                    onClick={() => {
+                      if (!modalidade) return;
+                      const baseHeaders = ['Nome Titular', 'Vidas', 'Valor Contrato', 'Observações'];
+                      let extraHeaders: string[] = [];
+                      if (modalidade === 'PME Multi' || modalidade === 'Empresarial') extraHeaders = ['CNPJ'];
+                      if (modalidade === 'Empresarial') extraHeaders.push('Comprovação de Vínculo');
+                      const headers = [...baseHeaders, ...extraHeaders];
+                      const bom = '\uFEFF';
+                      const csvContent = bom + headers.join(';') + '\n';
+                      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url;
+                      a.download = `modelo_vendas_${modalidade.replace(/\s/g, '_')}.csv`;
+                      document.body.appendChild(a);
+                      a.click();
+                      document.body.removeChild(a);
+                      URL.revokeObjectURL(url);
+                      toast.success(`Modelo para ${modalidade} baixado!`);
+                    }}
+                  >
+                    <Download className="w-3.5 h-3.5" /> Modelo
+                  </Button>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" disabled={!modalidade} onClick={() => uploadRef.current?.click()}>
+                    <Upload className="w-3.5 h-3.5" /> Upload
+                  </Button>
+                  <input ref={uploadRef} type="file" accept=".csv,.xlsx" className="hidden" />
+                </div>
+              </div>
+            </div>
+
+            <Separator className="bg-border/20" />
+
+            {/* Dados do Consultor */
             <div>
               <SectionHeader icon={User} title="Dados do Consultor" subtitle="Preenchidos automaticamente do seu perfil" />
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -769,8 +761,8 @@ export default function SalesWizard() {
           </div>
         )}
 
-        {/* ═══ STEP 2: DOCUMENTOS ═══ */}
-        {step === 2 && (
+        {/* ═══ STEP 1: DOCUMENTOS ═══ */}
+        {step === 1 && (
           <div className="space-y-6">
             <SectionHeader icon={FileText} title="Documentos" subtitle="Faça upload dos documentos obrigatórios e opcionais" />
 
@@ -840,8 +832,8 @@ export default function SalesWizard() {
           </div>
         )}
 
-        {/* ═══ STEP 3: REVISÃO ═══ */}
-        {step === 3 && (
+        {/* ═══ STEP 2: REVISÃO ═══ */}
+        {step === 2 && (
           <div className="space-y-5">
             <SectionHeader icon={CheckCircle2} title="Revisão Final" subtitle="Confira todos os dados antes de enviar" />
             <div className="space-y-2 text-sm">
