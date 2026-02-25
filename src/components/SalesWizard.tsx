@@ -229,10 +229,10 @@ export default function SalesWizard() {
   const isRetroativo = !isToday(dataLancamento);
   const isEmpresa = modalidade === 'PME Multi' || modalidade === 'Empresarial';
 
-  // Filter leads to show ONLY the current user's leads
+  // Filter leads to show the current user's leads AND free leads
   const filteredLeads = useMemo(() => {
     if (!user) return [];
-    return leads.filter(l => l.created_by === user.id);
+    return leads.filter(l => l.created_by === user.id || l.livre);
   }, [leads, user]);
 
   // Selected lead

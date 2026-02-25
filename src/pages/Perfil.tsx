@@ -12,10 +12,12 @@ import { PatenteBadge } from '@/components/PatenteBadge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { maskPhone, maskCPF } from '@/lib/masks';
 
 function InfoRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
@@ -41,8 +43,24 @@ const Perfil = () => {
 
   const [uploading, setUploading] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
-  const [requestText, setRequestText] = useState('');
   const [sendingRequest, setSendingRequest] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+
+  const openChangeRequest = () => {
+    if (!profile) return;
+    setEditForm({
+      nome_completo: profile.nome_completo || '',
+      apelido: profile.apelido || '',
+      email: profile.email || '',
+      celular: profile.celular || '',
+      cpf: profile.cpf || '',
+      rg: profile.rg || '',
+      endereco: profile.endereco || '',
+      numero_emergencia_1: profile.numero_emergencia_1 || '',
+      numero_emergencia_2: profile.numero_emergencia_2 || '',
+    });
+    setShowRequest(true);
+  };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -66,19 +84,42 @@ const Perfil = () => {
   };
 
   const sendDataChangeRequest = async () => {
-    if (!requestText.trim() || !user) return;
+    if (!user || !profile) return;
     setSendingRequest(true);
     try {
+      const fieldLabels: Record<string, string> = {
+        nome_completo: 'Nome Completo',
+        apelido: 'Apelido',
+        email: 'E-mail',
+        celular: 'Celular',
+        cpf: 'CPF',
+        rg: 'RG',
+        endereco: 'Endereço',
+        numero_emergencia_1: 'Emergência 1',
+        numero_emergencia_2: 'Emergência 2',
+      };
+      const changes: string[] = [];
+      for (const [key, newVal] of Object.entries(editForm)) {
+        const oldVal = (profile as any)[key] || '';
+        if (newVal !== oldVal) {
+          changes.push(`${fieldLabels[key] || key}: "${oldVal || '—'}" → "${newVal || '—'}"`);
+        }
+      }
+      if (changes.length === 0) {
+        toast.info('Nenhuma alteração detectada.');
+        setSendingRequest(false);
+        return;
+      }
+      const motivo = changes.join('\n');
       const { error } = await supabase.from('correction_requests').insert({
         user_id: user.id,
         tipo: 'profile_edit',
         registro_id: user.id,
-        motivo: requestText.trim(),
+        motivo,
       } as any);
       if (error) throw error;
-      toast.success('Solicitação enviada ao administrador!');
+      toast.success('Solicitação de alteração enviada ao administrador!');
       setShowRequest(false);
-      setRequestText('');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao enviar solicitação.');
     } finally {
@@ -101,7 +142,6 @@ const Perfil = () => {
   const patente = getPatente(percentMeta);
   const frase = getFraseMotivacional(percentMeta);
   const nivelLabel = role === 'administrador' ? 'Administrador' : 'Usuário';
-
 
   return (
     <div className="max-w-3xl space-y-6 animate-fade-in-up">
@@ -235,19 +275,69 @@ const Perfil = () => {
       </div>
 
       <div className="flex justify-center">
-        <Button variant="outline" onClick={() => setShowRequest(true)} className="gap-1.5">
+        <Button variant="outline" onClick={openChangeRequest} className="gap-1.5">
           <Send className="w-4 h-4" /> Solicitar alteração de meus dados
         </Button>
       </div>
 
+      {/* Full Profile Edit Request Dialog */}
       <Dialog open={showRequest} onOpenChange={v => { if (!v) setShowRequest(false); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="font-display">Solicitar Alteração de Dados</DialogTitle></DialogHeader>
-          <p className="text-xs text-muted-foreground">Descreva quais dados deseja alterar. A solicitação será enviada para aprovação do administrador.</p>
-          <Textarea value={requestText} onChange={e => setRequestText(e.target.value)} placeholder="Ex: Atualizar meu endereço para Rua Nova, 123..." rows={4} />
+          <p className="text-xs text-muted-foreground">Edite os campos que deseja alterar. As mudanças serão enviadas para aprovação.</p>
+
+          <div className="space-y-3 mt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Nome Completo</Label>
+                <Input value={editForm.nome_completo || ''} onChange={e => setEditForm(p => ({ ...p, nome_completo: e.target.value }))} className="h-10" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Apelido</Label>
+                <Input value={editForm.apelido || ''} onChange={e => setEditForm(p => ({ ...p, apelido: e.target.value }))} className="h-10" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">E-mail</Label>
+                <Input value={editForm.email || ''} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} className="h-10" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Celular</Label>
+                <Input value={editForm.celular || ''} onChange={e => setEditForm(p => ({ ...p, celular: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">CPF</Label>
+                <Input value={editForm.cpf || ''} onChange={e => setEditForm(p => ({ ...p, cpf: maskCPF(e.target.value) }))} placeholder="000.000.000-00" className="h-10" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">RG</Label>
+                <Input value={editForm.rg || ''} onChange={e => setEditForm(p => ({ ...p, rg: e.target.value }))} className="h-10" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs font-semibold text-muted-foreground">Endereço</Label>
+              <Input value={editForm.endereco || ''} onChange={e => setEditForm(p => ({ ...p, endereco: e.target.value }))} className="h-10" />
+            </div>
+            <Separator className="bg-border/20" />
+            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-bold">Contatos de Emergência</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Emergência 1</Label>
+                <Input value={editForm.numero_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Emergência 2</Label>
+                <Input value={editForm.numero_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+              </div>
+            </div>
+          </div>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRequest(false)}>Cancelar</Button>
-            <Button onClick={sendDataChangeRequest} disabled={sendingRequest || !requestText.trim()}>
+            <Button onClick={sendDataChangeRequest} disabled={sendingRequest}>
               {sendingRequest ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Enviar Solicitação'}
             </Button>
           </DialogFooter>
