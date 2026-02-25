@@ -436,7 +436,7 @@ export default function SalesWizard() {
 
             <Separator className="bg-border/20" />
 
-            {/* Dados do Consultor */
+            {/* Dados do Consultor */}
             <div>
               <SectionHeader icon={User} title="Dados do Consultor" subtitle="Preenchidos automaticamente do seu perfil" />
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
