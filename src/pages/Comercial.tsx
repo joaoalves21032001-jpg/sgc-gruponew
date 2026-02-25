@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { format, isToday, parse, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -317,6 +318,11 @@ function NovaVendaTab() {
 /*              PÁGINA COMERCIAL                   */
 /* ═══════════════════════════════════════════════ */
 const Comercial = () => {
+  const location = useLocation();
+  const editVenda = (location.state as any)?.editVenda;
+  const prefillLead = (location.state as any)?.prefillLead;
+  const defaultTab = (editVenda || prefillLead) ? 'nova-venda' : 'atividades';
+
   return (
     <div className="max-w-5xl space-y-6 page-enter">
       <div>
@@ -324,7 +330,7 @@ const Comercial = () => {
         <p className="text-sm text-muted-foreground mt-1">Atividades diárias e registro de vendas</p>
       </div>
 
-      <Tabs defaultValue="atividades" className="space-y-6">
+      <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg">
           <TabsTrigger value="atividades" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
             <ClipboardList className="w-4 h-4" /> Atividades

@@ -192,28 +192,11 @@ const MinhasAcoes = () => {
     });
   };
 
+
   const openEditVenda = (v: Venda) => {
     if (canRequestChange(v.status)) {
-      const originalData = {
-        nome_titular: v.nome_titular,
-        modalidade: v.modalidade,
-        vidas: v.vidas,
-        valor: v.valor ?? '',
-        data_lancamento: (v as any).data_lancamento ?? '',
-        justificativa_retroativo: (v as any).justificativa_retroativo ?? '',
-        observacoes: v.observacoes ?? '',
-      };
-      setRequestDialog({ type: 'venda', id: v.id, label: v.nome_titular, originalData });
-      setRequestEditForm({
-        nome_titular: v.nome_titular,
-        modalidade: v.modalidade,
-        vidas: String(v.vidas),
-        valor: v.valor ? String(v.valor) : '',
-        data_lancamento: (v as any).data_lancamento || '',
-        justificativa_retroativo: (v as any).justificativa_retroativo || '',
-        observacoes: v.observacoes || '',
-      });
-      setRequestJustificativa('');
+      // Navigate to the full SalesWizard in edit mode
+      navigate('/comercial', { state: { editVenda: v } });
       return;
     }
     if (!canDirectEdit(v.status)) {

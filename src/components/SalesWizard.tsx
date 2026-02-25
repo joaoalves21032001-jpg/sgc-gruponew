@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { format, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -25,6 +25,7 @@ import { useProfile, useSupervisorProfile } from '@/hooks/useProfile';
 import { useCreateVenda, uploadVendaDocumento } from '@/hooks/useVendas';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLogAction } from '@/hooks/useAuditLog';
+import { supabase } from '@/integrations/supabase/client';
 import { useCompanhias, useProdutos, useModalidades, useLeads } from '@/hooks/useInventario';
 import { maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
 import { notifyHierarchy } from '@/hooks/useNotifications';
@@ -136,6 +137,10 @@ export default function SalesWizard() {
   const createVenda = useCreateVenda();
   const logAction = useLogAction();
   const location = useLocation();
+  const navigate = useNavigate();
+
+  // Edit mode: editing an existing venda from Minhas Ações
+  const [editVendaId, setEditVendaId] = useState<string | null>(null);
 
   // Inventário data
   const { data: companhias = [] } = useCompanhias();
@@ -219,6 +224,47 @@ export default function SalesWizard() {
       setStep(0);
       toast.info('Dados do lead pré-carregados do CRM!');
       // Clear navigation state
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
+
+  // Prefill from existing venda (edit mode from Minhas Ações)
+  useEffect(() => {
+    const editVenda = (location.state as any)?.editVenda;
+    if (editVenda) {
+      setEditVendaId(editVenda.id);
+      // Set modalidade
+      const mod = editVenda.modalidade as VendaModalidade;
+      if (['PF', 'Familiar', 'PME Multi', 'Empresarial', 'Adesão'].includes(mod)) {
+        setModalidade(mod);
+        handleModalidadeChange(mod);
+      }
+      // Set nome_titular as first titular
+      if (editVenda.nome_titular) {
+        setTitulares([{ nome: editVenda.nome_titular, idade: '', produto_id: '' }]);
+      }
+      // Set valor
+      if (editVenda.valor) {
+        setValorContrato(String(editVenda.valor));
+      }
+      // Set observacoes
+      if (editVenda.observacoes) {
+        setObsLinhas(editVenda.observacoes.split('\n'));
+      }
+      // Set data de lançamento
+      if (editVenda.data_lancamento) {
+        setDataLancamento(new Date(editVenda.data_lancamento + 'T12:00:00'));
+      }
+      // Set justificativa
+      if (editVenda.justificativa_retroativo) {
+        setJustificativa(editVenda.justificativa_retroativo);
+      }
+      // Set vidas
+      if (editVenda.vidas) {
+        setQtdVidas(String(editVenda.vidas));
+      }
+      setStep(0);
+      toast.info('Editando venda — altere os campos desejados e reenvie.');
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
@@ -335,7 +381,7 @@ export default function SalesWizard() {
     setVendaSaving(true);
     try {
       const totalVidas = titulares.length + dependentes.length;
-      const venda = await createVenda.mutateAsync({
+      const vendaPayload = {
         nome_titular: titulares[0]?.nome || selectedLead?.nome || '',
         modalidade: modalidade as string,
         vidas: totalVidas,
@@ -343,36 +389,54 @@ export default function SalesWizard() {
         observacoes: obsLinhas.filter(Boolean).join('\n') || undefined,
         data_lancamento: format(dataLancamento, 'yyyy-MM-dd'),
         justificativa_retroativo: isRetroativo ? justificativa : undefined,
-      });
+      };
+
+      let vendaId: string;
+
+      if (editVendaId) {
+        // Update existing venda and reset to 'analise'
+        const { error } = await supabase.from('vendas').update({
+          ...vendaPayload,
+          status: 'analise',
+        } as any).eq('id', editVendaId);
+        if (error) throw error;
+        vendaId = editVendaId;
+      } else {
+        // Create new venda
+        const venda = await createVenda.mutateAsync(vendaPayload);
+        vendaId = venda.id;
+      }
 
       // Upload all documents
       if (user) {
         for (const [label, file] of Object.entries(titularDocs)) {
-          if (file) await uploadVendaDocumento(venda.id, user.id, file, `Principal - ${label}`);
+          if (file) await uploadVendaDocumento(vendaId, user.id, file, `Principal - ${label}`);
         }
         for (const [label, file] of Object.entries(aproveitamentoDocs)) {
-          if (file) await uploadVendaDocumento(venda.id, user.id, file, `Aproveitamento - ${label}`);
+          if (file) await uploadVendaDocumento(vendaId, user.id, file, `Aproveitamento - ${label}`);
         }
         for (const [key, docs] of Object.entries(benefDocs)) {
           for (const [label, file] of Object.entries(docs)) {
-            if (file) await uploadVendaDocumento(venda.id, user.id, file, `${key} - ${label}`);
+            if (file) await uploadVendaDocumento(vendaId, user.id, file, `${key} - ${label}`);
           }
         }
       }
 
       setShowConfirm(false);
-      logAction('criar_venda', 'venda', venda.id, { nome_titular: titulares[0]?.nome, modalidade, valor: unmaskCurrency(valorContrato) });
-      toast.success('Venda enviada para análise!');
+      logAction(editVendaId ? 'editar_venda' : 'criar_venda', 'venda', vendaId, { nome_titular: titulares[0]?.nome, modalidade, valor: unmaskCurrency(valorContrato) });
+      toast.success(editVendaId ? 'Venda atualizada e reenviada para análise!' : 'Venda enviada para análise!');
+
       // Notify hierarchy
       if (user) {
         notifyHierarchy(
           user.id,
-          'Nova Venda Registrada',
-          `${profile?.nome_completo || 'Consultor'} registrou uma venda (${modalidade}) - R$ ${valorContrato}`,
+          editVendaId ? 'Venda Alterada' : 'Nova Venda Registrada',
+          `${profile?.nome_completo || 'Consultor'} ${editVendaId ? 'alterou' : 'registrou'} uma venda (${modalidade}) - R$ ${valorContrato}`,
           'venda',
           '/aprovacoes'
         );
       }
+
       // Reset
       setStep(0);
       setModalidade('');
@@ -388,6 +452,11 @@ export default function SalesWizard() {
       setObsLinhas(['']);
       setDataLancamento(new Date());
       setJustificativa('');
+
+      if (editVendaId) {
+        setEditVendaId(null);
+        navigate('/minhas-acoes');
+      }
     } catch (err: any) {
       toast.error(err.message || 'Erro ao registrar venda.');
     } finally {
