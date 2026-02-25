@@ -1,10 +1,10 @@
-import { useState, useRef, useMemo } from 'react';
-import { format, isToday, isBefore, startOfDay, parse, isValid } from 'date-fns';
+import { useState, useMemo } from 'react';
+import { format, isToday, parse, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Phone, MessageSquare, FileText, CheckCircle2, RotateCcw, Info, Save,
-  ChevronRight, ChevronLeft, Upload, AlertCircle, CalendarIcon, DollarSign,
-  ClipboardList, ShoppingCart, FileUp, Trash2, Plus, TrendingUp, Download,
+  ChevronRight, ChevronLeft, AlertCircle, CalendarIcon, DollarSign,
+  ClipboardList, ShoppingCart, Trash2, Plus, TrendingUp,
   Mail, User, XCircle, MessageCircle, BarChart3, Flag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -63,152 +63,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
   );
 }
 
-/* ─── CSV helpers ─── */
-function detectSeparator(text: string): string {
-  const firstLine = text.split('\n')[0] || '';
-  const semicolons = (firstLine.match(/;/g) || []).length;
-  const commas = (firstLine.match(/,/g) || []).length;
-  return semicolons >= commas ? ';' : ',';
-}
 
-function generateCSV(headers: string[], filename: string) {
-  const bom = '\uFEFF';
-  const csvContent = bom + headers.join(';') + '\n';
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-function downloadAtividadesModelo() {
-  const bom = '\uFEFF';
-  const headers = ['Data (dd/mm/aaaa)', 'Ligações', 'Mensagens', 'Cotações Coletadas', 'Cotações Enviadas', 'Cotações Respondidas', 'Cotações Não Respondidas', 'Follow-up'];
-  const today = new Date();
-  const dd = String(today.getDate()).padStart(2, '0');
-  const mm = String(today.getMonth() + 1).padStart(2, '0');
-  const yyyy = today.getFullYear();
-  const sampleDate = `${dd}/${mm}/${yyyy}`;
-  const sampleRows = [
-    `${sampleDate};15;20;8;6;4;2;3`,
-    `${sampleDate};10;12;5;3;2;1;2`,
-  ];
-  const csvContent = bom + headers.join(';') + '\n' + sampleRows.join('\n') + '\n';
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'modelo_atividades.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast.success('Modelo de atividades baixado!');
-}
-
-function downloadVendasModelo() {
-  const bom = '\uFEFF';
-  const headers = ['Nome Titular', 'Modalidade (PF/Familiar/PME Multi/Empresarial/Adesão)', 'Vidas', 'Valor Contrato', 'Observações'];
-  const sampleRows = [
-    'João Silva;PF;1;1500.00;',
-    'Maria Santos;Familiar;3;3200.00;Portabilidade',
-    'Empresa ABC;PME Multi;5;8000.00;CNPJ obrigatório',
-  ];
-  const csvContent = bom + headers.join(';') + '\n' + sampleRows.join('\n') + '\n';
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'modelo_vendas.csv';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast.success('Modelo de vendas baixado!');
-}
-
-interface ParsedAtividade {
-  data: string;
-  ligacoes: number;
-  mensagens: number;
-  cotacoes_coletadas: number;
-  cotacoes_enviadas: number;
-  cotacoes_respondidas: number;
-  cotacoes_nao_respondidas: number;
-  follow_up: number;
-}
-
-function parseCSVAtividades(text: string): ParsedAtividade[] {
-  // Remove BOM if present
-  const cleanText = text.replace(/^\uFEFF/, '');
-  const sep = detectSeparator(cleanText);
-  const lines = cleanText.trim().split('\n').filter(l => l.trim());
-  if (lines.length < 2) return [];
-  const rows: ParsedAtividade[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
-    if (cols.length < 8) continue;
-    // Parse dd/mm/yyyy to yyyy-mm-dd
-    const dateParts = cols[0].split('/');
-    let dataStr = cols[0];
-    if (dateParts.length === 3) {
-      dataStr = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
-    }
-    rows.push({
-      data: dataStr,
-      ligacoes: parseInt(cols[1]) || 0,
-      mensagens: parseInt(cols[2]) || 0,
-      cotacoes_coletadas: parseInt(cols[3]) || 0,
-      cotacoes_enviadas: parseInt(cols[4]) || 0,
-      cotacoes_respondidas: parseInt(cols[5]) || 0,
-      cotacoes_nao_respondidas: parseInt(cols[6]) || 0,
-      follow_up: parseInt(cols[7]) || 0,
-    });
-  }
-  return rows;
-}
-
-interface ParsedVenda {
-  nome_titular: string;
-  modalidade: string;
-  vidas: number;
-  valor: number | null;
-  observacoes: string | null;
-}
-
-function parseCSVVendas(text: string): ParsedVenda[] {
-  const cleanText = text.replace(/^\uFEFF/, '');
-  const sep = detectSeparator(cleanText);
-  const lines = cleanText.trim().split('\n').filter(l => l.trim());
-  if (lines.length < 2) return [];
-  const rows: ParsedVenda[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(sep).map(c => c.trim().replace(/^"|"$/g, ''));
-    if (cols.length < 3) continue;
-    const modalidadeRaw = (cols[1] || '').trim();
-    const modalidadeMap: Record<string, string> = {
-      'pf': 'PF', 'pessoa física': 'PF', 'familiar': 'Familiar',
-      'pme multi': 'PME Multi', 'pme': 'PME Multi',
-      'empresarial': 'Empresarial', 'adesão': 'Adesão', 'adesao': 'Adesão',
-    };
-    const modalidade = modalidadeMap[modalidadeRaw.toLowerCase()] || modalidadeRaw;
-    const validModalidades = ['PF', 'Familiar', 'PME Multi', 'Empresarial', 'Adesão'];
-    if (!validModalidades.includes(modalidade)) continue;
-
-    rows.push({
-      nome_titular: cols[0] || '',
-      modalidade,
-      vidas: parseInt(cols[2]) || 1,
-      valor: cols[3] ? parseFloat(cols[3].replace(',', '.')) : null,
-      observacoes: cols[4] || null,
-    });
-  }
-  return rows;
-}
 
 /* ═══════════════════════════════════════════════ */
 /*              TAB: ATIVIDADES                    */
@@ -242,28 +97,13 @@ function AtividadesTab() {
   const logAction = useLogAction();
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showBulkConfirm, setShowBulkConfirm] = useState(false);
-  const [bulkData, setBulkData] = useState<ParsedAtividade[]>([]);
-  const [bulkJustificativas, setBulkJustificativas] = useState<Record<string, string>>({});
-  const [bulkSaving, setBulkSaving] = useState(false);
   const [saving, setSaving] = useState(false);
-  const uploadRef = useRef<HTMLInputElement>(null);
   const [form, setForm] = useState<AtividadesForm>({
     ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '',
     cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '',
   });
 
   const isRetroativo = !isToday(dataLancamento);
-
-  // Find which bulk dates are retroactive
-  const bulkPastDates = bulkData
-    .map(row => row.data)
-    .filter(d => {
-      const date = new Date(d + 'T12:00:00');
-      return isBefore(startOfDay(date), startOfDay(new Date()));
-    });
-  const bulkHasPastDates = bulkPastDates.length > 0;
-  const allBulkPastJustified = bulkPastDates.every(d => (bulkJustificativas[d] || '').trim().length > 0);
 
   const metrics: { key: keyof AtividadesForm; label: string; icon: React.ElementType; tooltip: string }[] = [
     { key: 'ligacoes', label: 'Ligações Realizadas', icon: Phone, tooltip: 'Total de ligações de prospecção e follow-up realizadas no dia selecionado.' },
@@ -323,51 +163,7 @@ function AtividadesTab() {
     }
   };
 
-  const handleBulkUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = ev.target?.result as string;
-      const parsed = parseCSVAtividades(text);
-      if (parsed.length === 0) {
-        toast.error('Nenhum registro válido encontrado no arquivo.');
-        return;
-      }
-      setBulkData(parsed);
-      setBulkJustificativas({});
-      setShowBulkConfirm(true);
-    };
-    reader.readAsText(file, 'UTF-8');
-    if (uploadRef.current) uploadRef.current.value = '';
-  };
 
-  const confirmBulkSave = async () => {
-    if (bulkHasPastDates && !allBulkPastJustified) {
-      toast.error('Justificativa obrigatória para cada data retroativa.');
-      return;
-    }
-    setBulkSaving(true);
-    try {
-      for (const row of bulkData) {
-        await createAtividade.mutateAsync({
-          data: row.data,
-          ligacoes: row.ligacoes,
-          mensagens: row.mensagens,
-          cotacoes_enviadas: row.cotacoes_enviadas,
-          cotacoes_fechadas: row.cotacoes_respondidas,
-          follow_up: row.follow_up,
-        });
-      }
-      toast.success(`${bulkData.length} registro(s) importado(s) com sucesso!`);
-      setShowBulkConfirm(false);
-      setBulkData([]);
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao importar atividades.');
-    } finally {
-      setBulkSaving(false);
-    }
-  };
 
 
   const update = (key: keyof AtividadesForm, value: string) => setForm(prev => ({ ...prev, [key]: value }));
@@ -435,24 +231,7 @@ function AtividadesTab() {
           </>
         )}
 
-        {/* Import */}
-        <Separator className="my-6 bg-border/20" />
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 bg-muted/40 rounded-lg border border-border/20">
-          <FileUp className="w-5 h-5 text-primary shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-foreground">Importar atividades em massa</p>
-            <p className="text-xs text-muted-foreground mt-0.5">Preencha o modelo CSV e faça o upload.</p>
-          </div>
-          <div className="flex gap-2 shrink-0">
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={downloadAtividadesModelo}>
-              <Download className="w-3.5 h-3.5" /> Modelo
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5 text-xs border-border/40" onClick={() => uploadRef.current?.click()}>
-              <Upload className="w-3.5 h-3.5" /> Upload
-            </Button>
-            <input ref={uploadRef} type="file" accept=".csv" className="hidden" onChange={handleBulkUpload} />
-          </div>
-        </div>
+
       </div>
 
 
@@ -518,65 +297,7 @@ function AtividadesTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Confirmação - Importação em massa */}
-      <Dialog open={showBulkConfirm} onOpenChange={setShowBulkConfirm}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="font-display text-lg">Confirmar Importação em Massa</DialogTitle>
-            <DialogDescription>Revise os {bulkData.length} registro(s) antes de confirmar.</DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[50vh] overflow-y-auto space-y-3 py-2">
-            {bulkData.map((row, i) => (
-              <div key={i} className="p-3 bg-muted/30 rounded-lg border border-border/20 space-y-1">
-                <p className="text-xs font-bold text-foreground">
-                  📅 {row.data.split('-').reverse().join('/')}
-                </p>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs">
-                  <span className="text-muted-foreground">Ligações: <strong className="text-foreground">{row.ligacoes}</strong></span>
-                  <span className="text-muted-foreground">Mensagens: <strong className="text-foreground">{row.mensagens}</strong></span>
-                  <span className="text-muted-foreground">Cot. Coletadas: <strong className="text-foreground">{row.cotacoes_coletadas}</strong></span>
-                  <span className="text-muted-foreground">Cot. Enviadas: <strong className="text-foreground">{row.cotacoes_enviadas}</strong></span>
-                  <span className="text-muted-foreground">Cot. Respondidas: <strong className="text-foreground">{row.cotacoes_respondidas}</strong></span>
-                  <span className="text-muted-foreground">Cot. Não Resp.: <strong className="text-foreground">{row.cotacoes_nao_respondidas}</strong></span>
-                  <span className="text-muted-foreground">Follow-up: <strong className="text-foreground">{row.follow_up}</strong></span>
-                </div>
-              </div>
-            ))}
 
-            {bulkHasPastDates && (
-              <div className="p-4 bg-warning/8 border border-warning/20 rounded-lg space-y-3">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-warning shrink-0" />
-                  <p className="text-sm font-medium text-foreground">Datas retroativas detectadas</p>
-                </div>
-                <p className="text-xs text-muted-foreground">Justificativa obrigatória para cada data retroativa.</p>
-                {[...new Set(bulkPastDates)].map(dateStr => (
-                  <div key={dateStr} className="space-y-1">
-                    <label className="text-xs font-semibold text-foreground">📅 {dateStr.split('-').reverse().join('/')}</label>
-                    <Textarea
-                      placeholder={`Justifique o lançamento de ${dateStr.split('-').reverse().join('/')}...`}
-                      value={bulkJustificativas[dateStr] || ''}
-                      onChange={(e) => setBulkJustificativas(prev => ({ ...prev, [dateStr]: e.target.value }))}
-                      rows={2}
-                      className="border-warning/30 focus:border-warning"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => { setShowBulkConfirm(false); setBulkData([]); }}>Cancelar</Button>
-            <Button onClick={confirmBulkSave} disabled={bulkSaving || (bulkHasPastDates && !allBulkPastJustified)} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold min-w-[140px]">
-              {bulkSaving ? (
-                <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" /> Salvando...</>
-              ) : (
-                <><CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar {bulkData.length} registro(s)</>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
     </div>
   );
