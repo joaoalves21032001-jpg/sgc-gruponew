@@ -28,6 +28,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { maskPhone } from '@/lib/masks';
 import { supabase } from '@/integrations/supabase/client';
+import { notifyHierarchy } from '@/hooks/useNotifications';
 
 /* ─── Shared Components ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
@@ -304,6 +305,16 @@ function AtividadesTab() {
       setShowConfirm(false);
       logAction('criar_atividade', 'atividade', undefined, { data: format(dataLancamento, 'yyyy-MM-dd') });
       toast.success('Atividades registradas com sucesso!');
+      // Notify hierarchy
+      if (user) {
+        notifyHierarchy(
+          user.id,
+          'Nova Atividade Registrada',
+          `${profile?.nome_completo || 'Consultor'} registrou atividades em ${format(dataLancamento, 'dd/MM/yyyy')}`,
+          'atividade',
+          '/aprovacoes'
+        );
+      }
       setForm({ ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '', cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '' });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao registrar atividades.');
