@@ -735,10 +735,16 @@ export default function SalesWizard() {
                       if (checked && selectedLead) {
                         updateTitular(0, 'nome', selectedLead.nome);
                         if (selectedLead.idade) updateTitular(0, 'idade', String(selectedLead.idade));
+                        // Also copy produto if available from lead
+                        if (selectedLead.produto) {
+                          const produtoMatch = filteredProdutos.find(p => p.nome === selectedLead.produto);
+                          if (produtoMatch) updateTitular(0, 'produto_id', produtoMatch.id);
+                        }
                         toast.success('Dados do responsável aplicados ao 1º titular!');
                       } else {
                         updateTitular(0, 'nome', '');
                         updateTitular(0, 'idade', '');
+                        updateTitular(0, 'produto_id', '');
                       }
                     }}
                   />
