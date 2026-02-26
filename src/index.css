@@ -326,4 +326,93 @@
   .progress-animated {
     animation: progress-fill 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
+
+  /* ── Input focus glow ring ── */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  [role="combobox"]:focus-visible {
+    box-shadow: 0 0 0 3px hsl(var(--ring) / 0.15), 0 0 8px hsl(var(--ring) / 0.08);
+    transition: box-shadow 0.2s ease;
+  }
+
+  /* ── Pending badge pulse ── */
+  @keyframes badge-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+  .badge-pending {
+    animation: badge-pulse 2s ease-in-out infinite;
+  }
+
+  /* ── Card shine on hover ── */
+  @keyframes card-shine {
+    from { left: -80%; }
+    to { left: 120%; }
+  }
+  .card-shine {
+    position: relative;
+    overflow: hidden;
+  }
+  .card-shine::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -80%;
+    width: 60%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.06), transparent);
+    transform: skewX(-20deg);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .card-shine:hover::after {
+    opacity: 1;
+    animation: card-shine 0.8s ease-in-out;
+  }
+
+  /* ── Sidebar active link indicator ── */
+  .nav-active-indicator {
+    position: relative;
+  }
+  .nav-active-indicator::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 60%;
+    border-radius: 0 4px 4px 0;
+    background: hsl(var(--sidebar-ring));
+    transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  /* ── Animated counter ── */
+  @keyframes count-up {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .count-animate {
+    animation: count-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* ── Fade in up (reusable) ── */
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fade-in-up {
+    animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+
+  /* ── Smooth hover lift ── */
+  .hover-lift {
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px hsl(220 25% 10% / 0.1);
+  }
 }

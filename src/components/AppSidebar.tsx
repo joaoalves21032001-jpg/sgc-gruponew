@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { 
+import {
   LayoutDashboard, Briefcase, BarChart3, HelpCircle, LogOut,
   UserCog, UserCircle, ChevronLeft, ChevronRight,
   ClipboardList, CheckSquare, Bell, Archive, Search, Activity,
@@ -154,9 +154,8 @@ export function AppSidebar() {
         onDragOver={(e) => handleDragOver(e, item.to)}
         onDrop={() => handleDrop(item.to)}
         onDragEnd={handleDragEnd}
-        className={`group/nav-item relative rounded-lg transition-all duration-150 ${
-          isDragging ? 'opacity-40' : ''
-        } ${isDragTarget ? 'ring-1 ring-white/20' : ''}`}
+        className={`group/nav-item relative rounded-lg transition-all duration-150 ${isDragging ? 'opacity-40' : ''
+          } ${isDragTarget ? 'ring-1 ring-white/20' : ''}`}
       >
         <div className="flex items-center">
           {/* Drag handle */}
@@ -168,16 +167,15 @@ export function AppSidebar() {
 
           <NavLink
             to={item.to}
-            className={`flex items-center gap-3 flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200 ${
-              isActive
-                ? 'bg-white/[0.14] text-white shadow-sm backdrop-blur-sm'
+            className={`flex items-center gap-3 flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200 ${isActive
+                ? 'bg-white/[0.14] text-white shadow-sm backdrop-blur-sm nav-active-indicator'
                 : 'text-white/50 hover:bg-white/[0.08] hover:text-white/80 hover:translate-x-0.5'
-            } ${collapsed ? 'justify-center' : ''}`}
+              } ${collapsed ? 'justify-center' : ''}`}
           >
             <div className="relative shrink-0">
               <item.icon className={`w-[18px] h-[18px] ${isActive ? 'text-white' : ''}`} />
               {badgeCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center">
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center badge-pending">
                   {badgeCount > 9 ? '9+' : badgeCount}
                 </span>
               )}
@@ -211,9 +209,8 @@ export function AppSidebar() {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen flex flex-col z-50 transition-all duration-300 ease-out ${
-        collapsed ? 'w-[72px]' : 'w-[260px]'
-      }`}
+      className={`fixed left-0 top-0 h-screen flex flex-col z-50 transition-all duration-300 ease-out ${collapsed ? 'w-[72px]' : 'w-[260px]'
+        }`}
       style={{
         background: 'linear-gradient(180deg, hsl(194 55% 12%) 0%, hsl(194 53% 20%) 100%)',
       }}
@@ -286,9 +283,8 @@ export function AppSidebar() {
       <div className="px-3 pb-4 space-y-1">
         <NavLink
           to="/perfil"
-          className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 w-full ${
-            isActive ? 'bg-white/[0.12] text-white' : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
-          } ${collapsed ? 'justify-center' : ''}`}
+          className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 w-full ${isActive ? 'bg-white/[0.12] text-white' : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
+            } ${collapsed ? 'justify-center' : ''}`}
         >
           <UserCircle className="w-[18px] h-[18px] shrink-0" />
           {!collapsed && <span>Meu Perfil</span>}

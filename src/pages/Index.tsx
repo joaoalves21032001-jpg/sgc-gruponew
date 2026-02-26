@@ -8,12 +8,13 @@ import { getFraseMotivacional } from '@/lib/gamification';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMemo, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
+import { DashboardSkeleton } from '@/components/LoadingSkeleton';
 
 const Index = () => {
-  const { data: profile } = useProfile();
+  const { data: profile, isLoading: loadingProfile } = useProfile();
   const { data: role } = useUserRole();
-  const { data: atividades } = useMyAtividades();
-  const { data: vendas } = useMyVendas();
+  const { data: atividades, isLoading: loadingAtiv } = useMyAtividades();
+  const { data: vendas, isLoading: loadingVendas } = useMyVendas();
 
   const isAdmin = role === 'administrador';
 
@@ -59,13 +60,19 @@ const Index = () => {
     }
   }, [percentMeta]);
 
+  const hora = new Date().getHours();
+  const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
+
+  const isLoading = loadingProfile || loadingAtiv || loadingVendas;
+  if (isLoading) return <DashboardSkeleton />;
+
   return (
     <div className="space-y-6 page-enter">
       {/* Header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-[28px] font-bold font-display text-foreground leading-none">
-            {displayName ? `Olá, ${displayName}` : 'Meu Progresso'}
+            {displayName ? `${saudacao}, ${displayName}` : 'Meu Progresso'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Resumo das suas atividades • {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
