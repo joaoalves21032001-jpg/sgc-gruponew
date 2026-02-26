@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
@@ -542,6 +542,68 @@ const Aprovacoes = () => {
       setSavingAccess(false);
     }
   };
+
+  // ─── Correction Request Actions ───
+  const handleApproveCR = async (cr: CorrectionRequest) => {
+    setSavingCR(true);
+    try {
+      const payload = JSON.parse(cr.motivo);
+      const alteracoes = payload.alteracoesPropostas || [];
+      const updateObj: Record<string, any> = {};
+      for (const a of alteracoes) {
+        let val: any = a.valorNovo;
+        if (['ligacoes', 'mensagens', 'cotacoes_coletadas', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'vidas'].includes(a.campo)) {
+          val = parseInt(val) || 0;
+        }
+        if (a.campo === 'valor') {
+          val = parseFloat(val) || 0;
+        }
+        updateObj[a.campo] = val;
+      }
+      const table = cr.tipo === 'atividade' ? 'atividades' : 'vendas';
+      if (Object.keys(updateObj).length > 0) {
+        const { error: updateError } = await supabase.from(table).update(updateObj as any).eq('id', cr.registro_id);
+        if (updateError) throw updateError;
+      }
+      const { error } = await supabase.from('correction_requests').update({ status: 'aprovado' } as any).eq('id', cr.id);
+      if (error) throw error;
+      toast.success('Alteração aprovada e aplicada!');
+      queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
+      queryClient.invalidateQueries({ queryKey: [cr.tipo === 'atividade' ? 'atividades' : 'vendas'] });
+      queryClient.invalidateQueries({ queryKey: [cr.tipo === 'atividade' ? 'team-atividades' : 'team-vendas'] });
+    } catch (err: any) { toast.error(err.message); }
+    finally { setSavingCR(false); }
+  };
+
+  const handleRejectCR = async () => {
+    if (!rejectCR || !rejectCRReason.trim()) { toast.error('Informe o motivo da recusa.'); return; }
+    setSavingCR(true);
+    try {
+      const { error } = await supabase.from('correction_requests').update({
+        status: 'rejeitado',
+        admin_resposta: rejectCRReason.trim(),
+      } as any).eq('id', rejectCR.id);
+      if (error) throw error;
+      toast.success('Solicitação recusada.');
+      queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
+      setRejectCR(null);
+      setRejectCRReason('');
+    } catch (err: any) { toast.error(err.message); }
+    finally { setSavingCR(false); }
+  };
+
+  // Filtered correction requests
+  const filteredCR = useMemo(() => {
+    return correctionRequests.filter(cr => {
+      if (filterStatus !== 'todos' && cr.status !== filterStatus) return false;
+      if (filterConsultor !== 'todos' && cr.user_id !== filterConsultor) return false;
+      if (search) {
+        const consultorName = getConsultorName(cr.user_id).toLowerCase();
+        if (!consultorName.includes(search.toLowerCase())) return false;
+      }
+      return true;
+    });
+  }, [correctionRequests, filterStatus, filterConsultor, search, getConsultorName]);
 
   return (
     <div className="space-y-6 animate-fade-in-up">
