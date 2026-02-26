@@ -216,17 +216,24 @@ export function KanbanBoard() {
     return creator.apelido || creator.nome_completo?.split(' ')[0] || undefined;
   };
 
+  const visibleLeads = useMemo(() => {
+    if (isAdmin) return leads;
+    const teamIds = new Set(allProfiles.map(p => p.id));
+    if (user?.id) teamIds.add(user.id);
+    return leads.filter(l => l.livre || (l.created_by && teamIds.has(l.created_by)));
+  }, [leads, isAdmin, allProfiles, user]);
+
   const leadsByStage = useMemo(() => {
     const map: Record<string, Lead[]> = {};
     for (const s of stages) map[s.id] = [];
     const unassigned: Lead[] = [];
-    for (const l of leads) {
+    for (const l of visibleLeads) {
       const sid = (l as any).stage_id;
       if (sid && map[sid]) map[sid].push(l);
       else unassigned.push(l);
     }
     return { map, unassigned };
-  }, [stages, leads]);
+  }, [stages, visibleLeads]);
 
   const handleDragStart = (e: React.DragEvent, leadId: string) => {
     setDraggedLeadId(leadId);
@@ -303,9 +310,9 @@ export function KanbanBoard() {
       cpf: l.cpf || '', cnpj: l.cnpj || '', endereco: l.endereco || '',
       idade: l.idade ? String(l.idade) : '',
       livre: l.livre || false,
-      possuiAproveitamento: l.plano_anterior || false,
-      produto: l.produto || '', quantidade_vidas: l.quantidade_vidas ? String(l.quantidade_vidas) : '',
-      companhia_nome: l.companhia_nome || '', valor: l.valor ? maskCurrency(String(Math.round(l.valor * 100))) : '',
+      possuiAproveitamento: ext.plano_anterior || false,
+      produto: ext.produto || '', quantidade_vidas: ext.quantidade_vidas ? String(ext.quantidade_vidas) : '',
+      companhia_nome: ext.companhia_nome || '', valor: ext.valor ? maskCurrency(String(Math.round(ext.valor * 100))) : '',
       vendaDental: ext.vendaDental || false,
       coParticipacao: ext.coParticipacao || 'sem',
       estagiarios: ext.estagiarios || false,
@@ -351,7 +358,7 @@ export function KanbanBoard() {
     if (!form.tipo) { toast.error('Selecione o Tipo / Modalidade.'); return; }
     setSaving(true);
     const { data: { user: currentUser } } = await supabase.auth.getUser();
-    // Build extended draft data JSON
+    // Build extended draft data JSON (fields not in DB stored here)
     const extendedData = JSON.stringify({
       vendaDental: form.vendaDental,
       coParticipacao: form.coParticipacao,
@@ -360,6 +367,9 @@ export function KanbanBoard() {
       observacoes: form.observacoes,
       companhia_nome: form.companhia_nome,
       plano_anterior: form.possuiAproveitamento,
+      produto: form.produto || null,
+      quantidade_vidas: form.quantidade_vidas ? parseInt(form.quantidade_vidas) : null,
+      valor: form.valor ? (() => { const v = unmaskCurrency(form.valor); return isNaN(v) || v === 0 ? null : v; })() : null,
       titulares: titulares.filter(t => t.nome.trim()),
       dependentes: dependentes.filter(d => d.nome.trim()),
     });
@@ -367,11 +377,6 @@ export function KanbanBoard() {
       tipo: form.tipo, nome: form.nome.trim(), contato: form.contato || null,
       email: form.email || null, endereco: form.endereco || null, stage_id: formStageId,
       idade: form.idade ? parseInt(form.idade) : null,
-      produto: form.produto || null,
-      quantidade_vidas: form.quantidade_vidas ? parseInt(form.quantidade_vidas) : null,
-      valor: form.valor ? (() => { const v = unmaskCurrency(form.valor); return isNaN(v) || v === 0 ? null : v; })() : null,
-      companhia_nome: form.companhia_nome || null,
-      plano_anterior: form.possuiAproveitamento || false,
       origem: extendedData,
     };
     payload.livre = form.livre;

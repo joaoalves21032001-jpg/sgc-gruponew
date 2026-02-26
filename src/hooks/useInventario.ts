@@ -203,7 +203,19 @@ export function useLeads() {
     queryFn: async () => {
       const { data, error } = await supabase.from('leads').select('*').order('nome');
       if (error) throw error;
-      return (data ?? []) as Lead[];
+      // Hydrate virtual fields from origem JSON
+      return (data ?? []).map((row: any) => {
+        let ext: any = {};
+        try { if (row.origem) ext = JSON.parse(row.origem); } catch { /* not JSON */ }
+        return {
+          ...row,
+          companhia_nome: ext.companhia_nome || null,
+          produto: ext.produto || null,
+          quantidade_vidas: ext.quantidade_vidas || null,
+          valor: ext.valor || null,
+          plano_anterior: ext.plano_anterior || false,
+        } as Lead;
+      });
     },
   });
 }
