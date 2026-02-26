@@ -608,6 +608,27 @@ export function KanbanBoard() {
               </div>
             )}
 
+            {/* Auto-fill titular 1 from lead data */}
+            <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
+              <Switch
+                checked={form.nome ? titulares[0]?.nome === form.nome : false}
+                onCheckedChange={(checked) => {
+                  if (checked && form.nome) {
+                    const arr = [...titulares];
+                    arr[0] = { ...arr[0], nome: form.nome, idade: form.idade || arr[0].idade };
+                    if (form.produto) arr[0] = { ...arr[0], produto: form.produto };
+                    setTitulares(arr);
+                    toast.success('Dados do responsável aplicados ao 1º titular!');
+                  } else {
+                    const arr = [...titulares];
+                    arr[0] = { ...arr[0], nome: '', idade: '', produto: '' };
+                    setTitulares(arr);
+                  }
+                }}
+              />
+              <Label className="text-sm text-foreground cursor-pointer">Utilizar as informações do responsável no titular 1</Label>
+            </div>
+
             {/* Titulares Section */}
             <div className="border-t border-border/20 pt-3">
               <div className="flex items-center justify-between mb-2">
