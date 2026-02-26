@@ -4,7 +4,7 @@ import { format, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   ChevronRight, ChevronLeft, Upload, AlertCircle, CalendarIcon, DollarSign,
-  ShoppingCart, FileText, Plus, Trash2,
+  ShoppingCart, FileText, Plus, Trash2, Send,
   CheckCircle2, User, Building2, Users, Heart, Briefcase, Info
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -141,6 +141,11 @@ export default function SalesWizard() {
 
   // Edit mode: editing an existing venda from Minhas Ações
   const [editVendaId, setEditVendaId] = useState<string | null>(null);
+  // Change request mode: solicitar alteração instead of direct edit
+  const [isChangeRequest, setIsChangeRequest] = useState(false);
+  const [originalVendaData, setOriginalVendaData] = useState<Record<string, any> | null>(null);
+  const [showChangeConfirm, setShowChangeConfirm] = useState(false);
+  const [changeJustificativa, setChangeJustificativa] = useState('');
 
   // Inventário data
   const { data: companhias = [] } = useCompanhias();
@@ -231,8 +236,22 @@ export default function SalesWizard() {
   // Prefill from existing venda (edit mode from Minhas Ações)
   useEffect(() => {
     const editVenda = (location.state as any)?.editVenda;
+    const changeReq = (location.state as any)?.isChangeRequest;
     if (editVenda) {
       setEditVendaId(editVenda.id);
+      if (changeReq) {
+        setIsChangeRequest(true);
+        // Store original data for De/Para comparison
+        setOriginalVendaData({
+          nome_titular: editVenda.nome_titular || '',
+          modalidade: editVenda.modalidade || '',
+          vidas: editVenda.vidas || 0,
+          valor: editVenda.valor || 0,
+          observacoes: editVenda.observacoes || '',
+          data_lancamento: editVenda.data_lancamento || '',
+          justificativa_retroativo: editVenda.justificativa_retroativo || '',
+        });
+      }
       // Set modalidade
       const mod = editVenda.modalidade as VendaModalidade;
       if (['PF', 'Familiar', 'PME Multi', 'Empresarial', 'Adesão'].includes(mod)) {
@@ -264,7 +283,7 @@ export default function SalesWizard() {
         setQtdVidas(String(editVenda.vidas));
       }
       setStep(0);
-      toast.info('Editando venda — altere os campos desejados e reenvie.');
+      toast.info(changeReq ? 'Altere os campos desejados e solicite a alteração.' : 'Editando venda — altere os campos desejados e reenvie.');
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
@@ -377,7 +396,92 @@ export default function SalesWizard() {
     return true;
   };
 
+  // Compute change request fields for De/Para comparison
+  const vendaChangeFields = useMemo(() => {
+    if (!isChangeRequest || !originalVendaData) return [];
+    const currentData = {
+      nome_titular: titulares[0]?.nome || selectedLead?.nome || '',
+      modalidade: modalidade as string,
+      vidas: titulares.length + dependentes.length,
+      valor: unmaskCurrency(valorContrato) || 0,
+      observacoes: obsLinhas.filter(Boolean).join('\n') || '',
+      data_lancamento: format(dataLancamento, 'yyyy-MM-dd'),
+    };
+    const fieldLabels: Record<string, string> = {
+      nome_titular: 'Nome do Titular',
+      modalidade: 'Modalidade',
+      vidas: 'Vidas',
+      valor: 'Valor (R$)',
+      observacoes: 'Observações',
+      data_lancamento: 'Data de Lançamento',
+    };
+    return Object.keys(fieldLabels).filter(key => {
+      return String(currentData[key as keyof typeof currentData] ?? '') !== String(originalVendaData[key] ?? '');
+    }).map(key => ({
+      campo: key,
+      label: fieldLabels[key],
+      valorAntigo: originalVendaData[key],
+      valorNovo: currentData[key as keyof typeof currentData],
+    }));
+  }, [isChangeRequest, originalVendaData, titulares, dependentes, modalidade, valorContrato, obsLinhas, dataLancamento, selectedLead]);
+
+  // Submit change request for venda
+  const submitVendaChangeRequest = async () => {
+    if (!changeJustificativa.trim()) {
+      toast.error('Informe a justificativa para a alteração.');
+      return;
+    }
+    setVendaSaving(true);
+    try {
+      if (!user) throw new Error('Não autenticado');
+      const structuredPayload = {
+        registroId: editVendaId,
+        statusAtual: (originalVendaData as any)?._status || 'pendente',
+        justificativa: changeJustificativa.trim(),
+        alteracoesPropostas: vendaChangeFields.map(a => ({
+          campo: a.campo,
+          valorAntigo: a.valorAntigo,
+          valorNovo: a.valorNovo,
+        })),
+      };
+      const { error } = await supabase.from('correction_requests').insert({
+        user_id: user.id,
+        tipo: 'venda',
+        registro_id: editVendaId!,
+        motivo: JSON.stringify(structuredPayload),
+      } as any);
+      if (error) throw error;
+      toast.success('Solicitação de alteração enviada ao supervisor!');
+      if (user) {
+        notifyHierarchy(
+          user.id,
+          'Solicitação de Alteração de Venda',
+          `${profile?.nome_completo || 'Consultor'} solicitou alteração na venda de ${titulares[0]?.nome || ''}`,
+          'venda',
+          '/aprovacoes'
+        );
+      }
+      setShowChangeConfirm(false);
+      navigate('/minhas-acoes');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao enviar solicitação.');
+    } finally {
+      setVendaSaving(false);
+    }
+  };
+
   const confirmVenda = async () => {
+    // If in change request mode, show the change request dialog instead
+    if (isChangeRequest) {
+      if (vendaChangeFields.length === 0) {
+        toast.info('Nenhum campo foi alterado. Modifique pelo menos um campo para solicitar alteração.');
+        return;
+      }
+      setShowConfirm(false);
+      setShowChangeConfirm(true);
+      return;
+    }
+
     setVendaSaving(true);
     try {
       const totalVidas = titulares.length + dependentes.length;
@@ -1000,8 +1104,8 @@ export default function SalesWizard() {
             Próximo <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         ) : (
-          <Button onClick={() => setShowConfirm(true)} disabled={!canNext()} className="bg-success hover:bg-success/90 text-success-foreground font-bold h-11 shadow-brand">
-            <CheckCircle2 className="w-4 h-4 mr-1" /> Finalizar Venda
+          <Button onClick={() => setShowConfirm(true)} disabled={!canNext()} className={cn("font-bold h-11 shadow-brand", isChangeRequest ? 'bg-primary hover:bg-primary/90 text-primary-foreground' : 'bg-success hover:bg-success/90 text-success-foreground')}>
+            {isChangeRequest ? (<><Send className="w-4 h-4 mr-1" /> Solicitar Alteração</>) : (<><CheckCircle2 className="w-4 h-4 mr-1" /> Finalizar Venda</>)}
           </Button>
         )}
       </div>
@@ -1035,6 +1139,38 @@ export default function SalesWizard() {
             <Button variant="outline" onClick={() => setShowConfirm(false)}>Cancelar</Button>
             <Button onClick={confirmVenda} disabled={vendaSaving} className="bg-success hover:bg-success/90 text-success-foreground font-semibold min-w-[140px]">
               {vendaSaving ? <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" /> Salvando...</> : <><CheckCircle2 className="w-4 h-4 mr-1" /> Confirmar Venda</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Change Request Confirmation Dialog */}
+      <Dialog open={showChangeConfirm} onOpenChange={setShowChangeConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Solicitar Alteração</DialogTitle>
+            <DialogDescription>Deseja solicitar a alteração do envio desta venda? As mudanças serão enviadas para aprovação do seu superior.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2 max-h-[50vh] overflow-y-auto">
+            {vendaChangeFields.map(a => (
+              <div key={a.campo} className="flex justify-between p-2.5 bg-muted/40 rounded-lg">
+                <span className="text-sm text-muted-foreground">{a.label}</span>
+                <span className="text-sm">
+                  <span className="text-destructive line-through mr-1">{String(a.valorAntigo)}</span>
+                  →
+                  <span className="text-primary font-semibold ml-1">{String(a.valorNovo)}</span>
+                </span>
+              </div>
+            ))}
+            <div className="space-y-1.5 pt-2">
+              <label className="text-xs font-semibold text-muted-foreground">Justificativa <span className="text-destructive">*</span></label>
+              <Textarea value={changeJustificativa} onChange={e => setChangeJustificativa(e.target.value)} placeholder="Explique o motivo da alteração..." rows={3} />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowChangeConfirm(false)}>Cancelar</Button>
+            <Button onClick={submitVendaChangeRequest} disabled={vendaSaving || !changeJustificativa.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold min-w-[120px]">
+              {vendaSaving ? <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" /> Enviando...</> : <><Send className="w-4 h-4 mr-1" /> Enviar Solicitação</>}
             </Button>
           </DialogFooter>
         </DialogContent>

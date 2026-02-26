@@ -178,8 +178,8 @@ const MinhasAcoes = () => {
 
   const openEditVenda = (v: Venda) => {
     if (canRequestChange(v.status)) {
-      // Navigate to the full SalesWizard in edit mode
-      navigate('/comercial', { state: { editVenda: v } });
+      // Navigate to the full SalesWizard in change request mode
+      navigate('/comercial', { state: { editVenda: v, isChangeRequest: true } });
       return;
     }
     if (!canDirectEdit(v.status)) {

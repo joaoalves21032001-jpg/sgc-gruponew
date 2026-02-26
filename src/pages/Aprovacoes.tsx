@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
@@ -17,7 +17,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Shield, Search, CheckCircle2, Clock, Undo2,
   ClipboardList, ShoppingCart, Users, UserPlus, Eye, XCircle, Trash2,
-  Download, FileText, MessageSquareQuote
+  Download, FileText, MessageSquareQuote, GitCompareArrows
 } from 'lucide-react';
 
 /* ─── Cotacao type ─── */
@@ -77,6 +77,30 @@ function useAccessRequests() {
       const { data, error } = await supabase.from('access_requests').select('*').order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as AccessRequest[];
+    },
+  });
+}
+
+/* ─── Correction Requests Hook ─── */
+interface CorrectionRequest {
+  id: string;
+  user_id: string;
+  tipo: string;
+  registro_id: string;
+  motivo: string;
+  status: string;
+  admin_resposta: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+function useCorrectionRequests() {
+  return useQuery({
+    queryKey: ['correction-requests'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('correction_requests').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as CorrectionRequest[];
     },
   });
 }
@@ -176,6 +200,13 @@ const Aprovacoes = () => {
   const [rejectCotacao, setRejectCotacao] = useState<Cotacao | null>(null);
   const [rejectCotacaoReason, setRejectCotacaoReason] = useState('');
   const [savingCotacao, setSavingCotacao] = useState(false);
+
+  // Correction Requests
+  const { data: correctionRequests = [], isLoading: loadingCR } = useCorrectionRequests();
+  const [selectedCR, setSelectedCR] = useState<CorrectionRequest | null>(null);
+  const [rejectCR, setRejectCR] = useState<CorrectionRequest | null>(null);
+  const [rejectCRReason, setRejectCRReason] = useState('');
+  const [savingCR, setSavingCR] = useState(false);
 
   const isAdmin = role === 'administrador';
   const isSupervisorUp = role === 'supervisor' || role === 'gerente' || role === 'administrador';
@@ -567,6 +598,9 @@ const Aprovacoes = () => {
               <UserPlus className="w-4 h-4" /> Acesso ({filteredAccess.length})
             </TabsTrigger>
           )}
+          <TabsTrigger value="alteracoes" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
+            <GitCompareArrows className="w-4 h-4" /> Alterações ({filteredCR.length})
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Atividades Tab ── */}
@@ -831,6 +865,63 @@ const Aprovacoes = () => {
             </div>
           </TabsContent>
         )}
+
+        {/* ── Alterações Tab ── */}
+        <TabsContent value="alteracoes">
+          <div className="grid gap-3">
+            {loadingCR ? (
+              <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+            ) : filteredCR.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <GitCompareArrows className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                Nenhuma solicitação de alteração encontrada.
+              </div>
+            ) : (
+              filteredCR.map((cr) => {
+                const sc = statusColors[cr.status] || statusColors.pendente;
+                let parsed: any = {};
+                try { parsed = JSON.parse(cr.motivo); } catch { }
+                const alteracoes = parsed.alteracoesPropostas || [];
+                return (
+                  <div key={cr.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground">{getConsultorName(cr.user_id)}</p>
+                          <Badge variant="outline" className={`text-[10px] ${sc}`}>{statusLabel[cr.status] || cr.status}</Badge>
+                          <Badge variant="outline" className="text-[10px] uppercase bg-muted/40">{cr.tipo}</Badge>
+                          <Badge variant="outline" className="text-[10px]">📅 {new Date(cr.created_at).toLocaleDateString('pt-BR')}</Badge>
+                        </div>
+                        {parsed.justificativa && <p className="text-xs text-muted-foreground mt-1 italic">📝 {parsed.justificativa}</p>}
+                        <div className="mt-2 space-y-1">
+                          {alteracoes.map((a: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2 text-xs">
+                              <span className="text-muted-foreground font-medium">{a.campo}:</span>
+                              <span className="text-destructive line-through">{String(a.valorAntigo)}</span>
+                              <span>→</span>
+                              <span className="text-primary font-semibold">{String(a.valorNovo)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {cr.admin_resposta && <p className="text-xs text-muted-foreground mt-1">Resposta: {cr.admin_resposta}</p>}
+                      </div>
+                      {cr.status === 'pendente' && (
+                        <div className="flex gap-1.5 shrink-0">
+                          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => handleApproveCR(cr)} disabled={savingCR}>
+                            <CheckCircle2 className="w-3 h-3" /> Aprovar
+                          </Button>
+                          <Button variant="outline" size="sm" className="gap-1 text-xs text-destructive" onClick={() => { setRejectCR(cr); setRejectCRReason(''); }}>
+                            <XCircle className="w-3 h-3" /> Recusar
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* ── Venda Detail Dialog ── */}
@@ -968,8 +1059,26 @@ const Aprovacoes = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Reject Correction Request Dialog ── */}
+      <Dialog open={!!rejectCR} onOpenChange={(v) => { if (!v) setRejectCR(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg text-destructive">Recusar Alteração</DialogTitle>
+            <DialogDescription>Informe o motivo da recusa para esta solicitação de alteração.</DialogDescription>
+          </DialogHeader>
+          <Textarea value={rejectCRReason} onChange={(e) => setRejectCRReason(e.target.value)} placeholder="Motivo da recusa (obrigatório)..." rows={3} />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRejectCR(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleRejectCR} disabled={savingCR} className="gap-1">
+              {savingCR ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><XCircle className="w-4 h-4" /> Recusar</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
 
 export default Aprovacoes;
+
