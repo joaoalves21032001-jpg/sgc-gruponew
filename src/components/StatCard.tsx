@@ -37,11 +37,11 @@ export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = 
   const s = styles[variant];
 
   return (
-    <div className={`rounded-xl p-5 shadow-card card-interactive border border-border/30 ${s.bg} group cursor-default`}>
+    <div className={`rounded-xl p-5 shadow-card card-interactive card-shine hover-lift border border-border/30 ${s.bg} group cursor-default`}>
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <p className={`text-[11px] font-semibold uppercase tracking-widest ${s.subtitle}`}>{title}</p>
-          <p className={`text-[28px] font-bold font-display leading-none ${s.text} number-animate`}>{value}</p>
+          <p className={`text-[28px] font-bold font-display leading-none ${s.text} count-animate`}>{value}</p>
           {subtitle && (
             <p className={`text-xs mt-0.5 ${s.subtitle}`}>{subtitle}</p>
           )}

@@ -734,7 +734,7 @@ export default function SalesWizard() {
                       setUseResponsavelTitular(checked);
                       if (checked && selectedLead) {
                         updateTitular(0, 'nome', selectedLead.nome);
-                        if (selectedLead.idade) updateTitular(0, 'idade', String(selectedLead.idade));
+                        updateTitular(0, 'idade', selectedLead.idade != null ? String(selectedLead.idade) : '');
                         // Also copy produto if available from lead
                         if (selectedLead.produto) {
                           const produtoMatch = filteredProdutos.find(p => p.nome === selectedLead.produto);
