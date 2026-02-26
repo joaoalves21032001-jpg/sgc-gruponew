@@ -157,26 +157,8 @@ const MinhasAcoes = () => {
   const openEditAtiv = (a: any) => {
     const status = (a as any).status || 'pendente';
     if (canRequestChange(status)) {
-      const originalData = {
-        ligacoes: a.ligacoes,
-        mensagens: a.mensagens,
-        cotacoes_coletadas: a.cotacoes_coletadas ?? 0,
-        cotacoes_enviadas: a.cotacoes_enviadas,
-        cotacoes_fechadas: a.cotacoes_fechadas,
-        cotacoes_nao_respondidas: a.cotacoes_nao_respondidas ?? 0,
-        follow_up: a.follow_up,
-      };
-      setRequestDialog({ type: 'atividade', id: a.id, label: a.data, originalData });
-      setRequestEditForm({
-        ligacoes: String(a.ligacoes),
-        mensagens: String(a.mensagens),
-        cotacoes_coletadas: String(a.cotacoes_coletadas ?? 0),
-        cotacoes_enviadas: String(a.cotacoes_enviadas),
-        cotacoes_fechadas: String(a.cotacoes_fechadas),
-        cotacoes_nao_respondidas: String(a.cotacoes_nao_respondidas ?? 0),
-        follow_up: String(a.follow_up),
-      });
-      setRequestJustificativa('');
+      // Redirect to Registro de Atividades with pre-filled data
+      navigate('/comercial', { state: { editAtividade: a } });
       return;
     }
     if (!canDirectEdit(status)) {

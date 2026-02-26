@@ -1,9 +1,9 @@
-import { useState, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { format, isToday, parse, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
-  Phone, MessageSquare, FileText, CheckCircle2, RotateCcw, Info, Save,
+  Phone, MessageSquare, FileText, CheckCircle2, RotateCcw, Info, Save, Send,
   ChevronRight, ChevronLeft, AlertCircle, CalendarIcon, DollarSign,
   ClipboardList, ShoppingCart, Trash2, Plus, TrendingUp,
   Mail, User, XCircle, MessageCircle, BarChart3, Flag
@@ -88,7 +88,7 @@ function calcRate(a: string, b: string): string {
   return `${((numB / numA) * 100).toFixed(1)}%`;
 }
 
-function AtividadesTab() {
+function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const { data: supervisor } = useSupervisorProfile(profile?.supervisor_id);
@@ -96,13 +96,60 @@ function AtividadesTab() {
   const { data: myVendas } = useMyVendas();
   const createAtividade = useCreateAtividade();
   const logAction = useLogAction();
+  const navigate = useNavigate();
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showChangeConfirm, setShowChangeConfirm] = useState(false);
+  const [changeJustificativa, setChangeJustificativa] = useState('');
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<AtividadesForm>({
     ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '',
     cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '',
   });
+
+  // Pre-fill form when editing an existing activity
+  useEffect(() => {
+    if (editAtividade) {
+      setForm({
+        ligacoes: String(editAtividade.ligacoes ?? ''),
+        mensagens: String(editAtividade.mensagens ?? ''),
+        cotacoes_coletadas: String(editAtividade.cotacoes_coletadas ?? 0),
+        cotacoes_enviadas: String(editAtividade.cotacoes_enviadas ?? ''),
+        cotacoes_respondidas: String(editAtividade.cotacoes_fechadas ?? ''),
+        cotacoes_nao_respondidas: String(editAtividade.cotacoes_nao_respondidas ?? 0),
+        follow_up: String(editAtividade.follow_up ?? ''),
+        justificativa: '',
+      });
+      try {
+        const d = parse(editAtividade.data, 'yyyy-MM-dd', new Date());
+        if (isValid(d)) setDataLancamento(d);
+      } catch { /* keep today */ }
+    }
+  }, [editAtividade]);
+
+  // Compute changes for correction request
+  const changeRequestFields = useMemo(() => {
+    if (!editAtividade) return [];
+    const mapping = [
+      { key: 'ligacoes', formKey: 'ligacoes', label: 'Ligações Realizadas' },
+      { key: 'mensagens', formKey: 'mensagens', label: 'Mensagens Enviadas' },
+      { key: 'cotacoes_coletadas', formKey: 'cotacoes_coletadas', label: 'Cotações Coletadas' },
+      { key: 'cotacoes_enviadas', formKey: 'cotacoes_enviadas', label: 'Cotações Enviadas' },
+      { key: 'cotacoes_fechadas', formKey: 'cotacoes_respondidas', label: 'Cotações Respondidas' },
+      { key: 'cotacoes_nao_respondidas', formKey: 'cotacoes_nao_respondidas', label: 'Cotações Não Respondidas' },
+      { key: 'follow_up', formKey: 'follow_up', label: 'Follow-up' },
+    ];
+    return mapping.filter(m => {
+      const original = String(editAtividade[m.key] ?? 0);
+      const novo = form[m.formKey as keyof AtividadesForm] ?? '';
+      return original !== novo;
+    }).map(m => ({
+      campo: m.key,
+      label: m.label,
+      valorAntigo: editAtividade[m.key] ?? 0,
+      valorNovo: form[m.formKey as keyof AtividadesForm],
+    }));
+  }, [editAtividade, form]);
 
   const isRetroativo = !isToday(dataLancamento);
 
@@ -129,7 +176,60 @@ function AtividadesTab() {
 
   const handleSave = () => {
     if (!canSave) { toast.error('Preencha todos os campos obrigatórios.'); return; }
+    if (editAtividade) {
+      // Show change request confirmation instead
+      if (changeRequestFields.length === 0) {
+        toast.info('Nenhum campo foi alterado. Modifique pelo menos um campo para solicitar alteração.');
+        return;
+      }
+      setShowChangeConfirm(true);
+      return;
+    }
     setShowConfirm(true);
+  };
+
+  const confirmChangeRequest = async () => {
+    if (!changeJustificativa.trim()) {
+      toast.error('Informe a justificativa para a alteração.');
+      return;
+    }
+    setSaving(true);
+    try {
+      if (!user) throw new Error('Não autenticado');
+      const structuredPayload = {
+        registroId: editAtividade.id,
+        statusAtual: (editAtividade as any).status || 'pendente',
+        justificativa: changeJustificativa.trim(),
+        alteracoesPropostas: changeRequestFields.map(a => ({
+          campo: a.campo,
+          valorAntigo: a.valorAntigo,
+          valorNovo: a.valorNovo,
+        })),
+      };
+      const { error } = await supabase.from('correction_requests').insert({
+        user_id: user.id,
+        tipo: 'atividade',
+        registro_id: editAtividade.id,
+        motivo: JSON.stringify(structuredPayload),
+      } as any);
+      if (error) throw error;
+      toast.success('Solicitação de alteração enviada ao supervisor!');
+      if (user) {
+        notifyHierarchy(
+          user.id,
+          'Solicitação de Alteração',
+          `${profile?.nome_completo || 'Consultor'} solicitou alteração na atividade de ${editAtividade.data?.split('-').reverse().join('/')}`,
+          'atividade',
+          '/aprovacoes'
+        );
+      }
+      setShowChangeConfirm(false);
+      navigate('/minhas-acoes');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao enviar solicitação.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const confirmSave = async () => {
@@ -256,11 +356,11 @@ function AtividadesTab() {
       <div className="fixed bottom-6 right-6 z-40">
         <Button
           onClick={handleSave}
-          disabled={!canSave}
+          disabled={editAtividade ? changeRequestFields.length === 0 : !canSave}
           size="lg"
           className="gradient-hero text-white font-bold px-8 h-14 shadow-brand text-sm tracking-wide rounded-full hover:scale-105 transition-all duration-300 fab-animated disabled:animate-none"
         >
-          <Save className="w-5 h-5 mr-2" /> REGISTRAR ATIVIDADES
+          {editAtividade ? (<><Send className="w-5 h-5 mr-2" /> SOLICITAR ALTERAÇÃO</>) : (<><Save className="w-5 h-5 mr-2" /> REGISTRAR ATIVIDADES</>)}
         </Button>
       </div>
 
@@ -298,7 +398,37 @@ function AtividadesTab() {
         </DialogContent>
       </Dialog>
 
-
+      {/* Change Request Confirmation Dialog */}
+      <Dialog open={showChangeConfirm} onOpenChange={setShowChangeConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Solicitar Alteração</DialogTitle>
+            <DialogDescription>Deseja solicitar a alteração do envio desta atividade? As mudanças serão enviadas para aprovação do seu superior.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2 max-h-[50vh] overflow-y-auto">
+            {changeRequestFields.map(a => (
+              <div key={a.campo} className="flex justify-between p-2.5 bg-muted/40 rounded-lg">
+                <span className="text-sm text-muted-foreground">{a.label}</span>
+                <span className="text-sm">
+                  <span className="text-destructive line-through mr-1">{String(a.valorAntigo)}</span>
+                  →
+                  <span className="text-primary font-semibold ml-1">{a.valorNovo}</span>
+                </span>
+              </div>
+            ))}
+            <div className="space-y-1.5 pt-2">
+              <label className="text-xs font-semibold text-muted-foreground">Justificativa <span className="text-destructive">*</span></label>
+              <Textarea value={changeJustificativa} onChange={e => setChangeJustificativa(e.target.value)} placeholder="Explique o motivo da alteração..." rows={3} />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowChangeConfirm(false)}>Cancelar</Button>
+            <Button onClick={confirmChangeRequest} disabled={saving || !changeJustificativa.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold min-w-[120px]">
+              {saving ? <><div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" /> Enviando...</> : <><Send className="w-4 h-4 mr-1" /> Enviar Solicitação</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
@@ -321,6 +451,7 @@ const Comercial = () => {
   const location = useLocation();
   const editVenda = (location.state as any)?.editVenda;
   const prefillLead = (location.state as any)?.prefillLead;
+  const editAtividade = (location.state as any)?.editAtividade;
   const defaultTab = (editVenda || prefillLead) ? 'nova-venda' : 'atividades';
 
   return (
@@ -343,7 +474,7 @@ const Comercial = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="atividades"><AtividadesTab /></TabsContent>
+        <TabsContent value="atividades"><AtividadesTab editAtividade={editAtividade} /></TabsContent>
         <TabsContent value="nova-venda"><NovaVendaTab /></TabsContent>
         <TabsContent value="evolucao"><EvolucaoTab /></TabsContent>
       </Tabs>
