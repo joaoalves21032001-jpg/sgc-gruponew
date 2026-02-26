@@ -98,10 +98,16 @@ function useCorrectionRequests() {
   return useQuery({
     queryKey: ['correction-requests'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('correction_requests').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data ?? []) as CorrectionRequest[];
+      try {
+        const { data, error } = await supabase.from('correction_requests').select('*').order('created_at', { ascending: false });
+        if (error) { console.error('correction_requests query error:', error); return []; }
+        return (data ?? []) as CorrectionRequest[];
+      } catch (e) {
+        console.error('correction_requests fetch failed:', e);
+        return [] as CorrectionRequest[];
+      }
     },
+    retry: false,
   });
 }
 
@@ -209,7 +215,7 @@ const Aprovacoes = () => {
   const [savingCR, setSavingCR] = useState(false);
 
   const isAdmin = role === 'administrador';
-  const isSupervisorUp = role === 'supervisor' || role === 'gerente' || role === 'administrador';
+  const isSupervisorUp = role === 'supervisor' || role === 'gerente' || role === 'diretor' || role === 'administrador';
 
   if (!isSupervisorUp) {
     return (
