@@ -243,12 +243,41 @@ export default function SalesWizard() {
 
   // Helper: download a file from Supabase lead-documentos and create a File object
   const downloadLeadDoc = async (filePath: string, fileName?: string): Promise<File | null> => {
+    if (!filePath || !filePath.trim()) return null;
+    const name = fileName || filePath.split('/').pop() || 'documento';
+    console.log('[SalesWizard] Downloading lead doc:', filePath);
+
+    // Approach 1: createSignedUrl + fetch (most reliable)
+    try {
+      const { data: urlData, error: urlError } = await supabase.storage
+        .from('lead-documentos')
+        .createSignedUrl(filePath, 120);
+      if (!urlError && urlData?.signedUrl) {
+        console.log('[SalesWizard] Got signed URL, fetching...');
+        const resp = await fetch(urlData.signedUrl);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          const file = new File([blob], name, { type: blob.type || 'application/octet-stream' });
+          console.log('[SalesWizard] Downloaded via signedUrl:', name, file.size, 'bytes');
+          return file;
+        }
+        console.warn('[SalesWizard] Fetch from signedUrl failed:', resp.status);
+      } else {
+        console.warn('[SalesWizard] createSignedUrl error:', urlError?.message);
+      }
+    } catch (err) {
+      console.warn('[SalesWizard] signedUrl approach failed:', err);
+    }
+
+    // Approach 2: direct download fallback
     try {
       const { data, error } = await supabase.storage.from('lead-documentos').download(filePath);
-      if (error || !data) return null;
-      const name = fileName || filePath.split('/').pop() || 'documento';
-      return new File([data], name, { type: data.type });
-    } catch { return null; }
+      if (error) { console.error('[SalesWizard] Direct download error:', error.message); return null; }
+      if (!data) { console.warn('[SalesWizard] Direct download returned no data'); return null; }
+      const file = new File([data], name, { type: data.type || 'application/octet-stream' });
+      console.log('[SalesWizard] Downloaded via direct download:', name, file.size, 'bytes');
+      return file;
+    } catch (err) { console.error('[SalesWizard] Direct download exception:', err); return null; }
   };
 
 
@@ -904,23 +933,34 @@ export default function SalesWizard() {
                         const key = 'titular_0';
                         const docUpdates: Record<string, File | null> = {};
                         setLoadingLeadDocs(true);
+                        console.log('[SalesWizard] Lead doc paths:', {
+                          doc_foto_path: selectedLead.doc_foto_path,
+                          comprovante_endereco_path: selectedLead.comprovante_endereco_path,
+                        });
                         try {
                           if (selectedLead.doc_foto_path) {
                             const file = await downloadLeadDoc(selectedLead.doc_foto_path, 'documento_foto.jpg');
                             if (file) docUpdates['Documento com foto'] = file;
+                            else console.warn('[SalesWizard] Failed to download doc_foto');
                           }
                           if (selectedLead.comprovante_endereco_path) {
                             const file = await downloadLeadDoc(selectedLead.comprovante_endereco_path, 'comprovante_endereco.jpg');
                             if (file) docUpdates['Comprovante de endereço'] = file;
+                            else console.warn('[SalesWizard] Failed to download comprovante_endereco');
                           }
                           if (Object.keys(docUpdates).length > 0) {
                             setBenefDocs(prev => ({ ...prev, [key]: { ...(prev[key] || {}), ...docUpdates } }));
                             toast.success(`Dados e ${Object.keys(docUpdates).length} documento(s) do responsável aplicados ao 1º titular!`);
                           } else {
-                            toast.success('Dados do responsável aplicados ao 1º titular!');
+                            if (selectedLead.doc_foto_path || selectedLead.comprovante_endereco_path) {
+                              toast.warning('Dados aplicados, mas não foi possível baixar os documentos do responsável.');
+                            } else {
+                              toast.success('Dados do responsável aplicados ao 1º titular! (nenhum documento cadastrado no lead)');
+                            }
                           }
-                        } catch {
-                          toast.success('Dados do responsável aplicados ao 1º titular!');
+                        } catch (err) {
+                          console.error('[SalesWizard] Auto-attach error:', err);
+                          toast.warning('Dados aplicados, mas houve erro ao baixar documentos do responsável.');
                         } finally {
                           setLoadingLeadDocs(false);
                         }
