@@ -290,6 +290,22 @@ export default function SalesWizard() {
       if (prefillLead.plano_anterior) {
         setPossuiAproveitamento(true);
       }
+      // Parse extended data from lead origem JSON
+      let ext: any = {};
+      try { if (prefillLead.origem) ext = JSON.parse(prefillLead.origem); } catch { /* not JSON */ }
+      // Carry over vendaDental
+      if (ext.vendaDental) setVendaDental(true);
+      // Carry over coParticipacao
+      if (ext.coParticipacao && ext.coParticipacao !== 'sem') setCoParticipacao(ext.coParticipacao);
+      // Carry over estagiários
+      if (ext.estagiarios) {
+        setEstagiarios(true);
+        if (ext.qtdEstagiarios) setQtdEstagiarios(ext.qtdEstagiarios);
+      }
+      // Carry over dataVigencia
+      if (ext.dataVigencia) {
+        setDataVigencia(new Date(ext.dataVigencia + 'T12:00:00'));
+      }
       // Stay on step 0 (combined form)
       setStep(0);
       toast.info('Dados do lead pré-carregados do CRM!');
