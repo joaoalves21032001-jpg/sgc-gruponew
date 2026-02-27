@@ -127,11 +127,17 @@ function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, se
     try { const url = await getDocumentUrl(filePath); if (url) window.open(url, '_blank'); else toast.error('Link indisponível.'); }
     catch { toast.error('Erro ao baixar.'); } finally { setDownloadingDoc(null); }
   };
+
+  // Parse extended data
+  let ext: any = {};
+  try { if ((venda as any)?.dados_completos) ext = JSON.parse((venda as any).dados_completos); } catch { /* */ }
+
   return (
     <Dialog open={!!venda} onOpenChange={() => onClose()}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle className="font-display text-lg">Detalhes Completos da Venda</DialogTitle></DialogHeader>
         {venda && (<div className="space-y-5">
+          {/* Basic info */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
             <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Titular</span><p className="font-semibold mt-0.5">{venda.nome_titular}</p></div>
             <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Modalidade</span><p className="font-semibold mt-0.5">{venda.modalidade}</p></div>
@@ -144,6 +150,58 @@ function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, se
             <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">ID</span><p className="font-semibold mt-0.5 font-mono text-xs">{venda.id.slice(0, 12)}...</p></div>
             {(venda as any).justificativa_retroativo && <div className="col-span-full"><span className="text-[10px] text-muted-foreground uppercase font-semibold">Justificativa Retroativo</span><p className="font-semibold mt-0.5 text-warning">{(venda as any).justificativa_retroativo}</p></div>}
           </div>
+
+          {/* Extended data from dados_completos */}
+          {Object.keys(ext).length > 0 && (
+            <div className="border border-border/30 rounded-lg p-4 space-y-3">
+              <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-2">Dados Completos do Formulário</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                {ext.companhia_nome && <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Companhia</span><p className="font-semibold mt-0.5">{ext.companhia_nome}</p></div>}
+                {ext.data_vigencia && <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Data de Vigência</span><p className="font-semibold mt-0.5">{new Date(ext.data_vigencia + 'T12:00:00').toLocaleDateString('pt-BR')}</p></div>}
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Venda c/ Dental</span><p className="font-semibold mt-0.5">{ext.venda_dental ? 'Sim' : 'Não'}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Co-Participação</span><p className="font-semibold mt-0.5">{ext.co_participacao === 'sem' ? 'Sem Co-Participação' : ext.co_participacao === 'parcial' ? 'Co-Participação Parcial' : ext.co_participacao === 'total' ? 'Co-Participação Total' : ext.co_participacao || 'Sem'}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Estagiários</span><p className="font-semibold mt-0.5">{ext.estagiarios ? `Sim (${ext.qtd_estagiarios || 0})` : 'Não'}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Aproveitamento</span><p className="font-semibold mt-0.5">{ext.possui_aproveitamento ? 'Sim' : 'Não'}</p></div>
+                {ext.lead_nome && <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Lead/Responsável</span><p className="font-semibold mt-0.5">{ext.lead_nome}</p></div>}
+              </div>
+
+              {/* Titulares */}
+              {ext.titulares && ext.titulares.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-2">Titulares ({ext.titulares.length})</p>
+                  <div className="space-y-1.5">
+                    {ext.titulares.map((t: any, i: number) => (
+                      <div key={i} className="flex items-center gap-3 p-2.5 bg-muted/30 rounded-lg text-sm">
+                        <span className="text-xs font-bold text-primary bg-primary/10 w-6 h-6 rounded-full flex items-center justify-center shrink-0">{i + 1}</span>
+                        <span className="font-semibold flex-1">{t.nome || '—'}</span>
+                        {t.idade && <span className="text-muted-foreground text-xs">{t.idade} anos</span>}
+                        {t.produto_nome && <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{t.produto_nome}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Dependentes */}
+              {ext.dependentes && ext.dependentes.length > 0 && (
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-2">Dependentes ({ext.dependentes.length})</p>
+                  <div className="space-y-1.5">
+                    {ext.dependentes.map((d: any, i: number) => (
+                      <div key={i} className="flex items-center gap-3 p-2.5 bg-muted/30 rounded-lg text-sm">
+                        <span className="text-xs font-bold text-muted-foreground bg-muted w-6 h-6 rounded-full flex items-center justify-center shrink-0">{i + 1}</span>
+                        <span className="font-semibold flex-1">{d.nome || '—'}</span>
+                        {d.idade && <span className="text-muted-foreground text-xs">{d.idade} anos</span>}
+                        {d.produto_nome && <span className="text-xs bg-muted px-2 py-0.5 rounded-full">{d.produto_nome}</span>}
+                        {d.descricao && <span className="text-xs text-muted-foreground">{d.descricao}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {venda.observacoes && <div className="p-3 bg-muted/30 rounded-lg"><p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">Observações</p><p className="text-sm whitespace-pre-wrap">{venda.observacoes}</p></div>}
           <div>
             <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-2">Documentos ({docs.length})</p>
