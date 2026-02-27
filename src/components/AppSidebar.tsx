@@ -35,10 +35,10 @@ const navItems: NavItem[] = [
   { to: '/notificacoes', icon: Bell, label: 'Notificações', access: 'all' },
   { to: '/aprovacoes', icon: CheckSquare, label: 'Aprovações', access: 'supervisor_up' },
   { to: '/gestao', icon: BarChart3, label: 'Dashboard', access: 'supervisor_up' },
-  { to: '/inventario', icon: Archive, label: 'Inventário', access: 'all' },
+  { to: '/inventario', icon: Archive, label: 'Inventário', access: 'supervisor_up' },
   { to: '/equipe', icon: Users, label: 'Equipe', access: 'all' },
   { to: '/admin/usuarios', icon: UserCog, label: 'Usuários', access: 'admin' },
-  { to: '/admin/logs', icon: Activity, label: 'Logs de Auditoria', access: 'admin' },
+  { to: '/admin/logs', icon: Activity, label: 'Logs de Auditoria', access: 'supervisor_up' },
 ];
 
 // Map nav items to tab permission keys
@@ -168,8 +168,8 @@ export function AppSidebar() {
           <NavLink
             to={item.to}
             className={`flex items-center gap-3 flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200 ${isActive
-                ? 'bg-white/[0.14] text-white shadow-sm backdrop-blur-sm nav-active-indicator'
-                : 'text-white/50 hover:bg-white/[0.08] hover:text-white/80 hover:translate-x-0.5'
+              ? 'bg-white/[0.14] text-white shadow-sm backdrop-blur-sm nav-active-indicator'
+              : 'text-white/50 hover:bg-white/[0.08] hover:text-white/80 hover:translate-x-0.5'
               } ${collapsed ? 'justify-center' : ''}`}
           >
             <div className="relative shrink-0">

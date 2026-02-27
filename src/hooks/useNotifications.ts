@@ -3,9 +3,123 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect } from 'react';
 
+/* ─────────────────────────────────────────────
+ * Notification helpers — scoped by audience
+ * ───────────────────────────────────────────── */
+
+type NotifyPayload = {
+  titulo: string;
+  descricao: string;
+  tipo: string;
+  link?: string;
+};
+
+/** Insert notification rows for a list of recipient IDs */
+async function insertNotifications(recipientIds: string[], payload: NotifyPayload) {
+  if (recipientIds.length === 0) return;
+  const notifications = recipientIds.map(rid => ({
+    user_id: rid,
+    titulo: payload.titulo,
+    descricao: payload.descricao,
+    tipo: payload.tipo,
+    link: payload.link || null,
+    lida: false,
+  }));
+  await supabase.from('notifications').insert(notifications as any);
+}
+
 /**
- * Send notifications to a user's supervisor, manager, and directors.
- * Call this after creating atividades, vendas, devoluções, alterações, etc.
+ * Notify only the user themselves (e.g. when their venda is returned).
+ */
+export async function notifySelf(
+  userId: string,
+  titulo: string,
+  descricao: string,
+  tipo: string,
+  link?: string
+) {
+  try {
+    await insertNotifications([userId], { titulo, descricao, tipo, link });
+  } catch (err) {
+    console.error('notifySelf error:', err);
+  }
+}
+
+/**
+ * Notify the user's direct supervisor + gerente (hierarquia direta).
+ */
+export async function notifyDirectLeadership(
+  userId: string,
+  titulo: string,
+  descricao: string,
+  tipo: string,
+  link?: string
+) {
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('supervisor_id, gerente_id')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!profile) return;
+    const recipients: string[] = [];
+    if (profile.supervisor_id) recipients.push(profile.supervisor_id);
+    if (profile.gerente_id && profile.gerente_id !== profile.supervisor_id) {
+      recipients.push(profile.gerente_id);
+    }
+    await insertNotifications(recipients, { titulo, descricao, tipo, link });
+  } catch (err) {
+    console.error('notifyDirectLeadership error:', err);
+  }
+}
+
+/**
+ * Notify all supervisors, gerentes, and diretores system-wide.
+ */
+export async function notifyGlobalLeaders(
+  excludeUserId: string,
+  titulo: string,
+  descricao: string,
+  tipo: string,
+  link?: string
+) {
+  try {
+    const { data: leaders } = await supabase
+      .from('profiles')
+      .select('id')
+      .in('cargo', ['supervisor', 'gerente', 'diretor']);
+    if (!leaders) return;
+    const recipients = leaders.map(l => l.id).filter(id => id !== excludeUserId);
+    await insertNotifications(recipients, { titulo, descricao, tipo, link });
+  } catch (err) {
+    console.error('notifyGlobalLeaders error:', err);
+  }
+}
+
+/**
+ * Notify only admin-level users.
+ */
+export async function notifyAdmins(
+  titulo: string,
+  descricao: string,
+  tipo: string,
+  link?: string
+) {
+  try {
+    const { data: admins } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('cargo', 'admin');
+    if (!admins) return;
+    await insertNotifications(admins.map(a => a.id), { titulo, descricao, tipo, link });
+  } catch (err) {
+    console.error('notifyAdmins error:', err);
+  }
+}
+
+/**
+ * Legacy — notifies direct supervisor + gerente + all diretores.
+ * Kept for backward compatibility. New code should prefer the scoped helpers.
  */
 export async function notifyHierarchy(
   userId: string,
@@ -15,7 +129,6 @@ export async function notifyHierarchy(
   link?: string
 ) {
   try {
-    // Fetch user's profile for supervisor_id and gerente_id
     const { data: profile } = await supabase
       .from('profiles')
       .select('supervisor_id, gerente_id, nome_completo')
@@ -29,7 +142,7 @@ export async function notifyHierarchy(
       recipients.push(profile.gerente_id);
     }
 
-    // Also notify directors (cargo = 'diretor') if any
+    // Also notify directors
     const { data: directors } = await supabase
       .from('profiles')
       .select('id')
@@ -42,18 +155,7 @@ export async function notifyHierarchy(
       }
     }
 
-    if (recipients.length === 0) return;
-
-    const notifications = recipients.map(rid => ({
-      user_id: rid,
-      titulo,
-      descricao,
-      tipo,
-      link: link || null,
-      lida: false,
-    }));
-
-    await supabase.from('notifications').insert(notifications as any);
+    await insertNotifications(recipients, { titulo, descricao, tipo, link });
   } catch (err) {
     console.error('notifyHierarchy error:', err);
   }
