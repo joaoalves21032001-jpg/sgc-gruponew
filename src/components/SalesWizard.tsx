@@ -280,6 +280,27 @@ export default function SalesWizard() {
     } catch (err) { console.error('[SalesWizard] Direct download exception:', err); return null; }
   };
 
+  // Helper: download a file from Supabase venda-documentos and create a File object
+  const downloadVendaDoc = async (filePath: string, fileName: string): Promise<File | null> => {
+    if (!filePath || !filePath.trim()) return null;
+    try {
+      const { data: urlData } = await supabase.storage.from('venda-documentos').createSignedUrl(filePath, 120);
+      if (urlData?.signedUrl) {
+        const resp = await fetch(urlData.signedUrl);
+        if (resp.ok) {
+          const blob = await resp.blob();
+          return new File([blob], fileName, { type: blob.type || 'application/octet-stream' });
+        }
+      }
+      const { data } = await supabase.storage.from('venda-documentos').download(filePath);
+      if (data) {
+        return new File([data], fileName, { type: data.type || 'application/octet-stream' });
+      }
+    } catch (err) { console.error('[SalesWizard] downloadVendaDoc error:', err); }
+    return null;
+  };
+
+
 
   // Prefill from CRM lead
   useEffect(() => {
@@ -491,6 +512,52 @@ export default function SalesWizard() {
       if (editVenda.vidas) {
         setQtdVidas(String(editVenda.vidas));
       }
+
+      // Fetch existing documents from venda_documentos
+      (async () => {
+        setLoadingLeadDocs(true);
+        try {
+          const { data: vDocs, error } = await supabase
+            .from('venda_documentos')
+            .select('*')
+            .eq('venda_id', editVenda.id);
+
+          if (!error && vDocs && vDocs.length > 0) {
+            const newBenefDocs: Record<string, Record<string, File | null>> = {};
+            const newAproveitamentoDocs: Record<string, File | null> = {};
+            const newBoletos: File[] = [];
+
+            for (const d of vDocs) {
+              const file = await downloadVendaDoc(d.file_path, d.nome);
+              if (!file) continue;
+
+              if (d.tipo.startsWith('Aproveitamento - Boleto')) {
+                newBoletos.push(file);
+              } else if (d.tipo.startsWith('Aproveitamento - ')) {
+                const label = d.tipo.replace('Aproveitamento - ', '');
+                newAproveitamentoDocs[label] = file;
+              } else if (d.tipo.includes(' - ')) {
+                const parts = d.tipo.split(' - ');
+                const key = parts[0];
+                const label = parts.slice(1).join(' - ');
+                if (!newBenefDocs[key]) newBenefDocs[key] = {};
+                newBenefDocs[key][label] = file;
+              }
+            }
+
+            if (Object.keys(newBenefDocs).length > 0) setBenefDocs(newBenefDocs);
+            if (Object.keys(newAproveitamentoDocs).length > 0) setAproveitamentoDocs(newAproveitamentoDocs);
+            if (newBoletos.length > 0) setBoletosFiles(newBoletos);
+
+            toast.success('Documentos da venda carregados com sucesso!');
+          }
+        } catch (err) {
+          console.error('[SalesWizard] Error loading existing docs:', err);
+        } finally {
+          setLoadingLeadDocs(false);
+        }
+      })();
+
       setStep(0);
       toast.info(changeReq ? 'Altere os campos desejados e solicite a alteração.' : 'Editando venda — altere os campos desejados e reenvie.');
       window.history.replaceState({}, document.title);
