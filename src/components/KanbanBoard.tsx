@@ -160,7 +160,7 @@ function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, on
 
   return (
     <div
-      className={`flex flex-col min-w-[280px] max-w-[320px] rounded-xl border transition-colors ${dragOver ? 'border-primary bg-primary/5' : 'border-border/30 bg-muted/20'}`}
+      className={`flex flex-col min-w-[280px] w-[280px] flex-shrink-0 rounded-xl border transition-colors ${dragOver ? 'border-primary bg-primary/5' : 'border-border/30 bg-muted/20'}`}
       onDragOver={e => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
       onDrop={e => { e.preventDefault(); setDragOver(false); onDrop(stage.id); }}
@@ -525,7 +525,7 @@ export function KanbanBoard() {
       )}
 
       {/* Board */}
-      <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2">
+      <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 min-h-[calc(100vh-320px)]">
         {stages.map(stage => (
           <KanbanColumn
             key={stage.id}

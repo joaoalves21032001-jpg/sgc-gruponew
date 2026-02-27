@@ -740,6 +740,7 @@ export type Database = {
       vendas: {
         Row: {
           created_at: string
+          dados_completos: string | null
           data_lancamento: string | null
           id: string
           justificativa_retroativo: string | null
@@ -754,6 +755,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dados_completos?: string | null
           data_lancamento?: string | null
           id?: string
           justificativa_retroativo?: string | null
@@ -768,6 +770,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dados_completos?: string | null
           data_lancamento?: string | null
           id?: string
           justificativa_retroativo?: string | null
