@@ -8,7 +8,7 @@ import {
 import { useProfile, useUserRole } from '@/hooks/useProfile';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
 import { PatenteBadge } from './PatenteBadge';
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { HelpGuide } from './HelpGuide';
 import { useUnreadCount } from '@/hooks/useNotifications';
@@ -72,6 +72,11 @@ export function AppSidebar() {
 
   const [dragItem, setDragItem] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
+
+  // Propagate sidebar collapsed state to <html> for CSS-driven layout adaptation
+  useEffect(() => {
+    document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
+  }, [collapsed]);
 
   const displayName = profile?.apelido || profile?.nome_completo?.split(' ')[0] || '...';
   const percentMeta = 0;
