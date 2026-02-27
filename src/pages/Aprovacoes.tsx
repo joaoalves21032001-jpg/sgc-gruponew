@@ -303,13 +303,24 @@ const Aprovacoes = () => {
         .limit(1)
         .maybeSingle();
 
+      // Build extended data JSON so lead preserves cotação info
+      const extendedData = JSON.stringify({
+        companhia_nome: cotacao.companhia_nome || null,
+        produto: cotacao.produto_nome || null,
+        quantidade_vidas: cotacao.quantidade_vidas || null,
+        vendaDental: cotacao.com_dental || false,
+        coParticipacao: cotacao.co_participacao || 'sem',
+        plano_anterior: false,
+        origemLandingPage: true,
+      });
+
       // Create lead
       const { data: newLead, error: leadError } = await supabase.from('leads').insert({
         nome: cotacao.nome,
         contato: cotacao.contato,
         email: cotacao.email || null,
         tipo,
-        origem: 'Landing Page',
+        origem: extendedData,
         livre: !cotacao.consultor_recomendado_id,
         stage_id: firstStage?.id || null,
         created_by: cotacao.consultor_recomendado_id || null,
