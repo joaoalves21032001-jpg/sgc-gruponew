@@ -87,6 +87,59 @@ function DocUploadRow({ label, required, file, onUpload }: { label: string; requ
   );
 }
 
+function MultiDocUploadRow({ label, required, maxFiles, files, onFilesChange }: { label: string; required: boolean; maxFiles: number; files: File[]; onFilesChange: (files: File[]) => void }) {
+  const hasAny = files.length > 0;
+  const addFile = (f: File) => {
+    if (files.length < maxFiles) onFilesChange([...files, f]);
+  };
+  const removeFile = (idx: number) => {
+    onFilesChange(files.filter((_, i) => i !== idx));
+  };
+  const replaceFile = (idx: number, f: File) => {
+    const next = [...files];
+    next[idx] = f;
+    onFilesChange(next);
+  };
+  return (
+    <div className={cn(
+      "p-3.5 rounded-lg border transition-colors space-y-2",
+      hasAny ? "border-success/30 bg-success/5" : required ? "border-border/30 bg-muted/20" : "border-border/20 bg-muted/10"
+    )}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium text-foreground">{label}</span>
+          {required && <span className="text-xs text-destructive font-bold">*</span>}
+          {!required && <Badge variant="outline" className="text-[9px]">Opcional</Badge>}
+          <span className="text-[10px] text-muted-foreground">({files.length}/{maxFiles})</span>
+        </div>
+        {files.length < maxFiles && (
+          <label className="cursor-pointer">
+            <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => { const f = e.target.files?.[0]; if (f) addFile(f); e.target.value = ''; }} />
+            <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md border border-border/40 bg-card text-sm font-medium hover:bg-muted transition-colors cursor-pointer">
+              <Upload className="w-3.5 h-3.5" /> Anexar
+            </span>
+          </label>
+        )}
+      </div>
+      {files.map((file, idx) => (
+        <div key={idx} className="flex items-center gap-2 pl-1">
+          <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
+          <span className="text-xs text-success flex-1 truncate">{file.name}</span>
+          <label className="cursor-pointer">
+            <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={(e) => { const f = e.target.files?.[0]; if (f) replaceFile(idx, f); e.target.value = ''; }} />
+            <span className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border/30 text-[11px] font-medium hover:bg-muted transition-colors cursor-pointer">
+              <Upload className="w-3 h-3" /> Trocar
+            </span>
+          </label>
+          <button type="button" onClick={() => removeFile(idx)} className="inline-flex items-center gap-1 px-2 py-1 rounded border border-destructive/30 text-[11px] font-medium text-destructive hover:bg-destructive/10 transition-colors">
+            <Trash2 className="w-3 h-3" /> Remover
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /* ─── Types ─── */
 type VendaModalidade = 'PF' | 'Familiar' | 'PME Multi' | 'Empresarial' | 'Adesão';
 
@@ -185,6 +238,18 @@ export default function SalesWizard() {
   const [titularDocs, setTitularDocs] = useState<Record<string, File | null>>({});
   const [aproveitamentoDocs, setAproveitamentoDocs] = useState<Record<string, File | null>>({});
   const [benefDocs, setBenefDocs] = useState<Record<string, Record<string, File | null>>>({});
+  const [boletosFiles, setBoletosFiles] = useState<File[]>([]);
+  const [loadingLeadDocs, setLoadingLeadDocs] = useState(false);
+
+  // Helper: download a file from Supabase lead-documentos and create a File object
+  const downloadLeadDoc = async (filePath: string, fileName?: string): Promise<File | null> => {
+    try {
+      const { data, error } = await supabase.storage.from('lead-documentos').download(filePath);
+      if (error || !data) return null;
+      const name = fileName || filePath.split('/').pop() || 'documento';
+      return new File([data], name, { type: data.type });
+    } catch { return null; }
+  };
 
 
   // Prefill from CRM lead
@@ -360,7 +425,6 @@ export default function SalesWizard() {
   const aproveitamentoDefs = possuiAproveitamento ? [
     { label: 'Foto Carteirinha Anterior', required: true },
     { label: 'Carta de Permanência (PDF)', required: true },
-    { label: 'Últimos 3 boletos pagos', required: false },
   ] : [];
 
   // Validation - fixed to properly sync doc state
@@ -519,6 +583,9 @@ export default function SalesWizard() {
         for (const [label, file] of Object.entries(aproveitamentoDocs)) {
           if (file) await uploadVendaDocumento(vendaId, user.id, file, `Aproveitamento - ${label}`);
         }
+        for (let i = 0; i < boletosFiles.length; i++) {
+          await uploadVendaDocumento(vendaId, user.id, boletosFiles[i], `Aproveitamento - Boleto ${i + 1}`);
+        }
         for (const [key, docs] of Object.entries(benefDocs)) {
           for (const [label, file] of Object.entries(docs)) {
             if (file) await uploadVendaDocumento(vendaId, user.id, file, `${key} - ${label}`);
@@ -551,6 +618,7 @@ export default function SalesWizard() {
       setDependentes([]);
       setTitularDocs({});
       setAproveitamentoDocs({});
+      setBoletosFiles([]);
       setBenefDocs({});
       setValorContrato('');
       setObsLinhas(['']);
@@ -730,7 +798,7 @@ export default function SalesWizard() {
                 <div className="mt-3 flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
                   <Switch
                     checked={useResponsavelTitular}
-                    onCheckedChange={(checked) => {
+                    onCheckedChange={async (checked) => {
                       setUseResponsavelTitular(checked);
                       if (checked && selectedLead) {
                         updateTitular(0, 'nome', selectedLead.nome);
@@ -740,16 +808,46 @@ export default function SalesWizard() {
                           const produtoMatch = filteredProdutos.find(p => p.nome === selectedLead.produto);
                           if (produtoMatch) updateTitular(0, 'produto_id', produtoMatch.id);
                         }
-                        toast.success('Dados do responsável aplicados ao 1º titular!');
+                        // Auto-attach lead documents
+                        const key = 'titular_0';
+                        const docUpdates: Record<string, File | null> = {};
+                        setLoadingLeadDocs(true);
+                        try {
+                          if (selectedLead.doc_foto_path) {
+                            const file = await downloadLeadDoc(selectedLead.doc_foto_path, 'documento_foto.jpg');
+                            if (file) docUpdates['Documento com foto'] = file;
+                          }
+                          if (selectedLead.comprovante_endereco_path) {
+                            const file = await downloadLeadDoc(selectedLead.comprovante_endereco_path, 'comprovante_endereco.jpg');
+                            if (file) docUpdates['Comprovante de endereço'] = file;
+                          }
+                          if (Object.keys(docUpdates).length > 0) {
+                            setBenefDocs(prev => ({ ...prev, [key]: { ...(prev[key] || {}), ...docUpdates } }));
+                            toast.success(`Dados e ${Object.keys(docUpdates).length} documento(s) do responsável aplicados ao 1º titular!`);
+                          } else {
+                            toast.success('Dados do responsável aplicados ao 1º titular!');
+                          }
+                        } catch {
+                          toast.success('Dados do responsável aplicados ao 1º titular!');
+                        } finally {
+                          setLoadingLeadDocs(false);
+                        }
                       } else {
                         updateTitular(0, 'nome', '');
                         updateTitular(0, 'idade', '');
                         updateTitular(0, 'produto_id', '');
+                        // Clear auto-attached docs
+                        setBenefDocs(prev => {
+                          const next = { ...prev };
+                          delete next['titular_0'];
+                          return next;
+                        });
                       }
                     }}
                   />
                   <span className="text-sm text-foreground">{useResponsavelTitular ? 'Sim' : 'Não'}</span>
                   <Label className="text-sm text-foreground">Utilizar os dados do responsável para preenchimento do 1º Titular</Label>
+                  {loadingLeadDocs && <div className="h-4 w-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />}
                 </div>
               )}
             </div>
@@ -962,6 +1060,7 @@ export default function SalesWizard() {
                 {aproveitamentoDefs.map(doc => (
                   <DocUploadRow key={doc.label} label={doc.label} required={doc.required} file={aproveitamentoDocs[doc.label] || null} onUpload={(f) => setAproveitamentoDocs(prev => ({ ...prev, [doc.label]: f }))} />
                 ))}
+                <MultiDocUploadRow label="Últimos 3 boletos pagos" required={false} maxFiles={3} files={boletosFiles} onFilesChange={setBoletosFiles} />
               </div>
             )}
 
