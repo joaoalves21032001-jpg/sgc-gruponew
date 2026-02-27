@@ -67,7 +67,7 @@ export function useCreateVenda() {
   const { user } = useAuth();
 
   return useMutation({
-    mutationFn: async (venda: { nome_titular: string; modalidade: string; vidas: number; valor?: number; observacoes?: string; data_lancamento?: string; justificativa_retroativo?: string }) => {
+    mutationFn: async (venda: { nome_titular: string; modalidade: string; vidas: number; valor?: number; observacoes?: string; data_lancamento?: string; justificativa_retroativo?: string; dados_completos?: string }) => {
       if (!user) throw new Error('Not authenticated');
 
       // Check if user is gerente or above for auto-approval

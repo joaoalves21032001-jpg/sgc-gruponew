@@ -339,9 +339,55 @@ export default function SalesWizard() {
         setModalidade(mod);
         handleModalidadeChange(mod);
       }
-      // Set nome_titular as first titular
-      if (editVenda.nome_titular) {
+
+      // Parse extended data
+      let ext: any = {};
+      try { if (editVenda.dados_completos) ext = JSON.parse(editVenda.dados_completos); } catch { /* */ }
+
+      // Set companhia
+      if (ext.companhia_id) {
+        setCompanhiaId(ext.companhia_id);
+      } else if (ext.companhia_nome) {
+        const comp = companhias.find(c => c.nome === ext.companhia_nome);
+        if (comp) setCompanhiaId(comp.id);
+      }
+      // Set lead
+      if (ext.lead_id) {
+        setLeadId(ext.lead_id);
+      }
+      // Set vendaDental
+      if (ext.venda_dental) setVendaDental(true);
+      // Set coParticipacao
+      if (ext.co_participacao && ext.co_participacao !== 'sem') setCoParticipacao(ext.co_participacao);
+      // Set estagiarios
+      if (ext.estagiarios) {
+        setEstagiarios(true);
+        if (ext.qtd_estagiarios) setQtdEstagiarios(ext.qtd_estagiarios);
+      }
+      // Set data vigencia
+      if (ext.data_vigencia) {
+        setDataVigencia(new Date(ext.data_vigencia + 'T12:00:00'));
+      }
+      // Set aproveitamento
+      if (ext.possui_aproveitamento) setPossuiAproveitamento(true);
+      // Set titulares with full data
+      if (ext.titulares && ext.titulares.length > 0) {
+        setTitulares(ext.titulares.map((t: any) => ({
+          nome: t.nome || '',
+          idade: t.idade || '',
+          produto_id: t.produto_id || '',
+        })));
+      } else if (editVenda.nome_titular) {
         setTitulares([{ nome: editVenda.nome_titular, idade: '', produto_id: '' }]);
+      }
+      // Set dependentes
+      if (ext.dependentes && ext.dependentes.length > 0) {
+        setDependentes(ext.dependentes.map((d: any) => ({
+          nome: d.nome || '',
+          idade: d.idade || '',
+          produto_id: d.produto_id || '',
+          descricao: d.descricao || '',
+        })));
       }
       // Set valor
       if (editVenda.valor) {
@@ -565,6 +611,35 @@ export default function SalesWizard() {
     setVendaSaving(true);
     try {
       const totalVidas = titulares.length + dependentes.length;
+
+      // Build the full dados_completos JSON
+      const selectedCompanhia = companhias.find(c => c.id === companhiaId);
+      const dadosCompletos = JSON.stringify({
+        companhia_id: companhiaId || null,
+        companhia_nome: selectedCompanhia?.nome || null,
+        lead_id: leadId || null,
+        lead_nome: selectedLead?.nome || null,
+        venda_dental: vendaDental,
+        co_participacao: coParticipacao,
+        estagiarios,
+        qtd_estagiarios: qtdEstagiarios || null,
+        data_vigencia: dataVigencia ? format(dataVigencia, 'yyyy-MM-dd') : null,
+        possui_aproveitamento: possuiAproveitamento,
+        titulares: titulares.map(t => ({
+          nome: t.nome,
+          idade: t.idade,
+          produto_id: t.produto_id,
+          produto_nome: produtos.find(p => p.id === t.produto_id)?.nome || null,
+        })),
+        dependentes: dependentes.map(d => ({
+          nome: d.nome,
+          idade: d.idade,
+          produto_id: d.produto_id,
+          descricao: d.descricao,
+          produto_nome: produtos.find(p => p.id === d.produto_id)?.nome || null,
+        })),
+      });
+
       const vendaPayload = {
         nome_titular: titulares[0]?.nome || selectedLead?.nome || '',
         modalidade: modalidade as string,
@@ -573,6 +648,7 @@ export default function SalesWizard() {
         observacoes: obsLinhas.filter(Boolean).join('\n') || undefined,
         data_lancamento: format(dataLancamento, 'yyyy-MM-dd'),
         justificativa_retroativo: isRetroativo ? justificativa : undefined,
+        dados_completos: dadosCompletos,
       };
 
       let vendaId: string;
