@@ -291,7 +291,7 @@ const Aprovacoes = () => {
   const [savingCR, setSavingCR] = useState(false);
 
   const isAdmin = role === 'administrador';
-  const isSupervisorUp = role === 'supervisor' || role === 'gerente' || role === 'diretor' || role === 'administrador';
+  const isSupervisorUp = role === 'supervisor' || role === 'gerente' || role === 'administrador';
 
   if (!isSupervisorUp) {
     return (
