@@ -10,7 +10,7 @@ export function AppLayout() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppSidebar />
-      <main className="ml-[260px] p-8 transition-all duration-300 flex-1">
+      <main className="app-main flex-1 p-8 transition-all duration-300 ease-out">
         <ErrorBoundary>
           <AnimatePresence mode="wait">
             <motion.div
@@ -19,13 +19,14 @@ export function AppLayout() {
               animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
               exit={{ opacity: 0, y: -8, filter: 'blur(2px)' }}
               transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+              className="min-h-[calc(100vh-10rem)]"
             >
               <Outlet />
             </motion.div>
           </AnimatePresence>
         </ErrorBoundary>
       </main>
-      <footer className="ml-[260px] border-t border-border/50 bg-card/50 backdrop-blur-sm">
+      <footer className="app-footer border-t border-border/50 bg-card/50 backdrop-blur-sm transition-all duration-300 ease-out">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-8 py-4">
           <img src={logoHorizontal} alt="Grupo New" className="h-7 opacity-50 grayscale" />
           <p className="text-[11px] text-muted-foreground/60">

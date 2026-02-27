@@ -133,19 +133,38 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
     letter-spacing: -0.02em;
   }
 
   /* Refined scrollbar */
-  ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: hsl(220 13% 82%); border-radius: 999px; }
-  ::-webkit-scrollbar-thumb:hover { background: hsl(220 13% 70%); }
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(220 13% 82%);
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(220 13% 70%);
+  }
 }
 
 @layer utilities {
+
   /* ── Gradients ── */
   .gradient-brand {
     background: linear-gradient(145deg, hsl(194 55% 14%), hsl(194 53% 26%));
@@ -197,35 +216,74 @@
   }
 
   /* ── Patente borders ── */
-  .border-patente-diamante { border-color: hsl(185 80% 55%); }
-  .border-patente-platina { border-color: hsl(220 15% 70%); }
-  .border-patente-ouro { border-color: hsl(43 96% 56%); }
-  .border-patente-prata { border-color: hsl(220 10% 62%); }
-  .border-patente-bronze { border-color: hsl(25 60% 48%); }
+  .border-patente-diamante {
+    border-color: hsl(185 80% 55%);
+  }
 
-  .text-patente-diamante { color: hsl(185 80% 55%); }
-  .text-patente-platina { color: hsl(220 15% 70%); }
-  .text-patente-ouro { color: hsl(43 96% 56%); }
-  .text-patente-prata { color: hsl(220 10% 62%); }
-  .text-patente-bronze { color: hsl(25 60% 48%); }
+  .border-patente-platina {
+    border-color: hsl(220 15% 70%);
+  }
 
-  .bg-flag-amarelo { background-color: hsl(45 93% 47%); }
-  .bg-flag-laranja { background-color: hsl(25 95% 53%); }
-  .bg-flag-vermelho { background-color: hsl(0 84% 40%); }
+  .border-patente-ouro {
+    border-color: hsl(43 96% 56%);
+  }
+
+  .border-patente-prata {
+    border-color: hsl(220 10% 62%);
+  }
+
+  .border-patente-bronze {
+    border-color: hsl(25 60% 48%);
+  }
+
+  .text-patente-diamante {
+    color: hsl(185 80% 55%);
+  }
+
+  .text-patente-platina {
+    color: hsl(220 15% 70%);
+  }
+
+  .text-patente-ouro {
+    color: hsl(43 96% 56%);
+  }
+
+  .text-patente-prata {
+    color: hsl(220 10% 62%);
+  }
+
+  .text-patente-bronze {
+    color: hsl(25 60% 48%);
+  }
+
+  .bg-flag-amarelo {
+    background-color: hsl(45 93% 47%);
+  }
+
+  .bg-flag-laranja {
+    background-color: hsl(25 95% 53%);
+  }
+
+  .bg-flag-vermelho {
+    background-color: hsl(0 84% 40%);
+  }
 
   /* ── Shimmer Animation (Gamification) ── */
   @keyframes shimmer {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+    0% {
+      background-position: -200% 0;
+    }
+
+    100% {
+      background-position: 200% 0;
+    }
   }
 
   .animate-shimmer {
-    background: linear-gradient(
-      90deg,
-      transparent 0%,
-      hsl(0 0% 100% / 0.15) 50%,
-      transparent 100%
-    );
+    background: linear-gradient(90deg,
+        transparent 0%,
+        hsl(0 0% 100% / 0.15) 50%,
+        transparent 100%);
     background-size: 200% 100%;
     animation: shimmer 2.5s infinite ease-in-out;
   }
@@ -242,26 +300,58 @@
 
   /* ── Staggered entrance animation ── */
   @keyframes stagger-fade-in {
-    from { opacity: 0; transform: translateY(16px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
+    from {
+      opacity: 0;
+      transform: translateY(16px) scale(0.98);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
 
-  .animate-stagger > * {
+  .animate-stagger>* {
     animation: stagger-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) backwards;
   }
-  .animate-stagger > *:nth-child(1) { animation-delay: 0.05s; }
-  .animate-stagger > *:nth-child(2) { animation-delay: 0.1s; }
-  .animate-stagger > *:nth-child(3) { animation-delay: 0.15s; }
-  .animate-stagger > *:nth-child(4) { animation-delay: 0.2s; }
-  .animate-stagger > *:nth-child(5) { animation-delay: 0.25s; }
-  .animate-stagger > *:nth-child(6) { animation-delay: 0.3s; }
-  .animate-stagger > *:nth-child(7) { animation-delay: 0.35s; }
-  .animate-stagger > *:nth-child(8) { animation-delay: 0.4s; }
+
+  .animate-stagger>*:nth-child(1) {
+    animation-delay: 0.05s;
+  }
+
+  .animate-stagger>*:nth-child(2) {
+    animation-delay: 0.1s;
+  }
+
+  .animate-stagger>*:nth-child(3) {
+    animation-delay: 0.15s;
+  }
+
+  .animate-stagger>*:nth-child(4) {
+    animation-delay: 0.2s;
+  }
+
+  .animate-stagger>*:nth-child(5) {
+    animation-delay: 0.25s;
+  }
+
+  .animate-stagger>*:nth-child(6) {
+    animation-delay: 0.3s;
+  }
+
+  .animate-stagger>*:nth-child(7) {
+    animation-delay: 0.35s;
+  }
+
+  .animate-stagger>*:nth-child(8) {
+    animation-delay: 0.4s;
+  }
 
   /* ── Button press effect ── */
   .btn-press {
     transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.15s ease;
   }
+
   .btn-press:active:not(:disabled) {
     transform: scale(0.97);
   }
@@ -270,6 +360,7 @@
   .card-interactive {
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease, border-color 0.3s ease;
   }
+
   .card-interactive:hover {
     transform: translateY(-2px);
     border-color: hsl(var(--ring) / 0.3);
@@ -277,18 +368,32 @@
 
   /* ── Floating action button pulse ── */
   @keyframes fab-pulse {
-    0%, 100% { box-shadow: 0 4px 24px -6px hsl(194 53% 26% / 0.3); }
-    50% { box-shadow: 0 6px 32px -4px hsl(194 53% 26% / 0.5); }
+
+    0%,
+    100% {
+      box-shadow: 0 4px 24px -6px hsl(194 53% 26% / 0.3);
+    }
+
+    50% {
+      box-shadow: 0 6px 32px -4px hsl(194 53% 26% / 0.5);
+    }
   }
+
   .fab-animated {
     animation: fab-pulse 2.5s ease-in-out infinite;
   }
 
   /* ── Loading skeleton shimmer ── */
   @keyframes skeleton-wave {
-    0% { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
+    0% {
+      background-position: -200% 0;
+    }
+
+    100% {
+      background-position: 200% 0;
+    }
   }
+
   .skeleton-wave {
     background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted-foreground) / 0.08) 50%, hsl(var(--muted)) 75%);
     background-size: 200% 100%;
@@ -297,9 +402,19 @@
 
   /* ── Smooth page transitions ── */
   @keyframes page-enter {
-    from { opacity: 0; transform: translateY(12px); filter: blur(4px); }
-    to { opacity: 1; transform: translateY(0); filter: blur(0px); }
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+      filter: blur(4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0px);
+    }
   }
+
   .page-enter {
     animation: page-enter 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
@@ -321,8 +436,11 @@
 
   /* ── Progress bar animated fill ── */
   @keyframes progress-fill {
-    from { width: 0%; }
+    from {
+      width: 0%;
+    }
   }
+
   .progress-animated {
     animation: progress-fill 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
@@ -338,22 +456,37 @@
 
   /* ── Pending badge pulse ── */
   @keyframes badge-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
+
+    0%,
+    100% {
+      opacity: 1;
+    }
+
+    50% {
+      opacity: 0.6;
+    }
   }
+
   .badge-pending {
     animation: badge-pulse 2s ease-in-out infinite;
   }
 
   /* ── Card shine on hover ── */
   @keyframes card-shine {
-    from { left: -80%; }
-    to { left: 120%; }
+    from {
+      left: -80%;
+    }
+
+    to {
+      left: 120%;
+    }
   }
+
   .card-shine {
     position: relative;
     overflow: hidden;
   }
+
   .card-shine::after {
     content: '';
     position: absolute;
@@ -367,6 +500,7 @@
     opacity: 0;
     transition: opacity 0.3s ease;
   }
+
   .card-shine:hover::after {
     opacity: 1;
     animation: card-shine 0.8s ease-in-out;
@@ -376,6 +510,7 @@
   .nav-active-indicator {
     position: relative;
   }
+
   .nav-active-indicator::before {
     content: '';
     position: absolute;
@@ -391,18 +526,34 @@
 
   /* ── Animated counter ── */
   @keyframes count-up {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
+
   .count-animate {
     animation: count-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
 
   /* ── Fade in up (reusable) ── */
   @keyframes fade-in-up {
-    from { opacity: 0; transform: translateY(16px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
+
   .animate-fade-in-up {
     animation: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
@@ -411,8 +562,55 @@
   .hover-lift {
     transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease;
   }
+
   .hover-lift:hover {
     transform: translateY(-3px);
     box-shadow: 0 8px 24px hsl(220 25% 10% / 0.1);
+  }
+
+  /* ══════ SIDEBAR-AWARE LAYOUT ══════ */
+
+  /* Default: sidebar expanded (260px) */
+  .app-main,
+  .app-footer {
+    margin-left: 260px;
+  }
+
+  /* Sidebar collapsed (72px) */
+  .sidebar-collapsed .app-main,
+  .sidebar-collapsed .app-footer {
+    margin-left: 72px;
+  }
+
+  /* ── Kanban horizontal scroll ── */
+  .kanban-scroll {
+    scroll-behavior: smooth;
+  }
+
+  .kanban-scroll::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .kanban-scroll::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 0 8px;
+  }
+
+  .kanban-scroll::-webkit-scrollbar-thumb {
+    background: hsl(220 13% 82%);
+    border-radius: 999px;
+  }
+
+  .kanban-scroll::-webkit-scrollbar-thumb:hover {
+    background: hsl(220 13% 70%);
+  }
+
+  /* ── Responsive: small screens (sidebar overlays) ── */
+  @media (max-width: 768px) {
+
+    .app-main,
+    .app-footer {
+      margin-left: 0 !important;
+    }
   }
 }
