@@ -73,7 +73,6 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 interface AtividadesForm {
   ligacoes: string;
   mensagens: string;
-  cotacoes_coletadas: string;
   cotacoes_enviadas: string;
   cotacoes_respondidas: string;
   cotacoes_nao_respondidas: string;
@@ -103,7 +102,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const [changeJustificativa, setChangeJustificativa] = useState('');
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<AtividadesForm>({
-    ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '',
+    ligacoes: '', mensagens: '', cotacoes_enviadas: '',
     cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '',
   });
 
@@ -113,7 +112,6 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
       setForm({
         ligacoes: String(editAtividade.ligacoes ?? ''),
         mensagens: String(editAtividade.mensagens ?? ''),
-        cotacoes_coletadas: String(editAtividade.cotacoes_coletadas ?? 0),
         cotacoes_enviadas: String(editAtividade.cotacoes_enviadas ?? ''),
         cotacoes_respondidas: String(editAtividade.cotacoes_fechadas ?? ''),
         cotacoes_nao_respondidas: String(editAtividade.cotacoes_nao_respondidas ?? 0),
@@ -133,7 +131,6 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
     const mapping = [
       { key: 'ligacoes', formKey: 'ligacoes', label: 'Ligações Realizadas' },
       { key: 'mensagens', formKey: 'mensagens', label: 'Mensagens Enviadas' },
-      { key: 'cotacoes_coletadas', formKey: 'cotacoes_coletadas', label: 'Cotações Coletadas' },
       { key: 'cotacoes_enviadas', formKey: 'cotacoes_enviadas', label: 'Cotações Enviadas' },
       { key: 'cotacoes_fechadas', formKey: 'cotacoes_respondidas', label: 'Cotações Respondidas' },
       { key: 'cotacoes_nao_respondidas', formKey: 'cotacoes_nao_respondidas', label: 'Cotações Não Respondidas' },
@@ -156,7 +153,6 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const metrics: { key: keyof AtividadesForm; label: string; icon: React.ElementType; tooltip: string }[] = [
     { key: 'ligacoes', label: 'Ligações Realizadas', icon: Phone, tooltip: 'Total de ligações de prospecção e follow-up realizadas no dia selecionado.' },
     { key: 'mensagens', label: 'Mensagens Enviadas', icon: MessageSquare, tooltip: 'WhatsApp, e-mails e mensagens enviadas a clientes e leads no dia.' },
-    { key: 'cotacoes_coletadas', label: 'Cotações Coletadas', icon: FileText, tooltip: 'Cotações recebidas de operadoras para apresentar ao cliente.' },
     { key: 'cotacoes_enviadas', label: 'Cotações Enviadas', icon: MessageCircle, tooltip: 'Propostas comerciais efetivamente enviadas ao cliente.' },
     { key: 'cotacoes_respondidas', label: 'Cotações Respondidas', icon: CheckCircle2, tooltip: 'Cotações que o cliente respondeu (positiva ou negativamente).' },
     { key: 'cotacoes_nao_respondidas', label: 'Cotações Não Respondidas', icon: XCircle, tooltip: 'Cotações enviadas que ainda não obtiveram retorno do cliente.' },
@@ -168,10 +164,8 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const canSave = allFilled && (!isRetroativo || form.justificativa.trim().length > 0);
 
   const conversionRates = [
-    { label: 'Ligações → Cotações Coletadas', value: calcRate(form.ligacoes, form.cotacoes_coletadas) },
     { label: 'Ligações → Cotações Enviadas', value: calcRate(form.ligacoes, form.cotacoes_enviadas) },
     { label: 'Cotações Enviadas → Respondidas', value: calcRate(form.cotacoes_enviadas, form.cotacoes_respondidas) },
-    { label: 'Mensagens → Cotações Coletadas', value: calcRate(form.mensagens, form.cotacoes_coletadas) },
   ];
 
   const handleSave = () => {
@@ -256,7 +250,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
           '/aprovacoes'
         );
       }
-      setForm({ ligacoes: '', mensagens: '', cotacoes_coletadas: '', cotacoes_enviadas: '', cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '' });
+      setForm({ ligacoes: '', mensagens: '', cotacoes_enviadas: '', cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '' });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao registrar atividades.');
     } finally {

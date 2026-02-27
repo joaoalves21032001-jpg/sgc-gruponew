@@ -97,54 +97,11 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, onAssume, lead
           <User className="w-3 h-3" /> Assumir Lead
         </button>
       )}
-
-      {/* Upload cotações when in "Envio de Cotação" stage */}
-      {isEnvioCotacao && (
-        <CotacaoUploadSection lead={lead} />
-      )}
     </div>
   );
 }
 
-/* ─── Cotação Upload Section (up to 3 PDFs) ─── */
-function CotacaoUploadSection({ lead }: { lead: Lead }) {
-  const [uploading, setUploading] = useState(false);
-  const [files, setFiles] = useState<string[]>([]);
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (files.length >= 3) { toast.error('Máximo de 3 cotações.'); return; }
-    if (!file.name.toLowerCase().endsWith('.pdf')) { toast.error('Apenas arquivos PDF.'); return; }
-    setUploading(true);
-    try {
-      const safeName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
-      const filePath = `${lead.id}/cotacao_${Date.now()}_${safeName}`;
-      const { error } = await supabase.storage.from('lead-documentos').upload(filePath, file);
-      if (error) throw error;
-      setFiles(prev => [...prev, file.name]);
-      // Also update lead's boletos_path
-      await supabase.from('leads').update({ boletos_path: filePath } as any).eq('id', lead.id);
-      toast.success('Cotação anexada!');
-    } catch (err: any) { toast.error(err.message); }
-    finally { setUploading(false); e.target.value = ''; }
-  };
-
-  return (
-    <div className="mt-2 pt-2 border-t border-border/20 space-y-1.5">
-      <p className="text-[10px] font-semibold text-primary flex items-center gap-1"><FileText className="w-3 h-3" /> Cotações (máx. 3)</p>
-      {files.map((f, i) => <p key={i} className="text-[10px] text-success truncate">✓ {f}</p>)}
-      {files.length < 3 && (
-        <label className="cursor-pointer">
-          <input type="file" className="hidden" accept=".pdf" onChange={handleUpload} disabled={uploading} />
-          <span className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border/30 text-[10px] text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer">
-            <Upload className="w-3 h-3" /> {uploading ? 'Enviando...' : 'Anexar PDF'}
-          </span>
-        </label>
-      )}
-    </div>
-  );
-}
 
 /* ─── Kanban Column ─── */
 function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, onDrop, onAddLead, onAssume, getLeaderName, currentUserId }: {
@@ -232,7 +189,8 @@ export function KanbanBoard() {
   const [docFoto, setDocFoto] = useState<File | null>(null);
   const [cartaoCnpj, setCartaoCnpj] = useState<File | null>(null);
   const [comprovanteEndereco, setComprovanteEndereco] = useState<File | null>(null);
-  const [cotacaoPdf, setCotacaoPdf] = useState<File | null>(null);
+  const [cotacaoPdfs, setCotacaoPdfs] = useState<File[]>([]);
+  const [existingCotacaoPaths, setExistingCotacaoPaths] = useState<string[]>([]);
   // RN-02: Carência files
   const [carteirinhaAnterior, setCarteirinhaAnterior] = useState<File | null>(null);
   const [cartaPermanencia, setCartaPermanencia] = useState<File | null>(null);
@@ -358,7 +316,9 @@ export function KanbanBoard() {
     setTitulares(ext.titulares?.length ? ext.titulares : [{ nome: '', idade: '', produto: '' }]);
     setDependentes(ext.dependentes?.length ? ext.dependentes : []);
     setFormStageId(l.stage_id || null);
-    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null); setCarteirinhaAnterior(null); setCartaPermanencia(null);
+    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdfs([]); setCarteirinhaAnterior(null); setCartaPermanencia(null);
+    // Load existing cotação paths from origem JSON
+    setExistingCotacaoPaths(ext.cotacao_paths || (l.boletos_path ? [l.boletos_path] : []));
     setShowForm(true);
   };
 
@@ -389,7 +349,7 @@ export function KanbanBoard() {
     setTitulares([{ nome: '', idade: '', produto: '' }]);
     setDependentes([]);
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
-    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null); setCarteirinhaAnterior(null); setCartaPermanencia(null);
+    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdfs([]); setExistingCotacaoPaths([]); setCarteirinhaAnterior(null); setCartaPermanencia(null);
     setShowForm(true);
   };
 
@@ -461,16 +421,26 @@ export function KanbanBoard() {
       if (docFoto) updates.doc_foto_path = await uploadFile(docFoto, leadId, 'doc_foto');
       if (cartaoCnpj) updates.cartao_cnpj_path = await uploadFile(cartaoCnpj, leadId, 'cartao_cnpj');
       if (comprovanteEndereco) updates.comprovante_endereco_path = await uploadFile(comprovanteEndereco, leadId, 'comprovante');
-      if (cotacaoPdf) updates.boletos_path = await uploadFile(cotacaoPdf, leadId, 'cotacao');
+      // Upload cotação PDFs (up to 3)
+      const allCotacaoPaths = [...existingCotacaoPaths];
+      for (const cpdf of cotacaoPdfs) {
+        if (allCotacaoPaths.length >= 3) break;
+        const path = await uploadFile(cpdf, leadId, 'cotacao');
+        allCotacaoPaths.push(path);
+      }
+      if (allCotacaoPaths.length > 0) {
+        updates.boletos_path = allCotacaoPaths[0]; // First cotação in the DB column
+      }
       // RN-02: Carência files - save paths in origem JSON
       let carenciaUpdates: any = {};
       if (carteirinhaAnterior) carenciaUpdates.carteirinha_anterior_path = await uploadFile(carteirinhaAnterior, leadId, 'carteirinha');
       if (cartaPermanencia) carenciaUpdates.carta_permanencia_path = await uploadFile(cartaPermanencia, leadId, 'carta_permanencia');
-      if (Object.keys(updates).length > 0 || Object.keys(carenciaUpdates).length > 0) {
-        // Merge carência paths into origem JSON
-        if (Object.keys(carenciaUpdates).length > 0) {
+      // Always merge cotação paths into origem JSON
+      const needsOrigemUpdate = allCotacaoPaths.length > 0 || Object.keys(carenciaUpdates).length > 0;
+      if (Object.keys(updates).length > 0 || needsOrigemUpdate) {
+        if (needsOrigemUpdate) {
           const baseOrigem = JSON.parse(extendedData);
-          const mergedOrigem = JSON.stringify({ ...baseOrigem, ...carenciaUpdates });
+          const mergedOrigem = JSON.stringify({ ...baseOrigem, ...carenciaUpdates, cotacao_paths: allCotacaoPaths });
           updates.origem = mergedOrigem;
         }
         if (Object.keys(updates).length > 0) {
@@ -823,7 +793,33 @@ export function KanbanBoard() {
               {isPessoaFisica(form.tipo) && <FileUploadField label="Documento com Foto" file={docFoto} onFileChange={setDocFoto} existingPath={editItem?.doc_foto_path} />}
               {!isPessoaFisica(form.tipo) && <FileUploadField label="Cartão CNPJ" file={cartaoCnpj} onFileChange={setCartaoCnpj} existingPath={editItem?.cartao_cnpj_path} />}
               <FileUploadField label="Comprovante de Endereço" file={comprovanteEndereco} onFileChange={setComprovanteEndereco} existingPath={editItem?.comprovante_endereco_path} />
-              <FileUploadField label="Cotação (PDF)" file={cotacaoPdf} onFileChange={setCotacaoPdf} existingPath={editItem?.boletos_path} />
+              {/* Cotação PDFs (up to 3) */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-muted-foreground">Cotações (PDF) — máx. 3</label>
+                {existingCotacaoPaths.map((p, i) => (
+                  <div key={`existing-${i}`} className="flex items-center gap-2 px-3 py-2 rounded-md border border-border/40 bg-card text-xs">
+                    <FileText className="w-3.5 h-3.5 text-success shrink-0" />
+                    <span className="text-success flex-1 truncate">Cotação {i + 1} ✓</span>
+                    <button type="button" onClick={() => setExistingCotacaoPaths(prev => prev.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80"><Trash2 className="w-3 h-3" /></button>
+                  </div>
+                ))}
+                {cotacaoPdfs.map((f, i) => (
+                  <div key={`new-${i}`} className="flex items-center gap-2 px-3 py-2 rounded-md border border-border/40 bg-card text-xs">
+                    <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-primary flex-1 truncate">{f.name}</span>
+                    <button type="button" onClick={() => setCotacaoPdfs(prev => prev.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80"><Trash2 className="w-3 h-3" /></button>
+                  </div>
+                ))}
+                {(existingCotacaoPaths.length + cotacaoPdfs.length) < 3 && (
+                  <label className="cursor-pointer block">
+                    <input type="file" className="hidden" accept=".pdf" onChange={e => { const f = e.target.files?.[0]; if (f) setCotacaoPdfs(prev => [...prev, f]); e.target.value = ''; }} />
+                    <span className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border/40 bg-card text-xs hover:bg-muted transition-colors cursor-pointer">
+                      <Upload className="w-3.5 h-3.5 text-primary shrink-0" />
+                      <span className="text-muted-foreground">Anexar PDF...</span>
+                    </span>
+                  </label>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>

@@ -62,7 +62,6 @@ const MinhasAcoes = () => {
   const atividadeFields = [
     { key: 'ligacoes', label: 'Ligações Realizadas' },
     { key: 'mensagens', label: 'Mensagens Enviadas' },
-    { key: 'cotacoes_coletadas', label: 'Cotações Coletadas' },
     { key: 'cotacoes_enviadas', label: 'Cotações Enviadas' },
     { key: 'cotacoes_fechadas', label: 'Cotações Respondidas' },
     { key: 'cotacoes_nao_respondidas', label: 'Cotações Não Respondidas' },

@@ -752,13 +752,13 @@ const Aprovacoes = () => {
       const alteracoes = payload.alteracoesPropostas || [];
       const updateObj: Record<string, any> = {};
       // Valid columns per table to avoid schema errors
-      const ativCols = ['ligacoes', 'mensagens', 'cotacoes_coletadas', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'data', 'observacoes'];
+      const ativCols = ['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'data', 'observacoes'];
       const vendaCols = ['nome_titular', 'modalidade', 'vidas', 'valor', 'observacoes', 'data_lancamento', 'justificativa_retroativo'];
       const validCols = cr.tipo === 'atividade' ? ativCols : vendaCols;
       for (const a of alteracoes) {
         if (!validCols.includes(a.campo)) continue; // skip unknown columns
         let val: any = a.valorNovo;
-        if (['ligacoes', 'mensagens', 'cotacoes_coletadas', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'vidas'].includes(a.campo)) {
+        if (['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'vidas'].includes(a.campo)) {
           val = parseInt(val) || 0;
         }
         if (a.campo === 'valor') {
@@ -767,7 +767,7 @@ const Aprovacoes = () => {
         updateObj[a.campo] = val;
       }
       const table = cr.tipo === 'atividade' ? 'atividades' : 'vendas';
-      // Also reset the record status back to the queue
+      // When approving a correction: apply the changes and put the record back into the approval queue
       const resetStatus = cr.tipo === 'atividade' ? 'pendente' : 'analise';
       updateObj.status = resetStatus;
       if (Object.keys(updateObj).length > 0) {
@@ -905,7 +905,6 @@ const Aprovacoes = () => {
                         <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1 flex-wrap">
                           <span>Lig: <strong>{a.ligacoes}</strong></span>
                           <span>Msg: <strong>{a.mensagens}</strong></span>
-                          <span>Cot.Col: <strong>{(a as any).cotacoes_coletadas ?? 0}</strong></span>
                           <span>Cot.Env: <strong>{a.cotacoes_enviadas}</strong></span>
                           <span>Cot.Fech: <strong>{a.cotacoes_fechadas}</strong></span>
                           <span>Cot.NResp: <strong>{(a as any).cotacoes_nao_respondidas ?? 0}</strong></span>
@@ -1203,6 +1202,19 @@ const Aprovacoes = () => {
                           </Button>
                         </div>
                       )}
+                      {isAdmin && (
+                        <Button size="icon" variant="outline" className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
+                          if (!confirm('Excluir esta solicitação de alteração?')) return;
+                          try {
+                            const { error } = await supabase.from('correction_requests').delete().eq('id', cr.id);
+                            if (error) throw error;
+                            toast.success('Solicitação excluída!');
+                            queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
+                          } catch (err: any) { toast.error(err.message); }
+                        }}>
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                 );
@@ -1235,7 +1247,6 @@ const Aprovacoes = () => {
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Data</span><p className="font-semibold text-foreground mt-0.5">{selectedAtiv.data.split('-').reverse().join('/')}</p></div>
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Ligações</span><p className="font-semibold text-foreground mt-0.5">{selectedAtiv.ligacoes}</p></div>
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Mensagens</span><p className="font-semibold text-foreground mt-0.5">{selectedAtiv.mensagens}</p></div>
-                <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Cot. Coletadas</span><p className="font-semibold text-foreground mt-0.5">{(selectedAtiv as any).cotacoes_coletadas ?? 0}</p></div>
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Cot. Enviadas</span><p className="font-semibold text-foreground mt-0.5">{selectedAtiv.cotacoes_enviadas}</p></div>
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Cot. Fechadas</span><p className="font-semibold text-foreground mt-0.5">{selectedAtiv.cotacoes_fechadas}</p></div>
                 <div><span className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Cot. Não Resp.</span><p className="font-semibold text-foreground mt-0.5">{(selectedAtiv as any).cotacoes_nao_respondidas ?? 0}</p></div>

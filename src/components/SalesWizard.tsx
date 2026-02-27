@@ -341,12 +341,13 @@ export default function SalesWizard() {
         setUseResponsavelTitular(true);
       }
 
-      // BUG-01: Auto-attach lead documents to titular_0
-      if (prefillLead.doc_foto_path || prefillLead.comprovante_endereco_path) {
+      // BUG-01: Auto-attach lead documents to titular_0 and Carência
+      if (prefillLead.doc_foto_path || prefillLead.comprovante_endereco_path || ext.carteirinha_anterior_path || ext.carta_permanencia_path) {
         (async () => {
           setLoadingLeadDocs(true);
           const key = 'titular_0';
           const docUpdates: Record<string, File | null> = {};
+          const carenciaUpdates: Record<string, File | null> = {};
           try {
             if (prefillLead.doc_foto_path) {
               const file = await downloadLeadDoc(prefillLead.doc_foto_path, 'documento_foto.jpg');
@@ -356,9 +357,26 @@ export default function SalesWizard() {
               const file = await downloadLeadDoc(prefillLead.comprovante_endereco_path, 'comprovante_endereco.jpg');
               if (file) docUpdates['Comprovante de endereço'] = file;
             }
+            if (ext.carteirinha_anterior_path) {
+              const file = await downloadLeadDoc(ext.carteirinha_anterior_path, 'carteirinha_anterior.jpg');
+              if (file) carenciaUpdates['Foto Carteirinha Anterior'] = file;
+            }
+            if (ext.carta_permanencia_path) {
+              const file = await downloadLeadDoc(ext.carta_permanencia_path, 'carta_permanencia.pdf');
+              if (file) carenciaUpdates['Carta de Permanência (PDF)'] = file;
+            }
+
+            let showToast = false;
             if (Object.keys(docUpdates).length > 0) {
               setBenefDocs(prev => ({ ...prev, [key]: { ...(prev[key] || {}), ...docUpdates } }));
-              toast.success(`${Object.keys(docUpdates).length} documento(s) do lead anexados automaticamente!`);
+              showToast = true;
+            }
+            if (Object.keys(carenciaUpdates).length > 0) {
+              setAproveitamentoDocs(prev => ({ ...prev, ...carenciaUpdates }));
+              showToast = true;
+            }
+            if (showToast) {
+              toast.success(`Documentos do lead anexados automaticamente!`);
             }
           } catch (err) {
             console.error('[SalesWizard] prefill doc attach error:', err);
