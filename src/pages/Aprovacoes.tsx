@@ -23,7 +23,7 @@ import { useCompanhias, useProdutos, useModalidades } from '@/hooks/useInventari
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { maskPhone } from '@/lib/masks';
-import { notifySelf, notifyGlobalLeaders } from '@/hooks/useNotifications';
+import { notifySelf, notifyGlobalLeaders, notifyDirectLeadership } from '@/hooks/useNotifications';
 
 /* ─── Cotacao type ─── */
 interface Cotacao {
@@ -424,6 +424,10 @@ const Aprovacoes = () => {
       } as any).eq('id', rejectCotacao.id);
       logAction('rejeitar_cotacao', 'cotacao', rejectCotacao.id, { nome: rejectCotacao.nome });
       toast.success('Cotação recusada.');
+      // Notify recommended consultant if exists
+      if (rejectCotacao.consultor_recomendado_id) {
+        notifySelf(rejectCotacao.consultor_recomendado_id, 'Cotação Recusada', `A cotação de "${rejectCotacao.nome}" foi recusada: ${rejectCotacaoReason.trim()}`, 'cotacao', '/aprovacoes');
+      }
       queryClient.invalidateQueries({ queryKey: ['cotacoes'] });
       setRejectCotacao(null); setRejectCotacaoReason('');
     } catch (err: any) {
@@ -538,9 +542,11 @@ const Aprovacoes = () => {
       await updateStatus.mutateAsync({ id: venda.id, status: action, observacoes: finalObs });
       toast.success(`Venda ${action === 'aprovado' ? 'aprovada' : 'devolvida'} com sucesso!`);
       logAction(action === 'aprovado' ? 'aprovar_venda' : 'devolver_venda', 'venda', venda.id, { nome_titular: venda.nome_titular });
-      // Notify the consultant about the devolução
+      // Notify the consultant
       if (action === 'devolvido') {
         notifySelf(venda.user_id, 'Venda Devolvida', `Sua venda de "${venda.nome_titular}" foi devolvida: ${justificativa.trim()}`, 'venda', '/minhas-acoes');
+      } else {
+        notifySelf(venda.user_id, 'Venda Aprovada', `Sua venda de "${venda.nome_titular}" foi aprovada!`, 'venda', '/minhas-acoes');
       }
       setSelectedVenda(null);
       setObs(''); setJustificativa('');
@@ -563,9 +569,11 @@ const Aprovacoes = () => {
       if (error) throw error;
       toast.success(`Atividade ${action === 'aprovado' ? 'aprovada' : 'devolvida'} com sucesso!`);
       logAction(action === 'aprovado' ? 'aprovar_atividade' : 'devolver_atividade', 'atividade', ativ.id, { user_id: ativ.user_id, data: ativ.data });
-      // Notify the consultant about the devolução
+      // Notify the consultant
       if (action === 'devolvido') {
         notifySelf(ativ.user_id, 'Atividade Devolvida', `Sua atividade de ${ativ.data} foi devolvida: ${ativJustificativa.trim()}`, 'atividade', '/minhas-acoes');
+      } else {
+        notifySelf(ativ.user_id, 'Atividade Aprovada', `Sua atividade de ${ativ.data} foi aprovada!`, 'atividade', '/minhas-acoes');
       }
       queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
       queryClient.invalidateQueries({ queryKey: ['atividades'] });
@@ -709,6 +717,10 @@ const Aprovacoes = () => {
 
       toast.success(`Acesso aprovado e usuário criado para ${req.nome}! (Código: ${nextCode})`);
       logAction('aprovar_acesso', 'access_request', req.id, { nome: req.nome, email: req.email, codigo: nextCode });
+      // Notify the new user that their access was approved
+      if (userId) {
+        notifySelf(userId, 'Acesso Aprovado', `Bem-vindo(a) ${req.nome}! Seu acesso ao sistema foi aprovado. Seu código é ${nextCode}.`, 'acesso', '/meu-progresso');
+      }
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
       queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
     } catch (err: any) {
@@ -734,6 +746,8 @@ const Aprovacoes = () => {
         });
       } catch (e) { console.error('Email error:', e); }
       logAction('rejeitar_acesso', 'access_request', rejectAccess.id, { nome: rejectAccess.nome, email: rejectAccess.email });
+      // Notify leadership about the rejection for awareness
+      notifyGlobalLeaders('', 'Solicitação de Acesso Recusada', `A solicitação de acesso de "${rejectAccess.nome}" (${rejectAccess.email}) foi recusada.`, 'acesso', '/aprovacoes');
       toast.success('Solicitação recusada.');
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
       setRejectAccess(null); setRejectReason('');
