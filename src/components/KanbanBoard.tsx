@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
 import { useLeadStages, useMoveLeadToStage, type LeadStage } from '@/hooks/useLeadStages';
@@ -187,6 +188,7 @@ function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, on
 
 /* ─── Main Kanban Board ─── */
 export function KanbanBoard() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: role } = useUserRole();
@@ -408,6 +410,17 @@ export function KanbanBoard() {
     if (!form.tipo) { toast.error('Selecione o Tipo / Modalidade.'); return; }
     setSaving(true);
     const { data: { user: currentUser } } = await supabase.auth.getUser();
+
+    // Preserve existing carência paths from previous origem JSON when editing
+    let existingCarenciaPaths: any = {};
+    if (editItem?.origem) {
+      try {
+        const prev = JSON.parse(editItem.origem);
+        if (prev.carteirinha_anterior_path) existingCarenciaPaths.carteirinha_anterior_path = prev.carteirinha_anterior_path;
+        if (prev.carta_permanencia_path) existingCarenciaPaths.carta_permanencia_path = prev.carta_permanencia_path;
+      } catch { /* ignore */ }
+    }
+
     // Build extended draft data JSON (fields not in DB stored here)
     const extendedData = JSON.stringify({
       vendaDental: form.vendaDental,
@@ -423,6 +436,7 @@ export function KanbanBoard() {
       dataVigencia: form.dataVigencia || null,
       titulares: titulares.filter(t => t.nome.trim()),
       dependentes: dependentes.filter(d => d.nome.trim()),
+      ...existingCarenciaPaths,
     });
     const payload: any = {
       tipo: form.tipo, nome: form.nome.trim(), contato: form.contato || null,
@@ -455,14 +469,16 @@ export function KanbanBoard() {
       if (Object.keys(updates).length > 0 || Object.keys(carenciaUpdates).length > 0) {
         // Merge carência paths into origem JSON
         if (Object.keys(carenciaUpdates).length > 0) {
-          const existingOrigemJson = JSON.parse(extendedData);
-          const mergedOrigem = JSON.stringify({ ...existingOrigemJson, ...carenciaUpdates });
+          const baseOrigem = JSON.parse(extendedData);
+          const mergedOrigem = JSON.stringify({ ...baseOrigem, ...carenciaUpdates });
           updates.origem = mergedOrigem;
         }
         if (Object.keys(updates).length > 0) {
           await supabase.from('leads').update(updates as any).eq('id', leadId);
         }
       }
+      // Re-invalidate leads cache AFTER all uploads to ensure doc paths are in DB
+      await queryClient.invalidateQueries({ queryKey: ['leads'] });
       toast.success(editItem ? 'Lead atualizado!' : 'Lead criado!');
       logAction(editItem ? 'editar_lead' : 'criar_lead', 'lead', leadId, { nome: form.nome.trim() });
       setShowForm(false); setEditItem(null);
