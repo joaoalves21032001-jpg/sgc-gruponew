@@ -774,7 +774,7 @@ const Aprovacoes = () => {
         const { error: updateError } = await supabase.from(table).update(updateObj as any).eq('id', cr.registro_id);
         if (updateError) throw updateError;
       }
-      const { error } = await supabase.from('correction_requests').update({ status: 'aprovado' } as any).eq('id', cr.id);
+      const { error } = await supabase.from('correction_requests').update({ status: 'resolvido' } as any).eq('id', cr.id);
       if (error) throw error;
       toast.success('Alteração aprovada e aplicada! O registro voltou para a fila.');
       // Notify the consultant that their change request was approved
