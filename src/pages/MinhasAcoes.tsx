@@ -25,6 +25,7 @@ const statusConfig: Record<string, { label: string; icon: React.ElementType; cla
   recusado: { label: 'Recusado', icon: XCircle, className: 'bg-destructive/10 text-destructive border-destructive/20' },
   devolvido: { label: 'Devolvido', icon: Undo2, className: 'bg-primary/10 text-primary border-primary/20' },
   analise: { label: 'Em Análise', icon: Clock, className: 'bg-primary/10 text-primary border-primary/20' },
+  solicitado: { label: 'Solicitado', icon: Send, className: 'bg-info/10 text-info border-info/20' },
 };
 
 const MinhasAcoes = () => {
@@ -216,7 +217,7 @@ const MinhasAcoes = () => {
       // Build structured payload
       const structuredPayload = {
         registroId: requestDialog.id,
-        statusAtual: 'pendente',
+        statusAtual: 'solicitado',
         justificativa: requestJustificativa.trim(),
         alteracoesPropostas: alteracoesPropostas.map(a => ({
           campo: a.campo,

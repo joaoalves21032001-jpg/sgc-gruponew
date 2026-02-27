@@ -58,6 +58,8 @@ const Perfil = () => {
       endereco: profile.endereco || '',
       numero_emergencia_1: profile.numero_emergencia_1 || '',
       numero_emergencia_2: profile.numero_emergencia_2 || '',
+      data_admissao: (profile as any).data_admissao || '',
+      data_nascimento: (profile as any).data_nascimento || '',
     });
     setShowRequest(true);
   };
@@ -97,6 +99,8 @@ const Perfil = () => {
         endereco: 'Endereço',
         numero_emergencia_1: 'Emergência 1',
         numero_emergencia_2: 'Emergência 2',
+        data_admissao: 'Data de Admissão',
+        data_nascimento: 'Data de Nascimento',
       };
       const changes: string[] = [];
       for (const [key, newVal] of Object.entries(editForm)) {
@@ -331,6 +335,18 @@ const Perfil = () => {
               <div>
                 <Label className="text-xs font-semibold text-muted-foreground">Emergência 2</Label>
                 <Input value={editForm.numero_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+              </div>
+            </div>
+            <Separator className="bg-border/20" />
+            <p className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-bold">Datas</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Data de Admissão</Label>
+                <Input type="date" value={editForm.data_admissao || ''} onChange={e => setEditForm(p => ({ ...p, data_admissao: e.target.value }))} className="h-10" />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold text-muted-foreground">Data de Nascimento</Label>
+                <Input type="date" value={editForm.data_nascimento || ''} onChange={e => setEditForm(p => ({ ...p, data_nascimento: e.target.value }))} className="h-10" />
               </div>
             </div>
           </div>

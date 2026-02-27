@@ -22,6 +22,8 @@ import {
 import { useCompanhias, useProdutos, useModalidades } from '@/hooks/useInventario';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { maskPhone } from '@/lib/masks';
+import { notifySelf, notifyGlobalLeaders } from '@/hooks/useNotifications';
 
 /* ─── Cotacao type ─── */
 interface Cotacao {
@@ -70,6 +72,7 @@ const statusColors: Record<string, string> = {
 const statusLabel: Record<string, string> = {
   analise: 'Em Análise', pendente: 'Pendente', aprovado: 'Aprovado',
   recusado: 'Recusado', devolvido: 'Devolvido', rejeitado: 'Rejeitado',
+  solicitado: 'Solicitado',
 };
 
 /* ─── Hooks ─── */
@@ -394,6 +397,12 @@ const Aprovacoes = () => {
 
       logAction('aprovar_cotacao', 'cotacao', cotacao.id, { nome: cotacao.nome, lead_id: newLead.id });
       toast.success(`Cotação aprovada! Lead "${cotacao.nome}" criado${cotacao.consultor_recomendado_id ? ' e vinculado ao consultor recomendado' : ' como lead livre'}.`);
+      // Notify the recommended consultant, or all leaders if no consultant assigned
+      if (cotacao.consultor_recomendado_id) {
+        notifySelf(cotacao.consultor_recomendado_id, 'Novo Lead Atribuído', `A cotação de "${cotacao.nome}" foi aprovada e um lead foi criado para você.`, 'cotacao', '/crm');
+      } else {
+        notifyGlobalLeaders('', 'Cotação Aprovada — Lead Livre', `A cotação de "${cotacao.nome}" foi aprovada como lead livre.`, 'cotacao', '/crm');
+      }
       queryClient.invalidateQueries({ queryKey: ['cotacoes'] });
       queryClient.invalidateQueries({ queryKey: ['leads'] });
       setViewCotacao(null);
@@ -480,7 +489,8 @@ const Aprovacoes = () => {
       cargo: req.cargo || 'Consultor de Vendas', nivel_acesso: req.nivel_acesso || 'consultor',
       supervisor_id: req.supervisor_id || '', gerente_id: req.gerente_id || '',
       data_admissao: req.data_admissao || '', data_nascimento: req.data_nascimento || '',
-      numero_emergencia_1: req.numero_emergencia_1 || '', numero_emergencia_2: req.numero_emergencia_2 || '',
+      numero_emergencia_1: maskPhone(req.numero_emergencia_1 || ''),
+      numero_emergencia_2: maskPhone(req.numero_emergencia_2 || ''),
       mensagem: req.mensagem || '',
     });
     setEditAccessReq(req);
@@ -528,6 +538,10 @@ const Aprovacoes = () => {
       await updateStatus.mutateAsync({ id: venda.id, status: action, observacoes: finalObs });
       toast.success(`Venda ${action === 'aprovado' ? 'aprovada' : 'devolvida'} com sucesso!`);
       logAction(action === 'aprovado' ? 'aprovar_venda' : 'devolver_venda', 'venda', venda.id, { nome_titular: venda.nome_titular });
+      // Notify the consultant about the devolução
+      if (action === 'devolvido') {
+        notifySelf(venda.user_id, 'Venda Devolvida', `Sua venda de "${venda.nome_titular}" foi devolvida: ${justificativa.trim()}`, 'venda', '/minhas-acoes');
+      }
       setSelectedVenda(null);
       setObs(''); setJustificativa('');
     } catch (err: any) {
@@ -549,6 +563,10 @@ const Aprovacoes = () => {
       if (error) throw error;
       toast.success(`Atividade ${action === 'aprovado' ? 'aprovada' : 'devolvida'} com sucesso!`);
       logAction(action === 'aprovado' ? 'aprovar_atividade' : 'devolver_atividade', 'atividade', ativ.id, { user_id: ativ.user_id, data: ativ.data });
+      // Notify the consultant about the devolução
+      if (action === 'devolvido') {
+        notifySelf(ativ.user_id, 'Atividade Devolvida', `Sua atividade de ${ativ.data} foi devolvida: ${ativJustificativa.trim()}`, 'atividade', '/minhas-acoes');
+      }
       queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
       queryClient.invalidateQueries({ queryKey: ['atividades'] });
       setSelectedAtiv(null); setAtivJustificativa('');
@@ -759,6 +777,8 @@ const Aprovacoes = () => {
       const { error } = await supabase.from('correction_requests').update({ status: 'aprovado' } as any).eq('id', cr.id);
       if (error) throw error;
       toast.success('Alteração aprovada e aplicada! O registro voltou para a fila.');
+      // Notify the consultant that their change request was approved
+      notifySelf(cr.user_id, 'Alteração Aprovada', `Sua solicitação de alteração de ${cr.tipo} foi aprovada e aplicada.`, cr.tipo, '/minhas-acoes');
       queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
       queryClient.invalidateQueries({ queryKey: [cr.tipo === 'atividade' ? 'atividades' : 'vendas'] });
       queryClient.invalidateQueries({ queryKey: [cr.tipo === 'atividade' ? 'team-atividades' : 'team-vendas'] });
@@ -776,6 +796,8 @@ const Aprovacoes = () => {
       } as any).eq('id', rejectCR.id);
       if (error) throw error;
       toast.success('Solicitação recusada.');
+      // Notify the consultant that their change request was rejected
+      notifySelf(rejectCR.user_id, 'Alteração Recusada', `Sua solicitação de alteração de ${rejectCR.tipo} foi recusada: ${rejectCRReason.trim()}`, rejectCR.tipo, '/minhas-acoes');
       queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
       setRejectCR(null);
       setRejectCRReason('');
@@ -1520,12 +1542,12 @@ const Aprovacoes = () => {
               </div>
               <div>
                 <label className="text-xs font-semibold text-muted-foreground">Emergência 1</label>
-                <Input value={editAccessForm.numero_emergencia_1 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_1: e.target.value }))} className="h-10" />
+                <Input value={editAccessForm.numero_emergencia_1 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} className="h-10" />
               </div>
             </div>
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Emergência 2</label>
-              <Input value={editAccessForm.numero_emergencia_2 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_2: e.target.value }))} className="h-10" />
+              <Input value={editAccessForm.numero_emergencia_2 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} className="h-10" />
             </div>
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Mensagem</label>

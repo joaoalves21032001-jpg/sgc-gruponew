@@ -28,7 +28,7 @@ import { useLogAction } from '@/hooks/useAuditLog';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompanhias, useProdutos, useModalidades, useLeads } from '@/hooks/useInventario';
 import { maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
-import { notifyHierarchy } from '@/hooks/useNotifications';
+import { notifyDirectLeadership } from '@/hooks/useNotifications';
 
 /* ─── Shared ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
@@ -335,6 +335,39 @@ export default function SalesWizard() {
       if (ext.dataVigencia) {
         setDataVigencia(new Date(ext.dataVigencia + 'T12:00:00'));
       }
+
+      // BUG-02: Auto-enable "Utilizar dados do responsável" when prefilling from lead
+      if (prefillLead.nome) {
+        setUseResponsavelTitular(true);
+      }
+
+      // BUG-01: Auto-attach lead documents to titular_0
+      if (prefillLead.doc_foto_path || prefillLead.comprovante_endereco_path) {
+        (async () => {
+          setLoadingLeadDocs(true);
+          const key = 'titular_0';
+          const docUpdates: Record<string, File | null> = {};
+          try {
+            if (prefillLead.doc_foto_path) {
+              const file = await downloadLeadDoc(prefillLead.doc_foto_path, 'documento_foto.jpg');
+              if (file) docUpdates['Documento com foto'] = file;
+            }
+            if (prefillLead.comprovante_endereco_path) {
+              const file = await downloadLeadDoc(prefillLead.comprovante_endereco_path, 'comprovante_endereco.jpg');
+              if (file) docUpdates['Comprovante de endereço'] = file;
+            }
+            if (Object.keys(docUpdates).length > 0) {
+              setBenefDocs(prev => ({ ...prev, [key]: { ...(prev[key] || {}), ...docUpdates } }));
+              toast.success(`${Object.keys(docUpdates).length} documento(s) do lead anexados automaticamente!`);
+            }
+          } catch (err) {
+            console.error('[SalesWizard] prefill doc attach error:', err);
+          } finally {
+            setLoadingLeadDocs(false);
+          }
+        })();
+      }
+
       // Stay on step 0 (combined form)
       setStep(0);
       toast.info('Dados do lead pré-carregados do CRM!');
@@ -399,6 +432,8 @@ export default function SalesWizard() {
       }
       // Set aproveitamento
       if (ext.possui_aproveitamento) setPossuiAproveitamento(true);
+      // BUG-02: Restore toggle state
+      if (ext.use_responsavel_titular) setUseResponsavelTitular(true);
       // Set titulares with full data
       if (ext.titulares && ext.titulares.length > 0) {
         setTitulares(ext.titulares.map((t: any) => ({
@@ -608,7 +643,7 @@ export default function SalesWizard() {
       if (error) throw error;
       toast.success('Solicitação de alteração enviada ao supervisor!');
       if (user) {
-        notifyHierarchy(
+        notifyDirectLeadership(
           user.id,
           'Solicitação de Alteração de Venda',
           `${profile?.nome_completo || 'Consultor'} solicitou alteração na venda de ${titulares[0]?.nome || ''}`,
@@ -654,6 +689,7 @@ export default function SalesWizard() {
         qtd_estagiarios: qtdEstagiarios || null,
         data_vigencia: dataVigencia ? format(dataVigencia, 'yyyy-MM-dd') : null,
         possui_aproveitamento: possuiAproveitamento,
+        use_responsavel_titular: useResponsavelTitular,
         titulares: titulares.map(t => ({
           nome: t.nome,
           idade: t.idade,
@@ -720,7 +756,7 @@ export default function SalesWizard() {
 
       // Notify hierarchy
       if (user) {
-        notifyHierarchy(
+        notifyDirectLeadership(
           user.id,
           editVendaId ? 'Venda Alterada' : 'Nova Venda Registrada',
           `${profile?.nome_completo || 'Consultor'} ${editVendaId ? 'alterou' : 'registrou'} uma venda (${modalidade}) - R$ ${valorContrato}`,

@@ -12,6 +12,8 @@ import { FlagRiscoBadge } from '@/components/FlagRiscoBadge';
 import { useTeamProfiles } from '@/hooks/useProfile';
 import { useTeamVendas, useUpdateVendaStatus, type Venda } from '@/hooks/useVendas';
 import { useTeamAtividades } from '@/hooks/useAtividades';
+import { useAuth } from '@/contexts/AuthContext';
+import { useUserRole } from '@/hooks/useProfile';
 import { getFlagRisco, getPatente } from '@/lib/gamification';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -62,15 +64,21 @@ const Gestao = () => {
   const [searchVenda, setSearchVenda] = useState('');
   const [filtroDia, setFiltroDia] = useState('');
 
+  const { user } = useAuth();
+  const { data: currentRole } = useUserRole();
   const consultores = profiles ?? [];
   const dateRange = useMemo(() => getDateRange(filtroPeriodo, filtroDia), [filtroPeriodo, filtroDia]);
+
+  // RN-07: If the user is a consultor (granted dashboard access via tab permissions), auto-filter to their own data
+  const isConsultorOnly = currentRole === 'consultor';
+  const effectiveConsultor = isConsultorOnly && user ? user.id : filtroConsultor;
 
   // Filter atividades and vendas by date range and consultor
   const filteredAtividades = useMemo(() => {
     return atividades.filter(a => {
       const d = parseISO(a.data);
       const inRange = isWithinInterval(d, dateRange);
-      const matchConsultor = filtroConsultor === 'todos' || a.user_id === filtroConsultor;
+      const matchConsultor = effectiveConsultor === 'todos' || a.user_id === effectiveConsultor;
       return inRange && matchConsultor;
     });
   }, [atividades, dateRange, filtroConsultor]);
@@ -79,7 +87,7 @@ const Gestao = () => {
     return vendas.filter(v => {
       const d = parseISO(v.created_at);
       const inRange = isWithinInterval(d, dateRange);
-      const matchConsultor = filtroConsultor === 'todos' || v.user_id === filtroConsultor;
+      const matchConsultor = effectiveConsultor === 'todos' || v.user_id === effectiveConsultor;
       return inRange && matchConsultor;
     });
   }, [vendas, dateRange, filtroConsultor]);

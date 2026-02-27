@@ -25,14 +25,18 @@ import { maskCPF, maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 /* ─── Lead Card ─── */
-function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName, stageName }: {
+function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, onAssume, leaderName, stageName, currentUserId }: {
   lead: Lead; isAdmin: boolean;
   onEdit: (l: Lead) => void; onDelete: (l: Lead) => void;
   onDragStart: (e: React.DragEvent, leadId: string) => void;
+  onAssume: (l: Lead) => void;
   leaderName?: string;
   stageName?: string;
+  currentUserId?: string;
 }) {
   const isEnvioCotacao = stageName?.toLowerCase().includes('envio de cotação') || stageName?.toLowerCase().includes('cotação');
+  const initials = leaderName ? leaderName.charAt(0).toUpperCase() : null;
+  const canAssume = lead.livre && lead.created_by !== currentUserId;
 
   return (
     <div
@@ -43,23 +47,33 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName, st
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-foreground truncate">{lead.nome}</p>
-          <Badge variant="outline" className="text-[9px] mt-1">{lead.tipo}</Badge>
-          {lead.produto && <Badge variant="outline" className="text-[9px] mt-1 bg-primary/10 text-primary border-primary/20">{lead.produto}</Badge>}
-          {lead.livre && <Badge className="text-[9px] mt-1 bg-success/10 text-success border-success/20">Livre</Badge>}
-          {leaderName && <span className="block text-[10px] text-muted-foreground mt-1 flex items-center gap-1"><User className="w-3 h-3" />{leaderName}</span>}
+          <div className="flex flex-wrap gap-1 mt-1">
+            <Badge variant="outline" className="text-[9px]">{lead.tipo}</Badge>
+            {lead.produto && <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20">{lead.produto}</Badge>}
+            {lead.livre && <Badge className="text-[9px] bg-success/10 text-success border-success/20">Livre</Badge>}
+          </div>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-              <MoreHorizontal className="w-3.5 h-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-36">
-            <DropdownMenuItem onClick={() => onEdit(lead)} className="text-xs gap-2"><Pencil className="w-3 h-3" /> Editar</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onDelete(lead)} className="text-xs gap-2 text-destructive"><Trash2 className="w-3 h-3" /> Excluir</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-1 shrink-0">
+          {/* UX-01: Avatar/initials of consultant */}
+          {initials && (
+            <div className="w-6 h-6 rounded-full bg-primary/15 flex items-center justify-center" title={leaderName}>
+              <span className="text-[10px] font-bold text-primary">{initials}</span>
+            </div>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                <MoreHorizontal className="w-3.5 h-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-36">
+              <DropdownMenuItem onClick={() => onEdit(lead)} className="text-xs gap-2"><Pencil className="w-3 h-3" /> Editar</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => onDelete(lead)} className="text-xs gap-2 text-destructive"><Trash2 className="w-3 h-3" /> Excluir</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
+      {leaderName && <span className="block text-[10px] text-muted-foreground mt-1 flex items-center gap-1"><User className="w-3 h-3" />{leaderName}</span>}
       <div className="mt-2 space-y-1">
         {lead.contato && <p className="text-[11px] text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{lead.contato}</p>}
         {lead.email && <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate"><Mail className="w-3 h-3 shrink-0" />{lead.email}</p>}
@@ -73,12 +87,20 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, leaderName, st
         </div>
       )}
 
+      {/* FEAT-01: Assume free lead */}
+      {canAssume && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onAssume(lead); }}
+          className="mt-2 w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-[11px] font-semibold text-primary hover:bg-primary/10 transition-colors"
+        >
+          <User className="w-3 h-3" /> Assumir Lead
+        </button>
+      )}
+
       {/* Upload cotações when in "Envio de Cotação" stage */}
       {isEnvioCotacao && (
         <CotacaoUploadSection lead={lead} />
       )}
-
-
     </div>
   );
 }
@@ -123,13 +145,15 @@ function CotacaoUploadSection({ lead }: { lead: Lead }) {
 }
 
 /* ─── Kanban Column ─── */
-function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, onDrop, onAddLead, getLeaderName }: {
+function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, onDrop, onAddLead, onAssume, getLeaderName, currentUserId }: {
   stage: LeadStage; leads: Lead[]; isAdmin: boolean;
   onEdit: (l: Lead) => void; onDelete: (l: Lead) => void;
   onDragStart: (e: React.DragEvent, leadId: string) => void;
   onDrop: (stageId: string) => void;
   onAddLead: (stageId: string) => void;
+  onAssume: (l: Lead) => void;
   getLeaderName: (createdBy: string | null) => string | undefined;
+  currentUserId?: string;
 }) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -147,7 +171,7 @@ function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, on
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-320px)] min-h-[120px]">
         {leads.map(l => (
-          <LeadCard key={l.id} lead={l} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} onDragStart={onDragStart} leaderName={getLeaderName(l.created_by)} stageName={stage.nome} />
+          <LeadCard key={l.id} lead={l} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} onDragStart={onDragStart} onAssume={onAssume} leaderName={getLeaderName(l.created_by)} stageName={stage.nome} currentUserId={currentUserId} />
         ))}
         {leads.length === 0 && (
           <div className="text-center py-6 text-muted-foreground/50 text-xs">Arraste leads para cá</div>
@@ -206,6 +230,9 @@ export function KanbanBoard() {
   const [cartaoCnpj, setCartaoCnpj] = useState<File | null>(null);
   const [comprovanteEndereco, setComprovanteEndereco] = useState<File | null>(null);
   const [cotacaoPdf, setCotacaoPdf] = useState<File | null>(null);
+  // RN-02: Carência files
+  const [carteirinhaAnterior, setCarteirinhaAnterior] = useState<File | null>(null);
+  const [cartaPermanencia, setCartaPermanencia] = useState<File | null>(null);
 
   const isPessoaFisica = (tipo: string) => tipo === 'PF' || tipo === 'Familiar' || tipo === 'pessoa_fisica' || tipo === 'Adesão';
 
@@ -245,6 +272,11 @@ export function KanbanBoard() {
     const stage = stages.find(s => s.id === targetStageId);
     if (!stage) return null;
     const stageName = stage.nome.toLowerCase();
+
+    // RN-01: Block "Envio de Cotação" without cotação attached
+    if (stageName.includes('envio de cotação') || stageName.includes('cotação')) {
+      if (!lead.boletos_path) return `Para mover para "${stage.nome}", o lead precisa ter uma Cotação (PDF) anexada.`;
+    }
 
     const contactRequiredStages = ['envio de cotação', 'negociação', 'fechamento', 'pós-venda'];
     if (contactRequiredStages.some(s => stageName.includes(s))) {
@@ -323,8 +355,19 @@ export function KanbanBoard() {
     setTitulares(ext.titulares?.length ? ext.titulares : [{ nome: '', idade: '', produto: '' }]);
     setDependentes(ext.dependentes?.length ? ext.dependentes : []);
     setFormStageId(l.stage_id || null);
-    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null);
+    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null); setCarteirinhaAnterior(null); setCartaPermanencia(null);
     setShowForm(true);
+  };
+
+  // FEAT-01: Assume a free lead
+  const handleAssumeLead = async (l: Lead) => {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) { toast.error('Não autenticado.'); return; }
+      await updateMut.mutateAsync({ id: l.id, created_by: currentUser.id, livre: false } as any);
+      toast.success(`Lead "${l.nome}" assumido! Agora ele é seu.`);
+      logAction('assumir_lead', 'lead', l.id, { nome: l.nome });
+    } catch (err: any) { toast.error(err.message); }
   };
 
   const requestDelete = (l: Lead) => {
@@ -343,7 +386,7 @@ export function KanbanBoard() {
     setTitulares([{ nome: '', idade: '', produto: '' }]);
     setDependentes([]);
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
-    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null);
+    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdf(null); setCarteirinhaAnterior(null); setCartaPermanencia(null);
     setShowForm(true);
   };
 
@@ -399,8 +442,20 @@ export function KanbanBoard() {
       if (cartaoCnpj) updates.cartao_cnpj_path = await uploadFile(cartaoCnpj, leadId, 'cartao_cnpj');
       if (comprovanteEndereco) updates.comprovante_endereco_path = await uploadFile(comprovanteEndereco, leadId, 'comprovante');
       if (cotacaoPdf) updates.boletos_path = await uploadFile(cotacaoPdf, leadId, 'cotacao');
-      if (Object.keys(updates).length > 0) {
-        await supabase.from('leads').update(updates as any).eq('id', leadId);
+      // RN-02: Carência files - save paths in origem JSON
+      let carenciaUpdates: any = {};
+      if (carteirinhaAnterior) carenciaUpdates.carteirinha_anterior_path = await uploadFile(carteirinhaAnterior, leadId, 'carteirinha');
+      if (cartaPermanencia) carenciaUpdates.carta_permanencia_path = await uploadFile(cartaPermanencia, leadId, 'carta_permanencia');
+      if (Object.keys(updates).length > 0 || Object.keys(carenciaUpdates).length > 0) {
+        // Merge carência paths into origem JSON
+        if (Object.keys(carenciaUpdates).length > 0) {
+          const existingOrigemJson = JSON.parse(extendedData);
+          const mergedOrigem = JSON.stringify({ ...existingOrigemJson, ...carenciaUpdates });
+          updates.origem = mergedOrigem;
+        }
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('leads').update(updates as any).eq('id', leadId);
+        }
       }
       toast.success(editItem ? 'Lead atualizado!' : 'Lead criado!');
       logAction(editItem ? 'editar_lead' : 'criar_lead', 'lead', leadId, { nome: form.nome.trim() });
@@ -476,7 +531,9 @@ export function KanbanBoard() {
             onDragStart={handleDragStart}
             onDrop={stageId => handleDrop(stageId)}
             onAddLead={stageId => openAdd(stageId)}
+            onAssume={handleAssumeLead}
             getLeaderName={getLeaderName}
+            currentUserId={user?.id}
           />
         ))}
       </div>
@@ -577,6 +634,13 @@ export function KanbanBoard() {
                 <Switch checked={form.possuiAproveitamento} onCheckedChange={v => setForm(p => ({ ...p, possuiAproveitamento: v }))} />
                 <Label className="text-sm text-foreground">Plano anterior (Aproveitamento de Carência)?</Label>
               </div>
+              {/* RN-02: Dynamic upload fields for carência */}
+              {form.possuiAproveitamento && (
+                <div className="ml-4 space-y-2 border-l-2 border-primary/20 pl-3">
+                  <FileUploadField label="Foto Carteirinha Anterior" file={carteirinhaAnterior} onFileChange={setCarteirinhaAnterior} />
+                  <FileUploadField label="Carta de Permanência (PDF)" file={cartaPermanencia} onFileChange={setCartaPermanencia} />
+                </div>
+              )}
               <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
                 <Switch checked={form.vendaDental} onCheckedChange={v => setForm(p => ({ ...p, vendaDental: v }))} />
                 <Label className="text-sm text-foreground">Venda c/ Dental</Label>
