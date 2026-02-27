@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import {
   Users, AlertTriangle, TrendingUp, CheckCircle2, X, Filter, BarChart3, Target,
   ArrowUpRight, ArrowDownRight, Trophy, Phone, FileText, MessageSquare, CalendarIcon,
-  Search, Calendar
+  Search, Calendar, Activity, DollarSign, Layers, GitCompareArrows, Zap, Clock
 } from 'lucide-react';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, subDays, parseISO, isWithinInterval, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -25,7 +25,7 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area, Legend } from 'recharts';
 
 const statusColors: Record<string, string> = {
   analise: 'bg-primary/8 text-primary border-primary/15',
@@ -62,6 +62,9 @@ const Gestao = () => {
   const [filtroPeriodo, setFiltroPeriodo] = useState<string>('mes');
   const [filtroStatus, setFiltroStatus] = useState<string>('todos');
   const [searchVenda, setSearchVenda] = useState('');
+  const [exploreDimension, setExploreDimension] = useState<string>('consultor');
+  const [compareA, setCompareA] = useState<string>('');
+  const [compareB, setCompareB] = useState<string>('');
   const [filtroDia, setFiltroDia] = useState('');
 
   const { user } = useAuth();
@@ -169,6 +172,108 @@ const Gestao = () => {
     }
     return Object.entries(weeks).map(([label, data]) => ({ label, ...data }));
   }, [filteredAtividades, filteredVendasByPeriod]);
+
+  // --- Phase 5.2: New Dashboard Data ---
+
+  // Recent activity feed (last 15 entries)
+  const recentFeed = useMemo(() => {
+    const items: { type: string; name: string; detail: string; time: string; raw: Date }[] = [];
+    for (const a of atividades.slice(0, 20)) {
+      const p = consultores.find(c => c.id === a.user_id);
+      items.push({
+        type: 'atividade',
+        name: p?.apelido || p?.nome_completo?.split(' ')[0] || '—',
+        detail: `${a.ligacoes} lig · ${a.cotacoes_enviadas} cot`,
+        time: format(parseISO(a.data), "dd/MM HH:mm", { locale: ptBR }),
+        raw: parseISO(a.data),
+      });
+    }
+    for (const v of vendas.slice(0, 20)) {
+      const p = consultores.find(c => c.id === v.user_id);
+      items.push({
+        type: 'venda',
+        name: p?.apelido || p?.nome_completo?.split(' ')[0] || '—',
+        detail: `${v.nome_titular} · ${v.modalidade}`,
+        time: format(parseISO(v.created_at), "dd/MM HH:mm", { locale: ptBR }),
+        raw: parseISO(v.created_at),
+      });
+    }
+    return items.sort((a, b) => b.raw.getTime() - a.raw.getTime()).slice(0, 15);
+  }, [atividades, vendas, consultores]);
+
+  // Exploration table: pivot by dimension
+  const exploreData = useMemo(() => {
+    const grouped: Record<string, { ligacoes: number; cotEnv: number; cotFech: number; vendas: number; faturamento: number }> = {};
+    for (const a of filteredAtividades) {
+      let key = '';
+      if (exploreDimension === 'consultor') {
+        const p = consultores.find(c => c.id === a.user_id);
+        key = p?.apelido || p?.nome_completo?.split(' ')[0] || a.user_id;
+      } else {
+        key = format(parseISO(a.data), 'dd/MM', { locale: ptBR });
+      }
+      if (!grouped[key]) grouped[key] = { ligacoes: 0, cotEnv: 0, cotFech: 0, vendas: 0, faturamento: 0 };
+      grouped[key].ligacoes += a.ligacoes;
+      grouped[key].cotEnv += a.cotacoes_enviadas;
+      grouped[key].cotFech += a.cotacoes_fechadas;
+    }
+    for (const v of filteredVendasByPeriod) {
+      let key = '';
+      if (exploreDimension === 'consultor') {
+        const p = consultores.find(c => c.id === v.user_id);
+        key = p?.apelido || p?.nome_completo?.split(' ')[0] || v.user_id;
+      } else if (exploreDimension === 'modalidade') {
+        key = v.modalidade || 'Outro';
+      } else {
+        key = format(parseISO(v.created_at), 'dd/MM', { locale: ptBR });
+      }
+      if (!grouped[key]) grouped[key] = { ligacoes: 0, cotEnv: 0, cotFech: 0, vendas: 0, faturamento: 0 };
+      grouped[key].vendas += 1;
+      if (v.status === 'aprovado') grouped[key].faturamento += v.valor ?? 0;
+    }
+    return Object.entries(grouped).map(([dim, data]) => ({ dim, ...data })).sort((a, b) => b.faturamento - a.faturamento);
+  }, [filteredAtividades, filteredVendasByPeriod, exploreDimension, consultores]);
+
+  // Monetization: revenue by future vigency month
+  const monetizationData = useMemo(() => {
+    const months: Record<string, { valor: number; count: number }> = {};
+    const approved = filteredVendasByPeriod.filter(v => v.status === 'aprovado');
+    for (const v of approved) {
+      const m = format(parseISO(v.created_at), 'MMM/yy', { locale: ptBR });
+      if (!months[m]) months[m] = { valor: 0, count: 0 };
+      months[m].valor += v.valor ?? 0;
+      months[m].count += 1;
+    }
+    return Object.entries(months).map(([mes, d]) => ({ mes, valor: Math.round(d.valor), count: d.count }));
+  }, [filteredVendasByPeriod]);
+
+  const ticketMedio = useMemo(() => {
+    const approved = filteredVendasByPeriod.filter(v => v.status === 'aprovado');
+    const total = approved.reduce((s, v) => s + (v.valor ?? 0), 0);
+    const totalVidas = approved.reduce((s, v) => s + v.vidas, 0);
+    return {
+      porVenda: approved.length > 0 ? total / approved.length : 0,
+      porVida: totalVidas > 0 ? total / totalVidas : 0,
+    };
+  }, [filteredVendasByPeriod]);
+
+  // Comparison: overlay 2 consultores on the same line chart
+  const comparisonData = useMemo(() => {
+    if (!compareA || !compareB) return [];
+    const weeks: Record<string, { label: string;[key: string]: number | string }> = {};
+    const nameA = consultores.find(c => c.id === compareA);
+    const nameB = consultores.find(c => c.id === compareB);
+    const labelA = nameA?.apelido || nameA?.nome_completo?.split(' ')[0] || 'A';
+    const labelB = nameB?.apelido || nameB?.nome_completo?.split(' ')[0] || 'B';
+    for (const a of filteredAtividades) {
+      if (a.user_id !== compareA && a.user_id !== compareB) continue;
+      const w = format(startOfWeek(parseISO(a.data), { weekStartsOn: 1 }), 'dd/MM', { locale: ptBR });
+      if (!weeks[w]) weeks[w] = { label: w, [labelA]: 0, [labelB]: 0 };
+      if (a.user_id === compareA) (weeks[w] as any)[labelA] = ((weeks[w] as any)[labelA] || 0) + a.cotacoes_enviadas;
+      if (a.user_id === compareB) (weeks[w] as any)[labelB] = ((weeks[w] as any)[labelB] || 0) + a.cotacoes_enviadas;
+    }
+    return { data: Object.values(weeks), labelA, labelB };
+  }, [filteredAtividades, compareA, compareB, consultores]);
 
   const getConsultorName = (userId: string) => {
     const p = consultores.find(c => c.id === userId);
@@ -304,15 +409,27 @@ const Gestao = () => {
       </div>
 
       <Tabs defaultValue="comparativo" className="space-y-4">
-        <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg">
-          <TabsTrigger value="comparativo" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
-            <BarChart3 className="w-4 h-4" /> Comparativo
+        <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg flex flex-wrap">
+          <TabsTrigger value="comparativo" className="gap-1.5 py-2 px-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs rounded-md">
+            <BarChart3 className="w-3.5 h-3.5" /> Comparativo
           </TabsTrigger>
-          <TabsTrigger value="evolucao" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
-            <TrendingUp className="w-4 h-4" /> Evolução
+          <TabsTrigger value="evolucao" className="gap-1.5 py-2 px-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs rounded-md">
+            <TrendingUp className="w-3.5 h-3.5" /> Evolução
           </TabsTrigger>
-          <TabsTrigger value="ranking" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
-            <Trophy className="w-4 h-4" /> Ranking
+          <TabsTrigger value="ranking" className="gap-1.5 py-2 px-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs rounded-md">
+            <Trophy className="w-3.5 h-3.5" /> Ranking
+          </TabsTrigger>
+          <TabsTrigger value="temporeal" className="gap-1.5 py-2 px-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs rounded-md">
+            <Zap className="w-3.5 h-3.5" /> Tempo Real
+          </TabsTrigger>
+          <TabsTrigger value="exploracao" className="gap-1.5 py-2 px-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs rounded-md">
+            <Layers className="w-3.5 h-3.5" /> Exploração
+          </TabsTrigger>
+          <TabsTrigger value="monetizacao" className="gap-1.5 py-2 px-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs rounded-md">
+            <DollarSign className="w-3.5 h-3.5" /> Monetização
+          </TabsTrigger>
+          <TabsTrigger value="comparativos" className="gap-1.5 py-2 px-3 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-xs rounded-md">
+            <GitCompareArrows className="w-3.5 h-3.5" /> Comparar
           </TabsTrigger>
         </TabsList>
 
@@ -423,6 +540,216 @@ const Gestao = () => {
                 );
               })}
             </div>
+          </div>
+        </TabsContent>
+
+        {/* Tempo Real Tab */}
+        <TabsContent value="temporeal">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Active Users */}
+            <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+              <h3 className="text-xs font-bold text-muted-foreground mb-4 font-display uppercase tracking-[0.08em] flex items-center gap-2">
+                <Activity className="w-4 h-4 text-primary" /> Consultores Ativos
+              </h3>
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-success/10 flex items-center justify-center">
+                  <span className="text-2xl font-bold font-display text-success">{consultores.length}</span>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Equipe Completa</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{consultores.length} membro(s) registrado(s)</p>
+                </div>
+              </div>
+              <Separator className="my-4" />
+              <div className="space-y-2">
+                {ranking.slice(0, 5).map(c => (
+                  <div key={c.id} className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                      {(c.apelido || c.nome_completo)[0]}
+                    </div>
+                    <span className="text-xs text-foreground flex-1">{c.apelido || c.nome_completo.split(' ')[0]}</span>
+                    <span className="text-[10px] text-muted-foreground">{c.percentMeta}%</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Recent Activity Feed */}
+            <div className="lg:col-span-2 bg-card rounded-xl p-6 shadow-card border border-border/30">
+              <h3 className="text-xs font-bold text-muted-foreground mb-4 font-display uppercase tracking-[0.08em] flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" /> Feed de Ações Recentes
+              </h3>
+              <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+                {recentFeed.length === 0 && <p className="text-sm text-muted-foreground italic py-4 text-center">Nenhuma ação recente.</p>}
+                {recentFeed.map((item, i) => (
+                  <div key={i} className="flex items-start gap-3 px-3 py-2.5 rounded-lg bg-muted/30 border border-border/15 hover:border-primary/15 transition-colors">
+                    <div className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center ${item.type === 'venda' ? 'bg-success/10' : 'bg-primary/10'}`}>
+                      {item.type === 'venda' ? <DollarSign className="w-3.5 h-3.5 text-success" /> : <Activity className="w-3.5 h-3.5 text-primary" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-foreground">{item.name}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{item.detail}</p>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground shrink-0">{item.time}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Exploração Livre Tab */}
+        <TabsContent value="exploracao">
+          <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+            <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+              <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em] flex items-center gap-2">
+                <Layers className="w-4 h-4 text-primary" /> Exploração por Dimensão
+              </h3>
+              <Select value={exploreDimension} onValueChange={setExploreDimension}>
+                <SelectTrigger className="w-[160px] h-8 text-xs border-border/40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="consultor">Por Consultor</SelectItem>
+                  <SelectItem value="modalidade">Por Modalidade</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-border/30">
+                    <th className="text-left py-2.5 px-3 font-semibold text-muted-foreground uppercase tracking-[0.08em]">{exploreDimension === 'consultor' ? 'Consultor' : 'Modalidade'}</th>
+                    <th className="text-right py-2.5 px-3 font-semibold text-muted-foreground uppercase tracking-[0.08em]">Ligações</th>
+                    <th className="text-right py-2.5 px-3 font-semibold text-muted-foreground uppercase tracking-[0.08em]">Cot. Env.</th>
+                    <th className="text-right py-2.5 px-3 font-semibold text-muted-foreground uppercase tracking-[0.08em]">Cot. Fech.</th>
+                    <th className="text-right py-2.5 px-3 font-semibold text-muted-foreground uppercase tracking-[0.08em]">Conv. %</th>
+                    <th className="text-right py-2.5 px-3 font-semibold text-muted-foreground uppercase tracking-[0.08em]">Vendas</th>
+                    <th className="text-right py-2.5 px-3 font-semibold text-muted-foreground uppercase tracking-[0.08em]">Faturamento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {exploreData.map((row, i) => (
+                    <tr key={row.dim} className={`border-b border-border/15 hover:bg-muted/30 transition-colors ${i % 2 === 0 ? 'bg-muted/10' : ''}`}>
+                      <td className="py-2.5 px-3 font-semibold text-foreground">{row.dim}</td>
+                      <td className="py-2.5 px-3 text-right text-foreground">{row.ligacoes}</td>
+                      <td className="py-2.5 px-3 text-right text-foreground">{row.cotEnv}</td>
+                      <td className="py-2.5 px-3 text-right text-foreground">{row.cotFech}</td>
+                      <td className="py-2.5 px-3 text-right text-foreground">{row.cotEnv > 0 ? Math.round((row.cotFech / row.cotEnv) * 100) : 0}%</td>
+                      <td className="py-2.5 px-3 text-right text-foreground">{row.vendas}</td>
+                      <td className="py-2.5 px-3 text-right font-semibold text-primary">R$ {row.faturamento.toLocaleString('pt-BR')}</td>
+                    </tr>
+                  ))}
+                  {exploreData.length === 0 && (
+                    <tr><td colSpan={7} className="text-center py-6 text-muted-foreground italic">Sem dados no período selecionado.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Monetização Tab */}
+        <TabsContent value="monetizacao">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 bg-card rounded-xl p-6 shadow-card border border-border/30">
+              <h3 className="text-xs font-bold text-muted-foreground mb-5 font-display uppercase tracking-[0.08em] flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-primary" /> Receita por Período
+              </h3>
+              {monetizationData.length > 0 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={monetizationData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                    <XAxis dataKey="mes" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} tickFormatter={v => `${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} formatter={(value: number) => [`R$ ${value.toLocaleString('pt-BR')}`, 'Receita']} />
+                    <Bar dataKey="valor" name="Receita" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <p className="text-sm text-muted-foreground italic text-center py-12">Nenhuma venda aprovada no período.</p>
+              )}
+            </div>
+            <div className="space-y-4">
+              <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center">
+                    <DollarSign className="w-4 h-4 text-primary" />
+                  </div>
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Ticket Médio / Venda</span>
+                </div>
+                <p className="text-2xl font-bold font-display text-foreground">R$ {ticketMedio.porVenda.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </div>
+              <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-success/8 flex items-center justify-center">
+                    <Users className="w-4 h-4 text-success" />
+                  </div>
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Ticket Médio / Vida</span>
+                </div>
+                <p className="text-2xl font-bold font-display text-foreground">R$ {ticketMedio.porVida.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              </div>
+              <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-8 h-8 rounded-lg bg-warning/8 flex items-center justify-center">
+                    <Target className="w-4 h-4 text-warning" />
+                  </div>
+                  <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Vendas Aprovadas</span>
+                </div>
+                <p className="text-2xl font-bold font-display text-foreground">{filteredVendasByPeriod.filter(v => v.status === 'aprovado').length}</p>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Comparativos Tab */}
+        <TabsContent value="comparativos">
+          <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+            <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
+              <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em] flex items-center gap-2">
+                <GitCompareArrows className="w-4 h-4 text-primary" /> Comparar Consultores
+              </h3>
+              <div className="flex gap-2 flex-wrap">
+                <Select value={compareA} onValueChange={setCompareA}>
+                  <SelectTrigger className="w-[160px] h-8 text-xs border-border/40">
+                    <SelectValue placeholder="Consultor A" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {consultores.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.apelido || c.nome_completo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <span className="text-xs text-muted-foreground self-center">vs</span>
+                <Select value={compareB} onValueChange={setCompareB}>
+                  <SelectTrigger className="w-[160px] h-8 text-xs border-border/40">
+                    <SelectValue placeholder="Consultor B" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {consultores.map(c => (
+                      <SelectItem key={c.id} value={c.id}>{c.apelido || c.nome_completo}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {typeof comparisonData === 'object' && 'data' in comparisonData && comparisonData.data.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={comparisonData.data}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: 'hsl(var(--muted-foreground))' }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px', fontSize: '12px' }} />
+                  <Legend />
+                  <Line type="monotone" dataKey={comparisonData.labelA} stroke="hsl(var(--primary))" strokeWidth={2.5} dot={{ r: 4, fill: 'hsl(var(--primary))' }} />
+                  <Line type="monotone" dataKey={comparisonData.labelB} stroke="hsl(var(--success))" strokeWidth={2.5} dot={{ r: 4, fill: 'hsl(var(--success))' }} />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="text-center py-16">
+                <GitCompareArrows className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                <p className="text-sm text-muted-foreground">Selecione dois consultores acima para comparar o desempenho.</p>
+              </div>
+            )}
           </div>
         </TabsContent>
       </Tabs>

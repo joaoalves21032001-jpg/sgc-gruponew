@@ -29,6 +29,88 @@ const Index = () => {
     }), { ligacoes: 0, mensagens: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0, follow_up: 0 });
   }, [atividades]);
 
+  // Period comparison: current month vs previous month
+  const periodComparison = useMemo(() => {
+    if (!atividades || atividades.length === 0) return null;
+    const now = new Date();
+    const curMonth = now.getMonth();
+    const curYear = now.getFullYear();
+    const prevMonth = curMonth === 0 ? 11 : curMonth - 1;
+    const prevYear = curMonth === 0 ? curYear - 1 : curYear;
+
+    const cur = { ligacoes: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0 };
+    const prev = { ligacoes: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0 };
+
+    atividades.forEach(a => {
+      const d = new Date(a.data);
+      const m = d.getMonth(), y = d.getFullYear();
+      if (m === curMonth && y === curYear) {
+        cur.ligacoes += a.ligacoes;
+        cur.cotacoes_enviadas += a.cotacoes_enviadas;
+        cur.cotacoes_fechadas += a.cotacoes_fechadas;
+      } else if (m === prevMonth && y === prevYear) {
+        prev.ligacoes += a.ligacoes;
+        prev.cotacoes_enviadas += a.cotacoes_enviadas;
+        prev.cotacoes_fechadas += a.cotacoes_fechadas;
+      }
+    });
+
+    const pct = (cur: number, prev: number) => prev > 0 ? Math.round(((cur - prev) / prev) * 100) : (cur > 0 ? 100 : 0);
+    return {
+      ligacoes: { value: pct(cur.ligacoes, prev.ligacoes), positive: cur.ligacoes >= prev.ligacoes },
+      cotEnv: { value: pct(cur.cotacoes_enviadas, prev.cotacoes_enviadas), positive: cur.cotacoes_enviadas >= prev.cotacoes_enviadas },
+      cotFech: { value: pct(cur.cotacoes_fechadas, prev.cotacoes_fechadas), positive: cur.cotacoes_fechadas >= prev.cotacoes_fechadas },
+    };
+  }, [atividades]);
+
+  // Faturamento comparison
+  const fatComparison = useMemo(() => {
+    if (!vendas || vendas.length === 0) return null;
+    const now = new Date();
+    const curMonth = now.getMonth(), curYear = now.getFullYear();
+    const prevMonth = curMonth === 0 ? 11 : curMonth - 1;
+    const prevYear = curMonth === 0 ? curYear - 1 : curYear;
+
+    let curFat = 0, prevFat = 0;
+    vendas.filter(v => v.status === 'aprovado').forEach(v => {
+      const d = new Date(v.created_at);
+      const m = d.getMonth(), y = d.getFullYear();
+      if (m === curMonth && y === curYear) curFat += (v.valor ?? 0);
+      else if (m === prevMonth && y === prevYear) prevFat += (v.valor ?? 0);
+    });
+    const pct = prevFat > 0 ? Math.round(((curFat - prevFat) / prevFat) * 100) : (curFat > 0 ? 100 : 0);
+    return { value: pct, positive: curFat >= prevFat };
+  }, [vendas]);
+
+  // Sparklines — last 7 days of activity
+  const sparklines = useMemo(() => {
+    if (!atividades || atividades.length === 0) return { ligacoes: [], cotEnv: [], cotFech: [] };
+    const last7 = atividades.slice(0, 7).reverse();
+    return {
+      ligacoes: last7.map(a => a.ligacoes),
+      cotEnv: last7.map(a => a.cotacoes_enviadas),
+      cotFech: last7.map(a => a.cotacoes_fechadas),
+    };
+  }, [atividades]);
+
+  // Faturamento sparkline — last 7 days of approved sales grouped by day
+  const fatSparkline = useMemo(() => {
+    if (!vendas || vendas.length === 0) return [];
+    const approvedSales = vendas.filter(v => v.status === 'aprovado');
+    const now = new Date();
+    const days: number[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date(now);
+      day.setDate(day.getDate() - i);
+      const dayStr = day.toISOString().slice(0, 10);
+      const dayTotal = approvedSales
+        .filter(v => v.created_at.slice(0, 10) === dayStr)
+        .reduce((s, v) => s + (v.valor ?? 0), 0);
+      days.push(dayTotal);
+    }
+    return days;
+  }, [vendas]);
+
   const faturamento = useMemo(() => {
     if (!vendas) return 0;
     return vendas
@@ -84,15 +166,20 @@ const Index = () => {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-stagger">
-        <StatCard title="Ligações" value={stats.ligacoes} icon={Phone} subtitle="Este mês" />
-        <StatCard title="Cotações Enviadas" value={stats.cotacoes_enviadas} icon={FileText} subtitle="Este mês" />
-        <StatCard title="Cotações Fechadas" value={stats.cotacoes_fechadas} icon={CheckCircle2} variant="success" subtitle={`${stats.follow_up} follow-ups`} />
+        <StatCard title="Ligações" value={stats.ligacoes} icon={Phone} subtitle="Este mês"
+          trend={periodComparison?.ligacoes} sparkline={sparklines.ligacoes} />
+        <StatCard title="Cotações Enviadas" value={stats.cotacoes_enviadas} icon={FileText} subtitle="Este mês"
+          trend={periodComparison?.cotEnv} sparkline={sparklines.cotEnv} />
+        <StatCard title="Cotações Fechadas" value={stats.cotacoes_fechadas} icon={CheckCircle2} variant="success" subtitle={`${stats.follow_up} follow-ups`}
+          trend={periodComparison?.cotFech} sparkline={sparklines.cotFech} />
         <StatCard
           title="Faturamento"
           value={`R$ ${(faturamento / 1000).toFixed(1)}k`}
           subtitle={`Meta: R$ ${(metaFaturamento / 1000).toFixed(0)}k`}
           icon={DollarSign}
           variant="brand"
+          trend={fatComparison ?? undefined}
+          sparkline={fatSparkline}
         />
       </div>
 
