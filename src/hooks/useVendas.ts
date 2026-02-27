@@ -162,7 +162,8 @@ export function useUpdateVendaStatus() {
 }
 
 export async function uploadVendaDocumento(vendaId: string, userId: string, file: File, tipo: string) {
-  const filePath = `${userId}/${vendaId}/${Date.now()}_${file.name}`;
+  const safeName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+  const filePath = `${userId}/${vendaId}/${Date.now()}_${safeName}`;
 
   const { error: uploadError } = await supabase.storage
     .from('venda-documentos')

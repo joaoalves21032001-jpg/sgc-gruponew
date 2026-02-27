@@ -117,7 +117,8 @@ function CotacaoUploadSection({ lead }: { lead: Lead }) {
     if (!file.name.toLowerCase().endsWith('.pdf')) { toast.error('Apenas arquivos PDF.'); return; }
     setUploading(true);
     try {
-      const filePath = `${lead.id}/cotacao_${Date.now()}_${file.name}`;
+      const safeName = file.name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_').replace(/[^a-zA-Z0-9._-]/g, '');
+      const filePath = `${lead.id}/cotacao_${Date.now()}_${safeName}`;
       const { error } = await supabase.storage.from('lead-documentos').upload(filePath, file);
       if (error) throw error;
       setFiles(prev => [...prev, file.name]);
@@ -391,7 +392,12 @@ export function KanbanBoard() {
   };
 
   const uploadFile = async (file: File, leadId: string, prefix: string): Promise<string> => {
-    const filePath = `${leadId}/${prefix}_${Date.now()}_${file.name}`;
+    // Sanitize filename: remove accents, replace spaces with underscores, strip special chars
+    const safeName = file.name
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // remove accents
+      .replace(/\s+/g, '_')                             // spaces → underscores
+      .replace(/[^a-zA-Z0-9._-]/g, '');                 // strip remaining special chars
+    const filePath = `${leadId}/${prefix}_${Date.now()}_${safeName}`;
     const { error } = await supabase.storage.from('lead-documentos').upload(filePath, file);
     if (error) throw error;
     return filePath;
