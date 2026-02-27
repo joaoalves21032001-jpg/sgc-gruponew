@@ -84,7 +84,7 @@ const Gestao = () => {
       const matchConsultor = effectiveConsultor === 'todos' || a.user_id === effectiveConsultor;
       return inRange && matchConsultor;
     });
-  }, [atividades, dateRange, filtroConsultor]);
+  }, [atividades, dateRange, effectiveConsultor]);
 
   const filteredVendasByPeriod = useMemo(() => {
     return vendas.filter(v => {
@@ -93,7 +93,7 @@ const Gestao = () => {
       const matchConsultor = effectiveConsultor === 'todos' || v.user_id === effectiveConsultor;
       return inRange && matchConsultor;
     });
-  }, [vendas, dateRange, filtroConsultor]);
+  }, [vendas, dateRange, effectiveConsultor]);
 
   const userStats = useMemo(() => {
     const map: Record<string, { ligacoes: number; mensagens: number; cotacoes_enviadas: number; cotacoes_fechadas: number; follow_up: number; faturamento: number }> = {};
@@ -335,18 +335,20 @@ const Gestao = () => {
           {filtroPeriodo === 'dia' && (
             <Input type="date" value={filtroDia} onChange={e => setFiltroDia(e.target.value)} className="h-9 w-[160px] text-xs bg-card border-border/40" />
           )}
-          <Select value={filtroConsultor} onValueChange={setFiltroConsultor}>
-            <SelectTrigger className="w-[160px] h-9 text-xs border-border/40">
-              <Users className="w-3 h-3 mr-1" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos Consultores</SelectItem>
-              {consultores.map(c => (
-                <SelectItem key={c.id} value={c.id}>{c.apelido || c.nome_completo}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {!isConsultorOnly && (
+            <Select value={filtroConsultor} onValueChange={setFiltroConsultor}>
+              <SelectTrigger className="w-[160px] h-9 text-xs border-border/40">
+                <Users className="w-3 h-3 mr-1" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todos">Todos Consultores</SelectItem>
+                {consultores.map(c => (
+                  <SelectItem key={c.id} value={c.id}>{c.apelido || c.nome_completo}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={filtroStatus} onValueChange={setFiltroStatus}>
             <SelectTrigger className="w-[140px] h-9 text-xs border-border/40">
               <SelectValue />

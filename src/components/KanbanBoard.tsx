@@ -319,6 +319,9 @@ export function KanbanBoard() {
     setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdfs([]); setCarteirinhaAnterior(null); setCartaPermanencia(null);
     // Load existing cotação paths from origem JSON
     setExistingCotacaoPaths(ext.cotacao_paths || (l.boletos_path ? [l.boletos_path] : []));
+    // Load existing carência paths from origem JSON
+    setExistingCarteirinhaPath(ext.carteirinha_anterior_path || null);
+    setExistingCartaPath(ext.carta_permanencia_path || null);
     setShowForm(true);
   };
 
@@ -350,6 +353,7 @@ export function KanbanBoard() {
     setDependentes([]);
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
     setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdfs([]); setExistingCotacaoPaths([]); setCarteirinhaAnterior(null); setCartaPermanencia(null);
+    setExistingCarteirinhaPath(null); setExistingCartaPath(null);
     setShowForm(true);
   };
 
@@ -473,18 +477,36 @@ export function KanbanBoard() {
     finally { setSendingApproval(false); }
   };
 
-  const FileUploadField = ({ label, file, onFileChange, existingPath }: { label: string; file: File | null; onFileChange: (f: File | null) => void; existingPath?: string | null }) => (
-    <div className="space-y-1">
-      <label className="text-xs font-semibold text-muted-foreground">{label}</label>
-      <label className="cursor-pointer block">
-        <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={e => onFileChange(e.target.files?.[0] || null)} />
-        <span className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border/40 bg-card text-xs hover:bg-muted transition-colors cursor-pointer">
-          <Upload className="w-3.5 h-3.5 text-primary shrink-0" />
-          {file ? <span className="text-success truncate">{file.name}</span> : existingPath ? <span className="text-muted-foreground">Arquivo existente ✓</span> : <span className="text-muted-foreground">Selecionar...</span>}
-        </span>
-      </label>
-    </div>
-  );
+  const FileUploadField = ({ label, file, onFileChange, existingPath }: { label: string; file: File | null; onFileChange: (f: File | null) => void; existingPath?: string | null }) => {
+    const hasExisting = !file && !!existingPath;
+    const hasFile = !!file;
+    const fileName = file ? file.name : existingPath ? existingPath.split('/').pop() || 'Arquivo' : null;
+    return (
+      <div className="space-y-1">
+        <label className="text-xs font-semibold text-muted-foreground">{label}</label>
+        {(hasFile || hasExisting) ? (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-success/30 bg-success/5 text-xs">
+            <FileText className="w-3.5 h-3.5 text-success shrink-0" />
+            <span className="text-success flex-1 truncate">{fileName} ✓</span>
+            <label className="cursor-pointer">
+              <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={e => { onFileChange(e.target.files?.[0] || null); e.target.value = ''; }} />
+              <span className="inline-flex items-center gap-1 px-2 py-1 rounded border border-border/30 text-[10px] font-medium hover:bg-muted transition-colors cursor-pointer">
+                <Upload className="w-3 h-3" /> Trocar
+              </span>
+            </label>
+          </div>
+        ) : (
+          <label className="cursor-pointer block">
+            <input type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png" onChange={e => onFileChange(e.target.files?.[0] || null)} />
+            <span className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border/40 bg-card text-xs hover:bg-muted transition-colors cursor-pointer">
+              <Upload className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="text-muted-foreground">Selecionar...</span>
+            </span>
+          </label>
+        )}
+      </div>
+    );
+  };
 
   if (stagesLoading || leadsLoading) return <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
 
@@ -629,8 +651,8 @@ export function KanbanBoard() {
               {/* RN-02: Dynamic upload fields for carência */}
               {form.possuiAproveitamento && (
                 <div className="ml-4 space-y-2 border-l-2 border-primary/20 pl-3">
-                  <FileUploadField label="Foto Carteirinha Anterior" file={carteirinhaAnterior} onFileChange={setCarteirinhaAnterior} />
-                  <FileUploadField label="Carta de Permanência (PDF)" file={cartaPermanencia} onFileChange={setCartaPermanencia} />
+                  <FileUploadField label="Foto Carteirinha Anterior" file={carteirinhaAnterior} onFileChange={setCarteirinhaAnterior} existingPath={existingCarteirinhaPath} />
+                  <FileUploadField label="Carta de Permanência (PDF)" file={cartaPermanencia} onFileChange={setCartaPermanencia} existingPath={existingCartaPath} />
                 </div>
               )}
               <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
