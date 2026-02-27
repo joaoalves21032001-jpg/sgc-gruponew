@@ -15,10 +15,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Shield, Search, CheckCircle2, Clock, Undo2,
+  Shield, Search, CheckCircle2, Clock, Undo2, Pencil,
   ClipboardList, ShoppingCart, Users, UserPlus, Eye, XCircle, Trash2,
   Download, FileText, MessageSquareQuote, GitCompareArrows
 } from 'lucide-react';
+import { useCompanhias, useProdutos, useModalidades } from '@/hooks/useInventario';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 /* ─── Cotacao type ─── */
 interface Cotacao {
@@ -206,6 +209,18 @@ const Aprovacoes = () => {
   const [rejectCotacao, setRejectCotacao] = useState<Cotacao | null>(null);
   const [rejectCotacaoReason, setRejectCotacaoReason] = useState('');
   const [savingCotacao, setSavingCotacao] = useState(false);
+  const [editCotacao, setEditCotacao] = useState<Cotacao | null>(null);
+  const [deleteCotacao, setDeleteCotacao] = useState<Cotacao | null>(null);
+  const [cotacaoForm, setCotacaoForm] = useState({ nome: '', contato: '', email: '', modalidade: '', companhia_nome: '', produto_nome: '', quantidade_vidas: '', com_dental: false, co_participacao: 'sem' });
+
+  // Edit access
+  const [editAccessReq, setEditAccessReq] = useState<AccessRequest | null>(null);
+  const [editAccessForm, setEditAccessForm] = useState<Record<string, any>>({});
+
+  // Inventário data for cotação edit
+  const { data: companhiasList = [] } = useCompanhias();
+  const { data: produtosList = [] } = useProdutos();
+  const { data: modalidadesList = [] } = useModalidades();
 
   // Correction Requests
   const { data: correctionRequests = [], isLoading: loadingCR } = useCorrectionRequests();
@@ -338,6 +353,99 @@ const Aprovacoes = () => {
     } finally {
       setSavingCotacao(false);
     }
+  };
+
+  const handleDeleteCotacao = async () => {
+    if (!deleteCotacao) return;
+    setSavingCotacao(true);
+    try {
+      const { error } = await supabase.from('cotacoes').delete().eq('id', deleteCotacao.id);
+      if (error) throw error;
+      logAction('excluir_cotacao', 'cotacao', deleteCotacao.id, { nome: deleteCotacao.nome });
+      toast.success('Cotação excluída!');
+      queryClient.invalidateQueries({ queryKey: ['cotacoes'] });
+      setDeleteCotacao(null);
+    } catch (err: any) { toast.error(err.message || 'Erro ao excluir.'); }
+    finally { setSavingCotacao(false); }
+  };
+
+  const openEditCotacao = (c: Cotacao) => {
+    setCotacaoForm({
+      nome: c.nome, contato: c.contato, email: c.email || '',
+      modalidade: c.modalidade || '', companhia_nome: c.companhia_nome || '',
+      produto_nome: c.produto_nome || '', quantidade_vidas: String(c.quantidade_vidas || ''),
+      com_dental: c.com_dental, co_participacao: c.co_participacao || 'sem',
+    });
+    setEditCotacao(c);
+  };
+
+  const handleSaveCotacao = async () => {
+    if (!editCotacao) return;
+    if (!cotacaoForm.nome.trim()) { toast.error('Nome é obrigatório.'); return; }
+    setSavingCotacao(true);
+    try {
+      const { error } = await supabase.from('cotacoes').update({
+        nome: cotacaoForm.nome.trim(),
+        contato: cotacaoForm.contato,
+        email: cotacaoForm.email || null,
+        modalidade: cotacaoForm.modalidade || null,
+        companhia_nome: cotacaoForm.companhia_nome || null,
+        produto_nome: cotacaoForm.produto_nome || null,
+        quantidade_vidas: parseInt(cotacaoForm.quantidade_vidas) || 1,
+        com_dental: cotacaoForm.com_dental,
+        co_participacao: cotacaoForm.co_participacao || null,
+      } as any).eq('id', editCotacao.id);
+      if (error) throw error;
+      logAction('editar_cotacao', 'cotacao', editCotacao.id, { nome: cotacaoForm.nome });
+      toast.success('Cotação atualizada!');
+      queryClient.invalidateQueries({ queryKey: ['cotacoes'] });
+      setEditCotacao(null);
+    } catch (err: any) { toast.error(err.message || 'Erro ao salvar.'); }
+    finally { setSavingCotacao(false); }
+  };
+
+  const openEditAccess = (req: AccessRequest) => {
+    setEditAccessForm({
+      nome: req.nome, email: req.email, telefone: req.telefone || '',
+      cpf: req.cpf || '', rg: req.rg || '', endereco: req.endereco || '',
+      cargo: req.cargo || 'Consultor de Vendas', nivel_acesso: req.nivel_acesso || 'consultor',
+      supervisor_id: req.supervisor_id || '', gerente_id: req.gerente_id || '',
+      data_admissao: req.data_admissao || '', data_nascimento: req.data_nascimento || '',
+      numero_emergencia_1: req.numero_emergencia_1 || '', numero_emergencia_2: req.numero_emergencia_2 || '',
+      mensagem: req.mensagem || '',
+    });
+    setEditAccessReq(req);
+  };
+
+  const handleSaveAccessReq = async () => {
+    if (!editAccessReq) return;
+    if (!editAccessForm.nome?.trim() || !editAccessForm.email?.trim()) { toast.error('Nome e email são obrigatórios.'); return; }
+    setSavingAccess(true);
+    try {
+      const { error } = await supabase.from('access_requests').update({
+        nome: editAccessForm.nome.trim(),
+        email: editAccessForm.email.trim(),
+        telefone: editAccessForm.telefone || null,
+        cpf: editAccessForm.cpf || null,
+        rg: editAccessForm.rg || null,
+        endereco: editAccessForm.endereco || null,
+        cargo: editAccessForm.cargo || null,
+        nivel_acesso: editAccessForm.nivel_acesso || null,
+        supervisor_id: editAccessForm.supervisor_id || null,
+        gerente_id: editAccessForm.gerente_id || null,
+        data_admissao: editAccessForm.data_admissao || null,
+        data_nascimento: editAccessForm.data_nascimento || null,
+        numero_emergencia_1: editAccessForm.numero_emergencia_1 || null,
+        numero_emergencia_2: editAccessForm.numero_emergencia_2 || null,
+        mensagem: editAccessForm.mensagem || null,
+      } as any).eq('id', editAccessReq.id);
+      if (error) throw error;
+      logAction('editar_acesso', 'access_request', editAccessReq.id, { nome: editAccessForm.nome });
+      toast.success('Solicitação de acesso atualizada!');
+      queryClient.invalidateQueries({ queryKey: ['access-requests'] });
+      setEditAccessReq(null);
+    } catch (err: any) { toast.error(err.message || 'Erro ao salvar.'); }
+    finally { setSavingAccess(false); }
   };
 
   /* ─── Venda Actions ─── */
@@ -556,7 +664,12 @@ const Aprovacoes = () => {
       const payload = JSON.parse(cr.motivo);
       const alteracoes = payload.alteracoesPropostas || [];
       const updateObj: Record<string, any> = {};
+      // Valid columns per table to avoid schema errors
+      const ativCols = ['ligacoes', 'mensagens', 'cotacoes_coletadas', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'data', 'observacoes'];
+      const vendaCols = ['nome_titular', 'modalidade', 'vidas', 'valor', 'observacoes', 'data_lancamento', 'justificativa_retroativo'];
+      const validCols = cr.tipo === 'atividade' ? ativCols : vendaCols;
       for (const a of alteracoes) {
+        if (!validCols.includes(a.campo)) continue; // skip unknown columns
         let val: any = a.valorNovo;
         if (['ligacoes', 'mensagens', 'cotacoes_coletadas', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'vidas'].includes(a.campo)) {
           val = parseInt(val) || 0;
@@ -567,13 +680,16 @@ const Aprovacoes = () => {
         updateObj[a.campo] = val;
       }
       const table = cr.tipo === 'atividade' ? 'atividades' : 'vendas';
+      // Also reset the record status back to the queue
+      const resetStatus = cr.tipo === 'atividade' ? 'pendente' : 'analise';
+      updateObj.status = resetStatus;
       if (Object.keys(updateObj).length > 0) {
         const { error: updateError } = await supabase.from(table).update(updateObj as any).eq('id', cr.registro_id);
         if (updateError) throw updateError;
       }
       const { error } = await supabase.from('correction_requests').update({ status: 'aprovado' } as any).eq('id', cr.id);
       if (error) throw error;
-      toast.success('Alteração aprovada e aplicada!');
+      toast.success('Alteração aprovada e aplicada! O registro voltou para a fila.');
       queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
       queryClient.invalidateQueries({ queryKey: [cr.tipo === 'atividade' ? 'atividades' : 'vendas'] });
       queryClient.invalidateQueries({ queryKey: [cr.tipo === 'atividade' ? 'team-atividades' : 'team-vendas'] });
@@ -850,6 +966,16 @@ const Aprovacoes = () => {
                             </Button>
                           </>
                         )}
+                        {isAdmin && (
+                          <>
+                            <Button size="sm" variant="outline" className="gap-1 font-semibold" onClick={() => openEditCotacao(c)}>
+                              <Pencil className="w-3.5 h-3.5" /> Editar
+                            </Button>
+                            <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteCotacao(c)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </>
+                        )}
                         {c.lead_id && <Badge className="bg-success/10 text-success text-[10px]">Lead criado</Badge>}
                       </div>
                     </div>
@@ -901,6 +1027,9 @@ const Aprovacoes = () => {
                           </Button>
                           {req.status === 'pendente' && (
                             <>
+                              <Button size="sm" variant="outline" className="gap-1 font-semibold" onClick={() => openEditAccess(req)}>
+                                <Pencil className="w-3.5 h-3.5" /> Editar
+                              </Button>
                               <Button size="sm" className="gap-1 bg-success hover:bg-success/90 text-success-foreground font-semibold" onClick={() => handleApproveAccess(req)} disabled={savingAccess}>
                                 <CheckCircle2 className="w-3.5 h-3.5" /> Aprovar
                               </Button>
@@ -1123,6 +1252,221 @@ const Aprovacoes = () => {
             <Button variant="outline" onClick={() => setRejectCotacao(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleRejectCotacao} disabled={savingCotacao} className="gap-1">
               {savingCotacao ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><XCircle className="w-4 h-4" /> Recusar</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Cotação Dialog ── */}
+      <Dialog open={!!editCotacao} onOpenChange={(v) => { if (!v) setEditCotacao(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Editar Cotação</DialogTitle>
+            <DialogDescription>Edite os dados da cotação. Isso é equivalente a editar um Lead.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Nome <span className="text-destructive">*</span></label>
+              <Input value={cotacaoForm.nome} onChange={e => setCotacaoForm(p => ({ ...p, nome: e.target.value }))} className="h-10" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Contato</label>
+                <Input value={cotacaoForm.contato} onChange={e => setCotacaoForm(p => ({ ...p, contato: e.target.value }))} className="h-10" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">E-mail</label>
+                <Input value={cotacaoForm.email} onChange={e => setCotacaoForm(p => ({ ...p, email: e.target.value }))} className="h-10" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Modalidade</label>
+              <Select value={cotacaoForm.modalidade || '__none__'} onValueChange={v => setCotacaoForm(p => ({ ...p, modalidade: v === '__none__' ? '' : v }))}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">Nenhuma</SelectItem>
+                  {modalidadesList.map(m => <SelectItem key={m.id} value={m.nome}>{m.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Companhia</label>
+                <Select value={cotacaoForm.companhia_nome || '__none__'} onValueChange={v => setCotacaoForm(p => ({ ...p, companhia_nome: v === '__none__' ? '' : v, produto_nome: '' }))}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhuma</SelectItem>
+                    {companhiasList.map(c => <SelectItem key={c.id} value={c.nome}>{c.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Produto</label>
+                <Select value={cotacaoForm.produto_nome || '__none__'} onValueChange={v => setCotacaoForm(p => ({ ...p, produto_nome: v === '__none__' ? '' : v }))}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {(() => {
+                      const comp = companhiasList.find(c => c.nome === cotacaoForm.companhia_nome);
+                      const filtered = comp ? produtosList.filter(p => p.companhia_id === comp.id) : produtosList;
+                      return filtered.map(p => <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>);
+                    })()}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Quantidade de Vidas</label>
+              <Input type="number" min={1} value={cotacaoForm.quantidade_vidas} onChange={e => setCotacaoForm(p => ({ ...p, quantidade_vidas: e.target.value }))} className="h-10" />
+            </div>
+            <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
+              <Switch checked={cotacaoForm.com_dental} onCheckedChange={v => setCotacaoForm(p => ({ ...p, com_dental: v }))} />
+              <Label className="text-sm text-foreground">Venda c/ Dental</Label>
+              <span className="text-xs text-muted-foreground ml-auto">{cotacaoForm.com_dental ? 'Sim' : 'Não'}</span>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Co-Participação</label>
+              <Select value={cotacaoForm.co_participacao} onValueChange={v => setCotacaoForm(p => ({ ...p, co_participacao: v }))}>
+                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sem">Sem Co-Participação</SelectItem>
+                  <SelectItem value="parcial">Parcial</SelectItem>
+                  <SelectItem value="completa">Completa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditCotacao(null)}>Cancelar</Button>
+            <Button onClick={handleSaveCotacao} disabled={savingCotacao} className="gap-1">
+              {savingCotacao ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Salvar</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Delete Cotação Dialog ── */}
+      <Dialog open={!!deleteCotacao} onOpenChange={(v) => { if (!v) setDeleteCotacao(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg text-destructive">Excluir Cotação</DialogTitle>
+            <DialogDescription>Tem certeza que deseja excluir a cotação de <strong>{deleteCotacao?.nome}</strong>?</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeleteCotacao(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDeleteCotacao} disabled={savingCotacao} className="gap-1">
+              {savingCotacao ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Trash2 className="w-4 h-4" /> Excluir</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Access Request Dialog ── */}
+      <Dialog open={!!editAccessReq} onOpenChange={(v) => { if (!v) setEditAccessReq(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Editar Solicitação de Acesso</DialogTitle>
+            <DialogDescription>Edite os dados antes de aprovar ou recusar.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Nome <span className="text-destructive">*</span></label>
+                <Input value={editAccessForm.nome || ''} onChange={e => setEditAccessForm(p => ({ ...p, nome: e.target.value }))} className="h-10" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">E-mail <span className="text-destructive">*</span></label>
+                <Input value={editAccessForm.email || ''} onChange={e => setEditAccessForm(p => ({ ...p, email: e.target.value }))} className="h-10" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Telefone</label>
+                <Input value={editAccessForm.telefone || ''} onChange={e => setEditAccessForm(p => ({ ...p, telefone: e.target.value }))} className="h-10" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">CPF</label>
+                <Input value={editAccessForm.cpf || ''} onChange={e => setEditAccessForm(p => ({ ...p, cpf: e.target.value }))} className="h-10" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">RG</label>
+                <Input value={editAccessForm.rg || ''} onChange={e => setEditAccessForm(p => ({ ...p, rg: e.target.value }))} className="h-10" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Cargo</label>
+                <Input value={editAccessForm.cargo || ''} onChange={e => setEditAccessForm(p => ({ ...p, cargo: e.target.value }))} className="h-10" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Endereço</label>
+              <Input value={editAccessForm.endereco || ''} onChange={e => setEditAccessForm(p => ({ ...p, endereco: e.target.value }))} className="h-10" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Nível de Acesso</label>
+                <Select value={editAccessForm.nivel_acesso || 'consultor'} onValueChange={v => setEditAccessForm(p => ({ ...p, nivel_acesso: v }))}>
+                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="consultor">Consultor</SelectItem>
+                    <SelectItem value="supervisor">Supervisor</SelectItem>
+                    <SelectItem value="gerente">Gerente</SelectItem>
+                    <SelectItem value="diretor">Diretor</SelectItem>
+                    <SelectItem value="administrador">Administrador</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Supervisor</label>
+                <Select value={editAccessForm.supervisor_id || '__none__'} onValueChange={v => setEditAccessForm(p => ({ ...p, supervisor_id: v === '__none__' ? '' : v }))}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome_completo || p.apelido}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Gerente</label>
+                <Select value={editAccessForm.gerente_id || '__none__'} onValueChange={v => setEditAccessForm(p => ({ ...p, gerente_id: v === '__none__' ? '' : v }))}>
+                  <SelectTrigger className="h-10"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">Nenhum</SelectItem>
+                    {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome_completo || p.apelido}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Data de Nascimento</label>
+                <Input type="date" value={editAccessForm.data_nascimento || ''} onChange={e => setEditAccessForm(p => ({ ...p, data_nascimento: e.target.value }))} className="h-10" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Data de Admissão</label>
+                <Input type="date" value={editAccessForm.data_admissao || ''} onChange={e => setEditAccessForm(p => ({ ...p, data_admissao: e.target.value }))} className="h-10" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Emergência 1</label>
+                <Input value={editAccessForm.numero_emergencia_1 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_1: e.target.value }))} className="h-10" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Emergência 2</label>
+              <Input value={editAccessForm.numero_emergencia_2 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_2: e.target.value }))} className="h-10" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Mensagem</label>
+              <Textarea value={editAccessForm.mensagem || ''} onChange={e => setEditAccessForm(p => ({ ...p, mensagem: e.target.value }))} rows={3} />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditAccessReq(null)}>Cancelar</Button>
+            <Button onClick={handleSaveAccessReq} disabled={savingAccess} className="gap-1">
+              {savingAccess ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Salvar</>}
             </Button>
           </DialogFooter>
         </DialogContent>
