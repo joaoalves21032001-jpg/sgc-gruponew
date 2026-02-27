@@ -189,7 +189,7 @@ export function KanbanBoard() {
     livre: false, possuiAproveitamento: false,
     produto: '', quantidade_vidas: '', companhia_nome: '', valor: '',
     vendaDental: false, coParticipacao: 'sem' as string, estagiarios: false, qtdEstagiarios: '',
-    observacoes: '',
+    observacoes: '', dataVigencia: '',
   });
   const [titulares, setTitulares] = useState<{ nome: string; idade: string; produto: string }[]>([{ nome: '', idade: '', produto: '' }]);
   const [dependentes, setDependentes] = useState<{ nome: string; idade: string; produto: string; descricao: string }[]>([]);
@@ -318,6 +318,7 @@ export function KanbanBoard() {
       estagiarios: ext.estagiarios || false,
       qtdEstagiarios: ext.qtdEstagiarios || '',
       observacoes: ext.observacoes || '',
+      dataVigencia: ext.dataVigencia || '',
     });
     setTitulares(ext.titulares?.length ? ext.titulares : [{ nome: '', idade: '', produto: '' }]);
     setDependentes(ext.dependentes?.length ? ext.dependentes : []);
@@ -338,7 +339,7 @@ export function KanbanBoard() {
 
   const openAdd = (stageId?: string | null) => {
     setEditItem(null);
-    setForm({ tipo: '', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false, possuiAproveitamento: false, produto: '', quantidade_vidas: '', companhia_nome: '', valor: '', vendaDental: false, coParticipacao: 'sem', estagiarios: false, qtdEstagiarios: '', observacoes: '' });
+    setForm({ tipo: '', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false, possuiAproveitamento: false, produto: '', quantidade_vidas: '', companhia_nome: '', valor: '', vendaDental: false, coParticipacao: 'sem', estagiarios: false, qtdEstagiarios: '', observacoes: '', dataVigencia: '' });
     setTitulares([{ nome: '', idade: '', produto: '' }]);
     setDependentes([]);
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
@@ -370,6 +371,7 @@ export function KanbanBoard() {
       produto: form.produto || null,
       quantidade_vidas: form.quantidade_vidas ? parseInt(form.quantidade_vidas) : null,
       valor: form.valor ? (() => { const v = unmaskCurrency(form.valor); return isNaN(v) || v === 0 ? null : v; })() : null,
+      dataVigencia: form.dataVigencia || null,
       titulares: titulares.filter(t => t.nome.trim()),
       dependentes: dependentes.filter(d => d.nome.trim()),
     });
@@ -593,6 +595,12 @@ export function KanbanBoard() {
                   <SelectItem value="completa">Completa</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Data de Vigência */}
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Data de Vigência</label>
+              <Input type="date" value={form.dataVigencia} onChange={e => setForm(p => ({ ...p, dataVigencia: e.target.value }))} className="h-10" />
             </div>
 
             {/* Estagiários */}
