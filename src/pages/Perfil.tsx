@@ -4,7 +4,7 @@ import {
   FileText, MapPin, AlertTriangle, Users, Briefcase, Camera, Send,
   CalendarDays, Cake
 } from 'lucide-react';
-import { useProfile, useUserRole, useSupervisorProfile, useGerenteProfile } from '@/hooks/useProfile';
+import { useProfile, useUserRole, useSupervisorProfile, useGerenteProfile, useTeamProfiles } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
@@ -40,6 +40,11 @@ const Perfil = () => {
   const { data: role } = useUserRole();
   const { data: supervisor } = useSupervisorProfile(profile?.supervisor_id);
   const { data: gerente } = useGerenteProfile(profile?.gerente_id);
+  const { data: allProfiles = [] } = useTeamProfiles();
+
+  // Fallback: resolve supervisor/gerente from allProfiles if hooks return null
+  const resolvedSupervisor = supervisor || (profile?.supervisor_id ? allProfiles.find(p => p.id === profile.supervisor_id) : null);
+  const resolvedGerente = gerente || (profile?.gerente_id ? allProfiles.find(p => p.id === profile.gerente_id) : null);
 
   const [uploading, setUploading] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
@@ -254,21 +259,21 @@ const Perfil = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="p-4 bg-muted/50 rounded-lg border border-border/20 space-y-1.5">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Supervisor</p>
-                <p className="text-sm font-bold text-foreground">{supervisor?.nome_completo || '—'}</p>
-                {supervisor?.email && (
+                <p className="text-sm font-bold text-foreground">{resolvedSupervisor?.nome_completo || '—'}</p>
+                {resolvedSupervisor?.email && (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Mail className="w-3 h-3" />
-                    {supervisor.email}
+                    {resolvedSupervisor.email}
                   </div>
                 )}
               </div>
               <div className="p-4 bg-muted/50 rounded-lg border border-border/20 space-y-1.5">
                 <p className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-semibold">Gerência</p>
-                <p className="text-sm font-bold text-foreground">{gerente?.nome_completo || '—'}</p>
-                {gerente?.email && (
+                <p className="text-sm font-bold text-foreground">{resolvedGerente?.nome_completo || '—'}</p>
+                {resolvedGerente?.email && (
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <Mail className="w-3 h-3" />
-                    {gerente.email}
+                    {resolvedGerente.email}
                   </div>
                 )}
               </div>
