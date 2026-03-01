@@ -194,6 +194,8 @@ export function KanbanBoard() {
   // RN-02: Carência files
   const [carteirinhaAnterior, setCarteirinhaAnterior] = useState<File | null>(null);
   const [cartaPermanencia, setCartaPermanencia] = useState<File | null>(null);
+  const [existingCarteirinhaPath, setExistingCarteirinhaPath] = useState<string | null>(null);
+  const [existingCartaPath, setExistingCartaPath] = useState<string | null>(null);
 
   const isPessoaFisica = (tipo: string) => tipo === 'PF' || tipo === 'Familiar' || tipo === 'pessoa_fisica' || tipo === 'Adesão';
 
