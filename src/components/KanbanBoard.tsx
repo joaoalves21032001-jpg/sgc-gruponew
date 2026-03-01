@@ -30,6 +30,12 @@ function getLeadValor(lead: Lead): number | null {
   try {
     if (lead.origem) {
       const ext = JSON.parse(lead.origem);
+      // Sum individual cotação values if present
+      if (ext.cotacao_values && Array.isArray(ext.cotacao_values)) {
+        const sum = ext.cotacao_values.reduce((acc: number, v: number) => acc + (v || 0), 0);
+        if (sum > 0) return sum;
+      }
+      // Fallback to single valor
       if (ext.valor && !isNaN(ext.valor) && ext.valor > 0) return ext.valor;
     }
   } catch { /* not JSON */ }
@@ -230,7 +236,9 @@ export function KanbanBoard() {
   const [cartaoCnpj, setCartaoCnpj] = useState<File | null>(null);
   const [comprovanteEndereco, setComprovanteEndereco] = useState<File | null>(null);
   const [cotacaoPdfs, setCotacaoPdfs] = useState<File[]>([]);
+  const [cotacaoValues, setCotacaoValues] = useState<string[]>([]);
   const [existingCotacaoPaths, setExistingCotacaoPaths] = useState<string[]>([]);
+  const [existingCotacaoValues, setExistingCotacaoValues] = useState<string[]>([]);
   // RN-02: Carência files
   const [carteirinhaAnterior, setCarteirinhaAnterior] = useState<File | null>(null);
   const [cartaPermanencia, setCartaPermanencia] = useState<File | null>(null);
@@ -358,9 +366,17 @@ export function KanbanBoard() {
     setTitulares(ext.titulares?.length ? ext.titulares : [{ nome: '', idade: '', produto: '' }]);
     setDependentes(ext.dependentes?.length ? ext.dependentes : []);
     setFormStageId(l.stage_id || null);
-    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdfs([]); setCarteirinhaAnterior(null); setCartaPermanencia(null);
+    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdfs([]); setCotacaoValues([]); setCarteirinhaAnterior(null); setCartaPermanencia(null);
     // Load existing cotação paths from origem JSON
     setExistingCotacaoPaths(ext.cotacao_paths || (l.boletos_path ? [l.boletos_path] : []));
+    // Load existing cotação values
+    const existingVals: string[] = [];
+    if (ext.cotacao_values && Array.isArray(ext.cotacao_values)) {
+      ext.cotacao_values.forEach((v: number) => existingVals.push(v ? maskCurrency(String(Math.round(v * 100))) : ''));
+    }
+    const pathCount = (ext.cotacao_paths || (l.boletos_path ? [l.boletos_path] : [])).length;
+    while (existingVals.length < pathCount) existingVals.push('');
+    setExistingCotacaoValues(existingVals);
     // Load existing carência paths from origem JSON
     setExistingCarteirinhaPath(ext.carteirinha_anterior_path || null);
     setExistingCartaPath(ext.carta_permanencia_path || null);
@@ -394,7 +410,7 @@ export function KanbanBoard() {
     setTitulares([{ nome: '', idade: '', produto: '' }]);
     setDependentes([]);
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
-    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdfs([]); setExistingCotacaoPaths([]); setCarteirinhaAnterior(null); setCartaPermanencia(null);
+    setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdfs([]); setCotacaoValues([]); setExistingCotacaoPaths([]); setExistingCotacaoValues([]); setCarteirinhaAnterior(null); setCartaPermanencia(null);
     setExistingCarteirinhaPath(null); setExistingCartaPath(null);
     setAssignedTo(user?.id || '');
     setShowForm(true);
@@ -428,6 +444,13 @@ export function KanbanBoard() {
       } catch { /* ignore */ }
     }
 
+    // Build cotacao_values array (existing + new)
+    const allCotacaoValuesArr: number[] = [
+      ...existingCotacaoValues.map(v => v ? unmaskCurrency(v) : 0),
+      ...cotacaoValues.map(v => v ? unmaskCurrency(v) : 0),
+    ].filter(v => !isNaN(v));
+    const totalCotacaoValor = allCotacaoValuesArr.reduce((a, b) => a + b, 0);
+
     // Build extended draft data JSON (fields not in DB stored here)
     const extendedData = JSON.stringify({
       vendaDental: form.vendaDental,
@@ -439,7 +462,8 @@ export function KanbanBoard() {
       plano_anterior: form.possuiAproveitamento,
       produto: form.produto || null,
       quantidade_vidas: form.quantidade_vidas ? parseInt(form.quantidade_vidas) : null,
-      valor: form.valor ? (() => { const v = unmaskCurrency(form.valor); return isNaN(v) || v === 0 ? null : v; })() : null,
+      valor: totalCotacaoValor > 0 ? totalCotacaoValor : (form.valor ? (() => { const v = unmaskCurrency(form.valor); return isNaN(v) || v === 0 ? null : v; })() : null),
+      cotacao_values: allCotacaoValuesArr.length > 0 ? allCotacaoValuesArr : undefined,
       dataVigencia: form.dataVigencia || null,
       titulares: titulares.filter(t => t.nome.trim()),
       dependentes: dependentes.filter(d => d.nome.trim()),
@@ -693,11 +717,29 @@ export function KanbanBoard() {
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Valor (R$)</label>
+              <label className="text-xs font-semibold text-muted-foreground">Valor Total (R$)</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-primary/50 font-medium">R$</span>
-                <Input value={form.valor} onChange={e => setForm(p => ({ ...p, valor: maskCurrency(e.target.value) }))} placeholder="0,00" className="h-10 pl-10" />
+                <Input
+                  value={(() => {
+                    const allVals = [...existingCotacaoValues, ...cotacaoValues];
+                    const sum = allVals.reduce((acc, v) => acc + (v ? unmaskCurrency(v) : 0), 0);
+                    return sum > 0 ? maskCurrency(String(Math.round(sum * 100))) : form.valor;
+                  })()}
+                  onChange={e => {
+                    // Only editable if no cotação values exist
+                    const allVals = [...existingCotacaoValues, ...cotacaoValues];
+                    const hasCotValues = allVals.some(v => v && unmaskCurrency(v) > 0);
+                    if (!hasCotValues) setForm(p => ({ ...p, valor: maskCurrency(e.target.value) }));
+                  }}
+                  readOnly={[...existingCotacaoValues, ...cotacaoValues].some(v => v && unmaskCurrency(v) > 0)}
+                  placeholder="0,00"
+                  className={`h-10 pl-10 ${[...existingCotacaoValues, ...cotacaoValues].some(v => v && unmaskCurrency(v) > 0) ? 'bg-muted/50 cursor-not-allowed' : ''}`}
+                />
               </div>
+              {[...existingCotacaoValues, ...cotacaoValues].some(v => v && unmaskCurrency(v) > 0) && (
+                <p className="text-[10px] text-muted-foreground mt-1">Calculado automaticamente pela soma dos valores das cotações.</p>
+              )}
             </div>
 
             {/* Toggles Section */}
@@ -875,24 +917,58 @@ export function KanbanBoard() {
               <FileUploadField label="Comprovante de Endereço" file={comprovanteEndereco} onFileChange={setComprovanteEndereco} existingPath={editItem?.comprovante_endereco_path} />
               {/* Cotação PDFs (up to 3) */}
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-muted-foreground">Cotações (PDF) — máx. 3</label>
+                <label className="text-xs font-semibold text-muted-foreground">Cotações (PDF) — máx. 3 <span className="text-muted-foreground/50">(com valor individual)</span></label>
                 {existingCotacaoPaths.map((p, i) => (
                   <div key={`existing-${i}`} className="flex items-center gap-2 px-3 py-2 rounded-md border border-border/40 bg-card text-xs">
                     <FileText className="w-3.5 h-3.5 text-success shrink-0" />
                     <span className="text-success flex-1 truncate">Cotação {i + 1} ✓</span>
-                    <button type="button" onClick={() => setExistingCotacaoPaths(prev => prev.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80"><Trash2 className="w-3 h-3" /></button>
+                    <div className="relative w-28 shrink-0">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-primary/50 font-medium">R$</span>
+                      <Input
+                        value={existingCotacaoValues[i] || ''}
+                        onChange={e => {
+                          const arr = [...existingCotacaoValues];
+                          while (arr.length <= i) arr.push('');
+                          arr[i] = maskCurrency(e.target.value);
+                          setExistingCotacaoValues(arr);
+                        }}
+                        placeholder="0,00"
+                        className="h-7 pl-7 text-xs"
+                      />
+                    </div>
+                    <button type="button" onClick={() => {
+                      setExistingCotacaoPaths(prev => prev.filter((_, j) => j !== i));
+                      setExistingCotacaoValues(prev => prev.filter((_, j) => j !== i));
+                    }} className="text-destructive hover:text-destructive/80"><Trash2 className="w-3 h-3" /></button>
                   </div>
                 ))}
                 {cotacaoPdfs.map((f, i) => (
                   <div key={`new-${i}`} className="flex items-center gap-2 px-3 py-2 rounded-md border border-border/40 bg-card text-xs">
                     <FileText className="w-3.5 h-3.5 text-primary shrink-0" />
                     <span className="text-primary flex-1 truncate">{f.name}</span>
-                    <button type="button" onClick={() => setCotacaoPdfs(prev => prev.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80"><Trash2 className="w-3 h-3" /></button>
+                    <div className="relative w-28 shrink-0">
+                      <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] text-primary/50 font-medium">R$</span>
+                      <Input
+                        value={cotacaoValues[i] || ''}
+                        onChange={e => {
+                          const arr = [...cotacaoValues];
+                          while (arr.length <= i) arr.push('');
+                          arr[i] = maskCurrency(e.target.value);
+                          setCotacaoValues(arr);
+                        }}
+                        placeholder="0,00"
+                        className="h-7 pl-7 text-xs"
+                      />
+                    </div>
+                    <button type="button" onClick={() => {
+                      setCotacaoPdfs(prev => prev.filter((_, j) => j !== i));
+                      setCotacaoValues(prev => prev.filter((_, j) => j !== i));
+                    }} className="text-destructive hover:text-destructive/80"><Trash2 className="w-3 h-3" /></button>
                   </div>
                 ))}
                 {(existingCotacaoPaths.length + cotacaoPdfs.length) < 3 && (
                   <label className="cursor-pointer block">
-                    <input type="file" className="hidden" accept=".pdf" onChange={e => { const f = e.target.files?.[0]; if (f) setCotacaoPdfs(prev => [...prev, f]); e.target.value = ''; }} />
+                    <input type="file" className="hidden" accept=".pdf" onChange={e => { const f = e.target.files?.[0]; if (f) { setCotacaoPdfs(prev => [...prev, f]); setCotacaoValues(prev => [...prev, '']); } e.target.value = ''; }} />
                     <span className="flex items-center gap-1.5 px-3 py-2 rounded-md border border-border/40 bg-card text-xs hover:bg-muted transition-colors cursor-pointer">
                       <Upload className="w-3.5 h-3.5 text-primary shrink-0" />
                       <span className="text-muted-foreground">Anexar PDF...</span>
