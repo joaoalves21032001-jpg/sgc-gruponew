@@ -766,13 +766,13 @@ const Aprovacoes = () => {
       const alteracoes = payload.alteracoesPropostas || [];
       const updateObj: Record<string, any> = {};
       // Valid columns per table to avoid schema errors
-      const ativCols = ['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'data', 'observacoes'];
+      const ativCols = ['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'follow_up', 'data', 'observacoes'];
       const vendaCols = ['nome_titular', 'modalidade', 'vidas', 'valor', 'observacoes', 'data_lancamento', 'justificativa_retroativo'];
       const validCols = cr.tipo === 'atividade' ? ativCols : vendaCols;
       for (const a of alteracoes) {
         if (!validCols.includes(a.campo)) continue; // skip unknown columns
         let val: any = a.valorNovo;
-        if (['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'vidas'].includes(a.campo)) {
+        if (['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'follow_up', 'vidas'].includes(a.campo)) {
           val = parseInt(val) || 0;
         }
         if (a.campo === 'valor') {
