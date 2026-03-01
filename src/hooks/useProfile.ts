@@ -71,7 +71,7 @@ export function useUserRole() {
 
 export function useSupervisorProfile(supervisorId: string | null | undefined) {
   return useQuery({
-    queryKey: ['profile', supervisorId],
+    queryKey: ['supervisor-profile', supervisorId],
     queryFn: async () => {
       if (!supervisorId) return null;
       const { data, error } = await supabase
@@ -88,7 +88,7 @@ export function useSupervisorProfile(supervisorId: string | null | undefined) {
 
 export function useGerenteProfile(gerenteId: string | null | undefined) {
   return useQuery({
-    queryKey: ['profile', gerenteId],
+    queryKey: ['gerente-profile', gerenteId],
     queryFn: async () => {
       if (!gerenteId) return null;
       const { data, error } = await supabase
