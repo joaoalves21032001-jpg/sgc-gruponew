@@ -78,43 +78,152 @@ function useDeletePremiacao() {
   });
 }
 
-// Node Component for Tree
-const TreeNode = ({ profile, profiles, level, isAdmin, salesData }: { profile: Profile, profiles: Profile[], level: number, isAdmin: boolean, salesData: any }) => {
+/* ═══ SharePoint-style OrgChart Card ═══ */
+const OrgCard = ({ profile, isAdmin, salesData, onSelect }: {
+  profile: Profile;
+  isAdmin: boolean;
+  salesData: Record<string, { total: number; month: number }>;
+  onSelect: (p: Profile) => void;
+}) => {
+  const sales = salesData[profile.id] || { total: 0, month: 0 };
+  const cargoColor = (() => {
+    const c = profile.cargo.toLowerCase();
+    if (c.includes('diretor')) return 'bg-gradient-to-br from-purple-500 to-indigo-600';
+    if (c.includes('gerente')) return 'bg-gradient-to-br from-blue-500 to-cyan-600';
+    if (c.includes('supervisor')) return 'bg-gradient-to-br from-teal-500 to-emerald-600';
+    return 'bg-gradient-to-br from-slate-500 to-slate-600';
+  })();
+
+  return (
+    <button
+      onClick={() => onSelect(profile)}
+      className="group flex flex-col items-center text-center bg-card rounded-xl border border-border/30 shadow-card hover:shadow-card-hover hover:border-primary/30 transition-all duration-200 p-4 min-w-[180px] max-w-[200px] cursor-pointer"
+    >
+      <Avatar className="w-14 h-14 border-2 border-border/30 group-hover:border-primary/30 transition-colors shadow-sm">
+        <AvatarImage src={profile.avatar_url || undefined} />
+        <AvatarFallback className={`${cargoColor} text-white font-bold text-lg`}>
+          {(profile.apelido || profile.nome_completo).charAt(0)}
+        </AvatarFallback>
+      </Avatar>
+      <p className="text-sm font-bold text-foreground mt-2 truncate w-full">{profile.apelido || profile.nome_completo.split(' ')[0]}</p>
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{profile.cargo}</p>
+      <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
+        <span>Mês: <strong className="text-foreground">{sales.month}</strong></span>
+        <span>Total: <strong className="text-foreground">{sales.total}</strong></span>
+      </div>
+    </button>
+  );
+};
+
+/* ═══ OrgChart Tree Node (recursive) ═══ */
+const OrgTreeNode = ({ profile, profiles, isAdmin, salesData, onSelect, isRoot }: {
+  profile: Profile;
+  profiles: Profile[];
+  isAdmin: boolean;
+  salesData: Record<string, { total: number; month: number }>;
+  onSelect: (p: Profile) => void;
+  isRoot?: boolean;
+}) => {
   const [expanded, setExpanded] = useState(true);
-  const [showAwards, setShowAwards] = useState(false);
-  const { data: awards = [] } = usePremiacoes(profile.id);
-  const addAward = useAddPremiacao();
-  const deleteAward = useDeletePremiacao();
-  const [awardTitle, setAwardTitle] = useState('');
-  const [awardDesc, setAwardDesc] = useState('');
 
   // Find direct reports
   const directReports = useMemo(() => {
     const cargo = profile.cargo.toLowerCase();
-    
+
     if (cargo.includes('diretor')) {
-      // Diretores see Gerentes (those without a supervisor link to another diretor)
       return profiles.filter(p => {
         const pCargo = p.cargo.toLowerCase();
         return pCargo.includes('gerente') && p.id !== profile.id;
       });
     }
     if (cargo.includes('gerente')) {
-      // Gerentes see Supervisors under them
-      return profiles.filter(p => p.gerente_id === profile.id && p.cargo.toLowerCase().includes('supervisor'));
+      // Supervisors under this gerente
+      const supervisors = profiles.filter(p => p.gerente_id === profile.id && p.cargo.toLowerCase().includes('supervisor'));
+      // Consultors reporting directly to this gerente (no supervisor assigned)
+      const directConsultors = profiles.filter(p =>
+        p.gerente_id === profile.id &&
+        !p.supervisor_id &&
+        !p.cargo.toLowerCase().includes('supervisor') &&
+        !p.cargo.toLowerCase().includes('gerente') &&
+        !p.cargo.toLowerCase().includes('diretor') &&
+        p.id !== profile.id
+      );
+      return [...supervisors, ...directConsultors];
     }
     if (cargo.includes('supervisor')) {
-      // Supervisors see Consultors under them
-      return profiles.filter(p => p.supervisor_id === profile.id);
+      return profiles.filter(p => p.supervisor_id === profile.id && p.id !== profile.id);
     }
     return [];
   }, [profile, profiles]);
 
-  // Special handling for top level (Diretor) or unlinked Gerentes done in parent.
-  
   const hasChildren = directReports.length > 0;
-  const sales = salesData[profile.id] || { total: 0, month: 0 };
-  
+
+  return (
+    <div className="flex flex-col items-center">
+      {/* This person's card */}
+      <div className="relative">
+        <OrgCard profile={profile} isAdmin={isAdmin} salesData={salesData} onSelect={onSelect} />
+        {hasChildren && (
+          <button
+            onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+            className="absolute -bottom-3 left-1/2 -translate-x-1/2 z-10 w-6 h-6 rounded-full bg-card border border-border/40 shadow-sm flex items-center justify-center hover:bg-muted transition-colors"
+          >
+            {expanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />}
+          </button>
+        )}
+      </div>
+
+      {/* Children */}
+      {expanded && hasChildren && (
+        <div className="flex flex-col items-center mt-4">
+          {/* Vertical connector line */}
+          <div className="w-px h-6 bg-border/40" />
+
+          {/* Horizontal connector + children */}
+          <div className="relative">
+            {directReports.length > 1 && (
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 h-px bg-border/40" style={{
+                width: `calc(100% - 180px)`,
+                minWidth: '40px',
+              }} />
+            )}
+            <div className="flex gap-6 items-start">
+              {directReports.map(child => (
+                <div key={child.id} className="flex flex-col items-center">
+                  {/* Vertical connector to child */}
+                  <div className="w-px h-6 bg-border/40" />
+                  <OrgTreeNode
+                    profile={child}
+                    profiles={profiles}
+                    isAdmin={isAdmin}
+                    salesData={salesData}
+                    onSelect={onSelect}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ═══ Profile Detail Modal ═══ */
+const ProfileDetailModal = ({ profile, isAdmin, onClose }: {
+  profile: Profile | null;
+  isAdmin: boolean;
+  onClose: () => void;
+}) => {
+  const [showAwards, setShowAwards] = useState(false);
+  const { data: awards = [] } = usePremiacoes(profile?.id || '');
+  const addAward = useAddPremiacao();
+  const deleteAward = useDeletePremiacao();
+  const [awardTitle, setAwardTitle] = useState('');
+  const [awardDesc, setAwardDesc] = useState('');
+
+  if (!profile) return null;
+
   const handleAddAward = async () => {
     if (!awardTitle.trim()) return;
     await addAward.mutateAsync({ userId: profile.id, titulo: awardTitle, descricao: awardDesc });
@@ -122,55 +231,52 @@ const TreeNode = ({ profile, profiles, level, isAdmin, salesData }: { profile: P
   };
 
   return (
-    <div className="ml-4 border-l border-border/20 pl-4 py-2">
-      <div className="bg-card rounded-lg border border-border/30 shadow-sm p-3 flex items-center gap-3 w-full max-w-3xl hover:border-primary/30 transition-colors">
-        <button onClick={() => setExpanded(!expanded)} className={`p-1 rounded-md hover:bg-muted ${hasChildren ? '' : 'invisible'}`}>
-          {expanded ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronRight className="w-4 h-4 text-muted-foreground" />}
-        </button>
-        
-        <Avatar className="w-10 h-10 border border-border/30">
-          <AvatarImage src={profile.avatar_url || undefined} />
-          <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">{(profile.apelido || profile.nome_completo).charAt(0)}</AvatarFallback>
-        </Avatar>
+    <Dialog open={!!profile} onOpenChange={v => { if (!v) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="font-display text-lg flex items-center gap-3">
+            <Avatar className="w-10 h-10 border border-border/30">
+              <AvatarImage src={profile.avatar_url || undefined} />
+              <AvatarFallback className="bg-primary/10 text-primary font-bold">{(profile.apelido || profile.nome_completo).charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div>
+              <span>{profile.nome_completo}</span>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold mt-0.5">{profile.cargo}</p>
+            </div>
+          </DialogTitle>
+        </DialogHeader>
 
-        <div className="flex-1 min-w-0 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-          <div className="md:col-span-1">
-            <p className="text-sm font-bold text-foreground truncate">{profile.nome_completo}</p>
-            <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{profile.cargo}</p>
+        <div className="space-y-3 mt-2">
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            {profile.email && (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Mail className="w-3 h-3 text-primary" /> {profile.email}
+              </div>
+            )}
+            {profile.celular && (
+              <div className="flex items-center gap-1.5 text-muted-foreground">
+                <Phone className="w-3 h-3 text-primary" /> {profile.celular}
+              </div>
+            )}
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Calendar className="w-3 h-3 text-primary" /> {calcTempoEmpresa((profile as any).data_admissao)} de casa
+            </div>
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Award className="w-3 h-3 text-primary" /> Niver: {getAniversario((profile as any).data_nascimento) || '—'}
+            </div>
           </div>
-          
-          <div className="text-xs text-muted-foreground space-y-0.5">
-            <div className="flex items-center gap-1.5"><Calendar className="w-3 h-3" /> {calcTempoEmpresa((profile as any).data_admissao)} de casa</div>
-            <div className="flex items-center gap-1.5"><Award className="w-3 h-3" /> Niver: {getAniversario((profile as any).data_nascimento) || '—'}</div>
-          </div>
 
-          <div className="text-xs space-y-0.5">
-            <div className="flex items-center justify-between"><span className="text-muted-foreground">Vendas Mês:</span> <span className="font-bold text-foreground">{sales.month}</span></div>
-            <div className="flex items-center justify-between"><span className="text-muted-foreground">Vendas Total:</span> <span className="font-bold text-foreground">{sales.total}</span></div>
-          </div>
+          <Separator className="bg-border/20" />
 
-          <div className="flex justify-end gap-2">
-            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-primary" onClick={() => setShowAwards(true)}>
-              <Trophy className="w-3.5 h-3.5" /> Premiações ({awards.length})
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {expanded && hasChildren && (
-        <div className="animate-fade-in">
-          {directReports.map(child => (
-            <TreeNode key={child.id} profile={child} profiles={profiles} level={level + 1} isAdmin={isAdmin} salesData={salesData} />
-          ))}
-        </div>
-      )}
-
-      <Dialog open={showAwards} onOpenChange={setShowAwards}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Premiações de {profile.apelido}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              {awards.length === 0 ? <p className="text-xs text-muted-foreground italic text-center py-4">Nenhuma premiação.</p> : (
+          {/* Awards */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                <Trophy className="w-3.5 h-3.5 text-warning" /> Premiações ({awards.length})
+              </p>
+            </div>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {awards.length === 0 ? <p className="text-xs text-muted-foreground italic text-center py-3">Nenhuma premiação.</p> : (
                 awards.map((a: any) => (
                   <div key={a.id} className="flex items-start justify-between p-2 rounded bg-muted/20 border border-border/20">
                     <div>
@@ -184,27 +290,27 @@ const TreeNode = ({ profile, profiles, level, isAdmin, salesData }: { profile: P
               )}
             </div>
             {isAdmin && (
-              <div className="space-y-2 pt-4 border-t border-border/20">
+              <div className="space-y-2 pt-3 border-t border-border/20 mt-3">
                 <Input placeholder="Título da premiação" value={awardTitle} onChange={e => setAwardTitle(e.target.value)} className="h-8 text-xs" />
                 <Input placeholder="Descrição (opcional)" value={awardDesc} onChange={e => setAwardDesc(e.target.value)} className="h-8 text-xs" />
                 <Button onClick={handleAddAward} size="sm" className="w-full h-8 text-xs" disabled={!awardTitle}>Adicionar Premiação</Button>
               </div>
             )}
           </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
+/* ═══ Main Component ═══ */
 const Equipe = () => {
   const { data: role } = useUserRole();
   const isAdmin = role === 'administrador';
   const { data: profiles = [], isLoading } = useTeamProfiles();
-  
-  // Mock sales data or fetch real
-  // In real app, we should fetch from 'vendas' table with aggregations.
-  // For now I'll create a quick query or just use useAllVendasCount logic but enhanced
+  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  const [search, setSearch] = useState('');
+
   const { data: vendas = [] } = useQuery({
     queryKey: ['all-sales-stats'],
     queryFn: async () => {
@@ -219,7 +325,7 @@ const Equipe = () => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    
+
     vendas.forEach(v => {
       if (!stats[v.user_id]) stats[v.user_id] = { total: 0, month: 0 };
       stats[v.user_id].total++;
@@ -231,37 +337,34 @@ const Equipe = () => {
     return stats;
   }, [vendas]);
 
+  // Filter active profiles
+  const activeProfiles = useMemo(() =>
+    profiles.filter(p => !p.disabled), [profiles]
+  );
+
   // Build Hierarchy Roots
-  // Roots are: 
-  // 1. Diretores (anyone with cargo 'Diretor')
-  // 2. Gerentes who have no linked supervisor (assuming they report to directors or are top)
-  // 3. Anyone else who has no supervisor_id AND no gerente_id (Orphans/Top level)
   const roots = useMemo(() => {
-    return profiles.filter(p => {
-      const cargo = p.cargo.toLowerCase();
-      // If Diretor -> Root
-      if (cargo.includes('diretor')) return true;
-      // If Gerente and no Director link (we don't have director_id, so usually root)
-      // But we need to check if they are already children of someone else? 
-      // In this simple schema, Gerentes don't have 'supervisor_id' usually pointing to another manager.
-      // So Gerentes are likely roots unless we have Diretores.
-      // Let's assume all Gerentes and Diretores are roots for the visualization,
-      // UNLESS we want a single tree.
-      // Let's try: Roots = All Diretores. If no Diretores, then all Gerentes.
-      
-      const hasDiretores = profiles.some(u => u.cargo.toLowerCase().includes('diretor'));
-      if (hasDiretores) {
-        return cargo.includes('diretor');
-      }
-      // If no diretores, maybe Gerentes are top
-      const hasGerentes = profiles.some(u => u.cargo.toLowerCase().includes('gerente'));
-      if (hasGerentes) {
-        return cargo.includes('gerente');
-      }
-      // Fallback: everyone without supervisor
-      return !p.supervisor_id && !p.gerente_id;
-    }).sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
-  }, [profiles]);
+    const filtered = search
+      ? activeProfiles.filter(p => p.nome_completo.toLowerCase().includes(search.toLowerCase()) || (p.apelido || '').toLowerCase().includes(search.toLowerCase()))
+      : activeProfiles;
+
+    if (search) return filtered.sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
+
+    // When not searching, show tree hierarchy
+    const hasDiretores = activeProfiles.some(u => u.cargo.toLowerCase().includes('diretor'));
+    if (hasDiretores) {
+      return activeProfiles.filter(p => p.cargo.toLowerCase().includes('diretor'))
+        .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
+    }
+    const hasGerentes = activeProfiles.some(u => u.cargo.toLowerCase().includes('gerente'));
+    if (hasGerentes) {
+      return activeProfiles.filter(p => p.cargo.toLowerCase().includes('gerente'))
+        .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
+    }
+    // Fallback: everyone without supervisor
+    return activeProfiles.filter(p => !p.supervisor_id && !p.gerente_id)
+      .sort((a, b) => a.nome_completo.localeCompare(b.nome_completo));
+  }, [activeProfiles, search]);
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -270,18 +373,71 @@ const Equipe = () => {
           <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Equipe</h1>
           <p className="text-sm text-muted-foreground mt-1">Organograma e Desempenho</p>
         </div>
+        <div className="relative w-64">
+          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Buscar colaborador..."
+            className="pl-9 h-9 border-border/40 text-sm"
+          />
+        </div>
+      </div>
+
+      {/* Stats bar */}
+      <div className="flex gap-3 flex-wrap">
+        <div className="px-3 py-2 bg-card rounded-lg border border-border/30 shadow-sm">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total</p>
+          <p className="text-lg font-bold text-foreground">{activeProfiles.length}</p>
+        </div>
+        {['Diretor', 'Gerente', 'Supervisor', 'Consultor'].map(cargo => {
+          const count = activeProfiles.filter(p => p.cargo.toLowerCase().includes(cargo.toLowerCase())).length;
+          if (count === 0) return null;
+          return (
+            <div key={cargo} className="px-3 py-2 bg-card rounded-lg border border-border/30 shadow-sm">
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{cargo}es</p>
+              <p className="text-lg font-bold text-foreground">{count}</p>
+            </div>
+          );
+        })}
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
-      ) : (
-        <div className="space-y-2">
-          {roots.map(root => (
-            <TreeNode key={root.id} profile={root} profiles={profiles} level={0} isAdmin={isAdmin} salesData={salesData} />
+      ) : search ? (
+        /* Search results: flat grid */
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          {roots.map(p => (
+            <OrgCard key={p.id} profile={p} isAdmin={isAdmin} salesData={salesData} onSelect={setSelectedProfile} />
           ))}
-          {roots.length === 0 && <p className="text-center text-muted-foreground py-10">Nenhum colaborador encontrado na hierarquia.</p>}
+          {roots.length === 0 && <p className="col-span-full text-center text-muted-foreground py-10">Nenhum colaborador encontrado.</p>}
+        </div>
+      ) : (
+        /* Org chart tree */
+        <div className="overflow-x-auto pb-6">
+          <div className="flex flex-col items-center gap-0 min-w-max px-6">
+            {roots.map(root => (
+              <OrgTreeNode
+                key={root.id}
+                profile={root}
+                profiles={activeProfiles}
+                isAdmin={isAdmin}
+                salesData={salesData}
+                onSelect={setSelectedProfile}
+                isRoot
+              />
+            ))}
+            {roots.length === 0 && <p className="text-center text-muted-foreground py-10">Nenhum colaborador encontrado na hierarquia.</p>}
+          </div>
         </div>
       )}
+
+      {/* Detail modal */}
+      <ProfileDetailModal
+        profile={selectedProfile}
+        isAdmin={isAdmin}
+        onClose={() => setSelectedProfile(null)}
+      />
     </div>
   );
 };

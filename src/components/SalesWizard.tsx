@@ -239,6 +239,7 @@ export default function SalesWizard() {
   const [aproveitamentoDocs, setAproveitamentoDocs] = useState<Record<string, File | null>>({});
   const [benefDocs, setBenefDocs] = useState<Record<string, Record<string, File | null>>>({});
   const [boletosFiles, setBoletosFiles] = useState<File[]>([]);
+  const [comprovantesFiles, setComprovantesFiles] = useState<File[]>([]);
   const [loadingLeadDocs, setLoadingLeadDocs] = useState(false);
 
   // Helper: download a file from Supabase lead-documentos and create a File object
@@ -526,12 +527,15 @@ export default function SalesWizard() {
             const newBenefDocs: Record<string, Record<string, File | null>> = {};
             const newAproveitamentoDocs: Record<string, File | null> = {};
             const newBoletos: File[] = [];
+            const newComprovantes: File[] = [];
 
             for (const d of vDocs) {
               const file = await downloadVendaDoc(d.file_path, d.nome);
               if (!file) continue;
 
-              if (d.tipo.startsWith('Aproveitamento - Boleto')) {
+              if (d.tipo.startsWith('Aproveitamento - Comprovante')) {
+                newComprovantes.push(file);
+              } else if (d.tipo.startsWith('Aproveitamento - Boleto')) {
                 newBoletos.push(file);
               } else if (d.tipo.startsWith('Aproveitamento - ')) {
                 const label = d.tipo.replace('Aproveitamento - ', '');
@@ -548,6 +552,7 @@ export default function SalesWizard() {
             if (Object.keys(newBenefDocs).length > 0) setBenefDocs(newBenefDocs);
             if (Object.keys(newAproveitamentoDocs).length > 0) setAproveitamentoDocs(newAproveitamentoDocs);
             if (newBoletos.length > 0) setBoletosFiles(newBoletos);
+            if (newComprovantes.length > 0) setComprovantesFiles(newComprovantes);
 
             toast.success('Documentos da venda carregados com sucesso!');
           }
@@ -828,6 +833,9 @@ export default function SalesWizard() {
         for (let i = 0; i < boletosFiles.length; i++) {
           await uploadVendaDocumento(vendaId, user.id, boletosFiles[i], `Aproveitamento - Boleto ${i + 1}`);
         }
+        for (let i = 0; i < comprovantesFiles.length; i++) {
+          await uploadVendaDocumento(vendaId, user.id, comprovantesFiles[i], `Aproveitamento - Comprovante ${i + 1}`);
+        }
         for (const [key, docs] of Object.entries(benefDocs)) {
           for (const [label, file] of Object.entries(docs)) {
             if (file) await uploadVendaDocumento(vendaId, user.id, file, `${key} - ${label}`);
@@ -861,6 +869,7 @@ export default function SalesWizard() {
       setTitularDocs({});
       setAproveitamentoDocs({});
       setBoletosFiles([]);
+      setComprovantesFiles([]);
       setBenefDocs({});
       setValorContrato('');
       setObsLinhas(['']);
@@ -1314,6 +1323,7 @@ export default function SalesWizard() {
                   <DocUploadRow key={doc.label} label={doc.label} required={doc.required} file={aproveitamentoDocs[doc.label] || null} onUpload={(f) => setAproveitamentoDocs(prev => ({ ...prev, [doc.label]: f }))} />
                 ))}
                 <MultiDocUploadRow label="Últimos 3 boletos pagos" required={false} maxFiles={3} files={boletosFiles} onFilesChange={setBoletosFiles} />
+                <MultiDocUploadRow label="Últimos 3 comprovantes pagos" required={false} maxFiles={3} files={comprovantesFiles} onFilesChange={setComprovantesFiles} />
               </div>
             )}
 

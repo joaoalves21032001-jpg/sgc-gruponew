@@ -20,12 +20,26 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
-  Plus, Pencil, Trash2, X, Upload, MoreHorizontal, Phone, Mail, Shield, User, FileText, Building2, Users, Heart
+  Plus, Pencil, Trash2, X, Upload, MoreHorizontal, Phone, Mail, Shield, User, FileText, Building2, Users, Heart, DollarSign
 } from 'lucide-react';
 import { maskCPF, maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 /* ─── Lead Card ─── */
+function getLeadValor(lead: Lead): number | null {
+  try {
+    if (lead.origem) {
+      const ext = JSON.parse(lead.origem);
+      if (ext.valor && !isNaN(ext.valor) && ext.valor > 0) return ext.valor;
+    }
+  } catch { /* not JSON */ }
+  return null;
+}
+
+function formatBRL(value: number): string {
+  return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, onAssume, leaderName, stageName, currentUserId }: {
   lead: Lead; isAdmin: boolean;
   onEdit: (l: Lead) => void; onDelete: (l: Lead) => void;
@@ -35,6 +49,7 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, onAssume, lead
   stageName?: string;
   currentUserId?: string;
 }) {
+  const valor = getLeadValor(lead);
   const isEnvioCotacao = stageName?.toLowerCase().includes('envio de cotação') || stageName?.toLowerCase().includes('cotação');
   const initials = leaderName ? leaderName.charAt(0).toUpperCase() : null;
   const canAssume = lead.livre && lead.created_by !== currentUserId;
@@ -53,6 +68,11 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, onAssume, lead
             {lead.produto && <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20">{lead.produto}</Badge>}
             {lead.livre && <Badge className="text-[9px] bg-success/10 text-success border-success/20">Livre</Badge>}
           </div>
+          {valor !== null && (
+            <p className="text-xs font-bold text-emerald-600 mt-1 flex items-center gap-1">
+              <DollarSign className="w-3 h-3" />{formatBRL(valor)}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {/* UX-01: Avatar/initials of consultant */}
@@ -116,6 +136,16 @@ function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, on
 }) {
   const [dragOver, setDragOver] = useState(false);
 
+  // Sum valor from all leads in this column
+  const columnTotal = useMemo(() => {
+    let total = 0;
+    for (const l of leads) {
+      const v = getLeadValor(l);
+      if (v !== null) total += v;
+    }
+    return total;
+  }, [leads]);
+
   return (
     <div
       className={`flex flex-col min-w-[280px] flex-1 rounded-xl border transition-all duration-200 shadow-card ${dragOver ? 'border-primary bg-primary/5' : 'border-border/30 bg-muted/20'}`}
@@ -139,6 +169,15 @@ function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, on
       <button onClick={() => onAddLead(stage.id)} className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border-t border-border/20">
         <Plus className="w-3.5 h-3.5" /> Novo lead
       </button>
+      {/* Column total */}
+      <div className="px-3 py-2 border-t border-border/20 bg-muted/30 rounded-b-xl">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Total</span>
+          <span className={`text-xs font-bold ${columnTotal > 0 ? 'text-emerald-600' : 'text-muted-foreground'}`}>
+            {formatBRL(columnTotal)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -163,6 +202,7 @@ export function KanbanBoard() {
   const moveMut = useMoveLeadToStage();
   const logAction = useLogAction();
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
+  const [assignedTo, setAssignedTo] = useState<string>('');
 
   // Lead form state - full sales draft
   const [showForm, setShowForm] = useState(false);
@@ -356,6 +396,7 @@ export function KanbanBoard() {
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
     setDocFoto(null); setCartaoCnpj(null); setComprovanteEndereco(null); setCotacaoPdfs([]); setExistingCotacaoPaths([]); setCarteirinhaAnterior(null); setCartaPermanencia(null);
     setExistingCarteirinhaPath(null); setExistingCartaPath(null);
+    setAssignedTo(user?.id || '');
     setShowForm(true);
   };
 
@@ -413,7 +454,7 @@ export function KanbanBoard() {
     payload.livre = form.livre;
     if (isPessoaFisica(form.tipo)) { payload.cpf = form.cpf || null; payload.cnpj = null; }
     else { payload.cnpj = form.cnpj || null; payload.cpf = null; }
-    if (!editItem) { payload.created_by = currentUser?.id || null; }
+    if (!editItem) { payload.created_by = (isAdmin && assignedTo) ? assignedTo : (currentUser?.id || null); }
     try {
       let leadId: string;
       if (editItem) {
@@ -558,6 +599,21 @@ export function KanbanBoard() {
       <Dialog open={showForm} onOpenChange={v => { if (!v) { setShowForm(false); setEditItem(null); } }}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="font-display">{editItem ? 'Editar' : 'Novo'} Lead (Rascunho de Venda)</DialogTitle></DialogHeader>
+          {/* Admin: assign lead to a user */}
+          {isAdmin && (
+            <div className="mb-3">
+              <label className="text-xs font-semibold text-muted-foreground">Vincular a Usuário</label>
+              <Select value={assignedTo || '__self__'} onValueChange={v => setAssignedTo(v === '__self__' ? (user?.id || '') : v)}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Selecione o consultor..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__self__">Eu mesmo</SelectItem>
+                  {allProfiles.filter(p => !p.disabled && p.id !== user?.id).map(p => (
+                    <SelectItem key={p.id} value={p.id}>{p.nome_completo} ({p.cargo})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="space-y-3">
             {stages.length > 0 && (
               <div>
