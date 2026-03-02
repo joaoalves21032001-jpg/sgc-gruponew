@@ -241,7 +241,6 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
         mensagens: parseInt(form.mensagens) || 0,
         cotacoes_enviadas: parseInt(form.cotacoes_enviadas) || 0,
         cotacoes_fechadas: parseInt(form.cotacoes_respondidas) || 0,
-        cotacoes_nao_respondidas: parseInt(form.cotacoes_nao_respondidas) || 0,
         follow_up: parseInt(form.follow_up) || 0,
       });
       setShowConfirm(false);

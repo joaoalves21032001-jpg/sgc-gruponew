@@ -10,7 +10,6 @@ export interface Atividade {
   mensagens: number;
   cotacoes_enviadas: number;
   cotacoes_fechadas: number;
-  cotacoes_nao_respondidas?: number;
   follow_up: number;
   created_at: string;
   updated_at: string;
