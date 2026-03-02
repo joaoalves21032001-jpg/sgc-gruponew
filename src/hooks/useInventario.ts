@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 export interface Companhia {
   id: string;
   nome: string;
+  meta_titulo: number;
   created_at: string;
   updated_at: string;
 }

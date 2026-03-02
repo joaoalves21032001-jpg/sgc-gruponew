@@ -34,6 +34,7 @@ function CompanhiasTab() {
   const [search, setSearch] = useState('');
   const [editItem, setEditItem] = useState<Companhia | null>(null);
   const [nome, setNome] = useState('');
+  const [metaTitulo, setMetaTitulo] = useState('10');
   const [showAdd, setShowAdd] = useState(false);
   const [deleteItem, setDeleteItem] = useState<Companhia | null>(null);
   const [saving, setSaving] = useState(false);
@@ -61,6 +62,7 @@ function CompanhiasTab() {
           logoUrl = await uploadLogo(editItem.id, logoFile);
         }
         await updateMut.mutateAsync({ id: editItem.id, nome: nome.trim() });
+        await supabase.from('companhias').update({ meta_titulo: parseInt(metaTitulo) || 10 } as any).eq('id', editItem.id);
         if (logoUrl) {
           await supabase.from('companhias').update({ logo_url: logoUrl } as any).eq('id', editItem.id);
         }
@@ -75,7 +77,7 @@ function CompanhiasTab() {
         logAction('criar_companhia', 'companhia', result?.id, { nome: nome.trim() });
         toast.success('Companhia criada!');
       }
-      setShowAdd(false); setEditItem(null); setNome(''); setLogoFile(null);
+      setShowAdd(false); setEditItem(null); setNome(''); setMetaTitulo('10'); setLogoFile(null);
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
   };
@@ -100,7 +102,7 @@ function CompanhiasTab() {
           <Input placeholder="Buscar companhia..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-10 bg-card border-border/40" />
         </div>
         {isAdmin && (
-          <Button onClick={() => { setShowAdd(true); setEditItem(null); setNome(''); setLogoFile(null); }} className="gap-1.5 font-semibold shadow-brand">
+          <Button onClick={() => { setShowAdd(true); setEditItem(null); setNome(''); setMetaTitulo('10'); setLogoFile(null); }} className="gap-1.5 font-semibold shadow-brand">
             <Plus className="w-4 h-4" /> Nova Companhia
           </Button>
         )}
@@ -120,12 +122,12 @@ function CompanhiasTab() {
                   </Avatar>
                   <div>
                     <p className="text-sm font-semibold text-foreground">{c.nome}</p>
-                    <p className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleDateString('pt-BR')}</p>
+                    <p className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleDateString('pt-BR')} · Meta Título: {(c as any).meta_titulo ?? 10} vendas</p>
                   </div>
                 </div>
                 {isAdmin && (
                   <div className="flex gap-1.5 shrink-0">
-                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditItem(c); setNome(c.nome); setLogoFile(null); setShowAdd(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditItem(c); setNome(c.nome); setMetaTitulo(String((c as any).meta_titulo ?? 10)); setLogoFile(null); setShowAdd(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
                     <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteItem(c)}><Trash2 className="w-3.5 h-3.5" /></Button>
                   </div>
                 )}
@@ -138,6 +140,10 @@ function CompanhiasTab() {
           <DialogHeader><DialogTitle className="font-display">{editItem ? 'Editar' : 'Nova'} Companhia</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome da companhia" className="h-10" />
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Meta p/ Título (vendas necessárias)</label>
+              <Input type="number" min="1" value={metaTitulo} onChange={e => setMetaTitulo(e.target.value)} placeholder="10" className="h-10 mt-1" />
+            </div>
             <div className="space-y-1">
               <label className="text-xs font-semibold text-muted-foreground">Logomarca</label>
               <label className="cursor-pointer block">
