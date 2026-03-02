@@ -120,7 +120,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
         mensagens: String(editAtividade.mensagens ?? ''),
         cotacoes_enviadas: String(editAtividade.cotacoes_enviadas ?? ''),
         cotacoes_respondidas: String(editAtividade.cotacoes_fechadas ?? ''),
-        cotacoes_nao_respondidas: String(Math.max(0, (editAtividade.cotacoes_enviadas ?? 0) - (editAtividade.cotacoes_fechadas ?? 0))),
+        cotacoes_nao_respondidas: String((editAtividade as any).cotacoes_nao_respondidas ?? 0),
         follow_up: String(editAtividade.follow_up ?? ''),
         justificativa: '',
       });
