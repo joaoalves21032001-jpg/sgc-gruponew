@@ -1,16 +1,11 @@
-import { useState } from 'react';
-import { useNotifications, useMarkAsRead, useMarkAsUnread, useMarkAllAsRead, useDeleteNotification, useNotificationConfig, useUpdateNotificationConfig } from '@/hooks/useNotifications';
+import { useNotifications, useMarkAsRead, useMarkAsUnread, useMarkAllAsRead, useDeleteNotification } from '@/hooks/useNotifications';
 import { useNavigate } from 'react-router-dom';
-import { useUserRole } from '@/hooks/useProfile';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
-import { toast } from 'sonner';
 import {
   Bell, CheckCheck, ExternalLink, Clock, Mail, MailOpen,
-  Trash2, Settings, Inbox, Archive
+  Trash2, Inbox, Archive
 } from 'lucide-react';
 
 const Notificacoes = () => {
@@ -19,15 +14,8 @@ const Notificacoes = () => {
   const markUnread = useMarkAsUnread();
   const markAllRead = useMarkAllAsRead();
   const deleteNotif = useDeleteNotification();
-  const { data: config } = useNotificationConfig();
-  const updateConfig = useUpdateNotificationConfig();
-  const { data: role } = useUserRole();
   const navigate = useNavigate();
 
-  const [configOpen, setConfigOpen] = useState(false);
-  const [configDays, setConfigDays] = useState('');
-
-  const isAdmin = role === 'administrador';
   const unread = notifications.filter(n => !n.lida);
   const read = notifications.filter(n => n.lida);
 
@@ -36,31 +24,11 @@ const Notificacoes = () => {
     if (n.link) navigate(n.link);
   };
 
-  const openConfig = () => {
-    setConfigDays(config?.value || '30');
-    setConfigOpen(true);
-  };
-
-  const saveConfig = () => {
-    const days = parseInt(configDays);
-    if (isNaN(days) || days < 0) {
-      toast.error('Informe um número válido (0 = desativado).');
-      return;
-    }
-    updateConfig.mutate(days, {
-      onSuccess: () => {
-        toast.success('Configuração salva!');
-        setConfigOpen(false);
-      },
-    });
-  };
-
   const renderCard = (n: typeof notifications[0], showReadActions: boolean) => (
     <div
       key={n.id}
-      className={`bg-card rounded-xl border shadow-card p-4 transition-all hover:shadow-card-hover ${
-        n.lida ? 'border-border/30 opacity-70' : 'border-primary/20 bg-primary/[0.02]'
-      }`}
+      className={`bg-card rounded-xl border shadow-card p-4 transition-all hover:shadow-card-hover ${n.lida ? 'border-border/30 opacity-70' : 'border-primary/20 bg-primary/[0.02]'
+        }`}
     >
       <div className="flex items-start gap-3">
         <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${n.lida ? 'bg-muted-foreground/30' : 'bg-primary'}`} />
@@ -113,18 +81,11 @@ const Notificacoes = () => {
           <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Notificações</h1>
           <p className="text-sm text-muted-foreground mt-1">Acompanhe alertas e atualizações do sistema</p>
         </div>
-        <div className="flex items-center gap-2">
-          {unread.length > 0 && (
-            <Button variant="outline" size="sm" onClick={() => markAllRead.mutate()} className="gap-1.5">
-              <CheckCheck className="w-4 h-4" /> Marcar todas como lidas
-            </Button>
-          )}
-          {isAdmin && (
-            <Button variant="ghost" size="sm" onClick={openConfig} className="gap-1.5">
-              <Settings className="w-4 h-4" /> Configurar
-            </Button>
-          )}
-        </div>
+        {unread.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => markAllRead.mutate()} className="gap-1.5">
+            <CheckCheck className="w-4 h-4" /> Marcar todas como lidas
+          </Button>
+        )}
       </div>
 
       <Tabs defaultValue="nao-lidas" className="space-y-4">
@@ -161,38 +122,6 @@ const Notificacoes = () => {
           </div>
         </TabsContent>
       </Tabs>
-
-      {/* Admin config dialog */}
-      <Dialog open={configOpen} onOpenChange={setConfigOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="font-display">Exclusão Automática</DialogTitle>
-            <DialogDescription>Configure a exclusão automática de notificações lidas.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Excluir notificações lidas após (dias)
-              </label>
-              <Input
-                type="number"
-                min="0"
-                value={configDays}
-                onChange={e => setConfigDays(e.target.value)}
-                placeholder="30"
-                className="mt-1"
-              />
-              <p className="text-[11px] text-muted-foreground mt-1">Use 0 para desativar a exclusão automática.</p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfigOpen(false)}>Cancelar</Button>
-            <Button onClick={saveConfig} disabled={updateConfig.isPending}>
-              {updateConfig.isPending ? 'Salvando...' : 'Salvar'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

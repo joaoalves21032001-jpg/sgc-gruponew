@@ -87,22 +87,12 @@ const AuditLogs = () => {
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
   const [search, setSearch] = useState('');
-  const [retentionMonths, setRetentionMonths] = useState('6');
-
-  // Compute effective start date based on retention period
-  const effectiveStartDate = (() => {
-    if (filterStartDate) return filterStartDate; // manual filter takes priority
-    if (retentionMonths === 'todos') return undefined;
-    const d = new Date();
-    d.setMonth(d.getMonth() - parseInt(retentionMonths));
-    return d.toISOString().split('T')[0];
-  })();
 
   const { data: logs = [], isLoading } = useAuditLogs({
     userId: filterUser,
     action: filterAction,
     entityType: filterEntity,
-    startDate: effectiveStartDate,
+    startDate: filterStartDate || undefined,
     endDate: filterEndDate,
   });
 
@@ -166,24 +156,6 @@ const AuditLogs = () => {
           </Select>
           <Input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} className="h-10 bg-background border-border/40" placeholder="Data início" />
           <Input type="date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} className="h-10 bg-background border-border/40" placeholder="Data fim" />
-        </div>
-        {/* Retention period */}
-        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/20">
-          <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
-          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Retenção:</span>
-          <Select value={retentionMonths} onValueChange={setRetentionMonths}>
-            <SelectTrigger className="h-8 w-[140px] text-xs border-border/40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="3">3 meses</SelectItem>
-              <SelectItem value="6">6 meses</SelectItem>
-              <SelectItem value="12">1 ano</SelectItem>
-              <SelectItem value="24">2 anos</SelectItem>
-              <SelectItem value="todos">Ilimitado</SelectItem>
-            </SelectContent>
-          </Select>
-          <span className="text-[10px] text-muted-foreground">Período de exibição dos logs</span>
         </div>
       </div>
 

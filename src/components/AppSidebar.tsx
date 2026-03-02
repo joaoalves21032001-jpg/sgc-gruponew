@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { HelpGuide } from './HelpGuide';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import { useSidebarOrder } from '@/hooks/useSidebarOrder';
-import { useMyTabPermissions, isTabEnabled } from '@/hooks/useTabPermissions';
+import { useMyPermissions, hasPermission, PATH_TO_RESOURCE } from '@/hooks/useSecurityProfiles';
 import { usePendingApprovals, useMyPendingActions } from '@/hooks/usePendingCounts';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 
@@ -42,21 +42,7 @@ const navItems: NavItem[] = [
   { to: '/admin/configuracoes', icon: Settings, label: 'Configurações', access: 'admin' },
 ];
 
-// Map nav items to tab permission keys
-const NAV_TAB_KEYS: Record<string, string> = {
-  '/': 'progresso',
-  '/comercial': 'comercial',
-  '/minhas-acoes': 'minhas-acoes',
-  '/crm': 'crm',
-  '/notificacoes': 'notificacoes',
-  '/aprovacoes': 'aprovacoes',
-  '/gestao': 'gestao',
-  '/inventario': 'inventario',
-  '/equipe': 'equipe',
-  '/admin/usuarios': 'admin',
-  '/admin/logs': 'admin',
-  '/admin/configuracoes': 'admin',
-};
+// NAV_TAB_KEYS replaced by PATH_TO_RESOURCE from useSecurityProfiles
 
 export function AppSidebar() {
   const location = useLocation();
@@ -68,7 +54,7 @@ export function AppSidebar() {
   const { data: role } = useUserRole();
   const unreadNotifications = useUnreadCount();
   const { sortItems, setOrder, togglePin, isPinned } = useSidebarOrder();
-  const { data: tabPermissions = [] } = useMyTabPermissions();
+  const { data: myPermissions } = useMyPermissions();
   const { data: pendingApprovals = 0 } = usePendingApprovals();
   const { data: pendingActions = 0 } = useMyPendingActions();
 
@@ -90,13 +76,17 @@ export function AppSidebar() {
   const borderClass = patente?.borderClass ?? 'border-sidebar-border';
 
   const canAccess = (item: NavItem) => {
+    // If user has a security profile assigned, use it for all permission checks
+    if (myPermissions) {
+      const resource = PATH_TO_RESOURCE[item.to];
+      if (resource) {
+        return hasPermission(myPermissions, resource, 'view');
+      }
+      return true;
+    }
+    // Fallback: old role-based checks (no security profile assigned)
     if (item.access === 'admin' && !isAdmin) return false;
     if (item.access === 'supervisor_up' && !isSupervisorUp) return false;
-    // Admin-defined tab permissions apply to ALL users including admins
-    const tabKey = NAV_TAB_KEYS[item.to];
-    if (tabKey && tabKey !== 'admin') {
-      if (!isTabEnabled(tabPermissions, tabKey)) return false;
-    }
     return true;
   };
 
@@ -107,7 +97,7 @@ export function AppSidebar() {
       return sorted.filter(item => item.label.toLowerCase().includes(search.toLowerCase()));
     }
     return sorted;
-  }, [search, role, profile, isAdmin, isSupervisorUp, tabPermissions, sortItems]);
+  }, [search, role, profile, isAdmin, isSupervisorUp, myPermissions, sortItems]);
 
   const handleDragStart = (path: string) => {
     setDragItem(path);
