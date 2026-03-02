@@ -21,27 +21,63 @@ export interface SecurityProfilePermission {
     allowed: boolean;
 }
 
-// All resources available in the system
-export const RESOURCES = [
+// ─── Resource hierarchy: pages → sub-tabs ──────────────────────
+export interface ResourceDef {
+    key: string;
+    label: string;
+    children?: { key: string; label: string }[];
+}
+
+export const RESOURCES: ResourceDef[] = [
     { key: 'progresso', label: 'Meu Progresso' },
-    { key: 'comercial', label: 'Registro de Atividades' },
-    { key: 'minhas_acoes', label: 'Minhas Ações' },
+    {
+        key: 'comercial', label: 'Registro de Atividades',
+        children: [
+            { key: 'comercial.atividades', label: 'Atividades' },
+            { key: 'comercial.nova_venda', label: 'Nova Venda' },
+            { key: 'comercial.evolucao', label: 'Evolução' },
+        ],
+    },
+    {
+        key: 'minhas_acoes', label: 'Minhas Ações',
+        children: [
+            { key: 'minhas_acoes.pendentes', label: 'Pendentes' },
+            { key: 'minhas_acoes.aprovados', label: 'Aprovados' },
+            { key: 'minhas_acoes.devolvidos', label: 'Devolvidos' },
+            { key: 'minhas_acoes.solicitados', label: 'Solicitados' },
+        ],
+    },
     { key: 'crm', label: 'CRM' },
     { key: 'notificacoes', label: 'Notificações' },
-    { key: 'aprovacoes', label: 'Aprovações' },
+    {
+        key: 'aprovacoes', label: 'Aprovações',
+        children: [
+            { key: 'aprovacoes.atividades', label: 'Atividades' },
+            { key: 'aprovacoes.vendas', label: 'Vendas' },
+            { key: 'aprovacoes.cotacoes', label: 'Cotações' },
+            { key: 'aprovacoes.acesso', label: 'Acesso' },
+            { key: 'aprovacoes.alteracoes', label: 'Alterações' },
+        ],
+    },
     { key: 'dashboard', label: 'Dashboard' },
-    { key: 'inventario', label: 'Inventário' },
+    {
+        key: 'inventario', label: 'Inventário',
+        children: [
+            { key: 'inventario.companhias', label: 'Companhias' },
+            { key: 'inventario.produtos', label: 'Produtos' },
+            { key: 'inventario.modalidades', label: 'Modalidades' },
+            { key: 'inventario.leads', label: 'Leads' },
+        ],
+    },
     { key: 'equipe', label: 'Equipe' },
     { key: 'usuarios', label: 'Usuários' },
     { key: 'logs_auditoria', label: 'Logs de Auditoria' },
     { key: 'configuracoes', label: 'Configurações' },
-] as const;
+];
 
 export const ACTIONS = [
     { key: 'view', label: 'Visualizar' },
     { key: 'edit', label: 'Editar' },
-    { key: 'approve', label: 'Aprovar' },
-    { key: 'delete', label: 'Excluir' },
 ] as const;
 
 // Map sidebar paths → resource keys
@@ -60,6 +96,18 @@ export const PATH_TO_RESOURCE: Record<string, string> = {
     '/admin/configuracoes': 'configuracoes',
 };
 
+// Flatten all resource keys for iteration
+export function getAllResourceKeys(): string[] {
+    const keys: string[] = [];
+    for (const r of RESOURCES) {
+        keys.push(r.key);
+        if (r.children) {
+            for (const c of r.children) keys.push(c.key);
+        }
+    }
+    return keys;
+}
+
 // ─── Hooks ───────────────────────────────────────────────────────
 
 /** Fetch all security profiles */
@@ -71,7 +119,11 @@ export function useSecurityProfiles() {
                 .from('security_profiles' as any)
                 .select('*')
                 .order('created_at');
-            if (error) throw error;
+            if (error) {
+                // If table doesn't exist yet, return empty gracefully
+                if (error.message?.includes('schema cache') || error.code === '42P01') return [];
+                throw error;
+            }
             return (data ?? []) as unknown as SecurityProfile[];
         },
     });
@@ -87,7 +139,10 @@ export function useProfilePermissions(profileId: string | null) {
                 .from('security_profile_permissions' as any)
                 .select('*')
                 .eq('profile_id', profileId);
-            if (error) throw error;
+            if (error) {
+                if (error.message?.includes('schema cache') || error.code === '42P01') return [];
+                throw error;
+            }
             return (data ?? []) as unknown as SecurityProfilePermission[];
         },
         enabled: !!profileId,
@@ -104,14 +159,16 @@ export function useMyPermissions() {
         queryFn: async () => {
             const profileId = (profile as any)?.security_profile_id as string | undefined;
             if (!profileId) {
-                // No profile assigned → fallback: all permissions granted (backward compat)
-                return null;
+                return null; // No profile → backward compat
             }
             const { data, error } = await supabase
                 .from('security_profile_permissions' as any)
                 .select('*')
                 .eq('profile_id', profileId);
-            if (error) throw error;
+            if (error) {
+                if (error.message?.includes('schema cache') || error.code === '42P01') return null;
+                throw error;
+            }
             return (data ?? []) as unknown as SecurityProfilePermission[];
         },
         enabled: !!user && !!profile,
@@ -120,17 +177,20 @@ export function useMyPermissions() {
 
 /**
  * Check if the current user has permission for a resource+action.
- * Returns true if:
- * - No security profile is assigned (backward compatibility)
- * - The permission is explicitly allowed
+ * Supports hierarchical check: if 'comercial' is not allowed, 'comercial.atividades' is auto-denied.
  */
 export function hasPermission(
     permissions: SecurityProfilePermission[] | null | undefined,
     resource: string,
     action: string = 'view'
 ): boolean {
-    // No profile assigned or permissions not loaded → allow everything (backward compat)
-    if (!permissions) return true;
+    if (!permissions) return true; // backward compat
+    // Check parent first (e.g. comercial for comercial.atividades)
+    const parts = resource.split('.');
+    if (parts.length > 1) {
+        const parentPerm = permissions.find(p => p.resource === parts[0] && p.action === action);
+        if (parentPerm && !parentPerm.allowed) return false; // parent denied → child denied
+    }
     const perm = permissions.find(p => p.resource === resource && p.action === action);
     return perm?.allowed ?? false;
 }
@@ -145,7 +205,10 @@ export function useProfileUsers(profileId: string | null) {
                 .from('profiles')
                 .select('id, nome_completo, email, cargo, disabled') as any)
                 .eq('security_profile_id', profileId);
-            if (result.error) throw result.error;
+            if (result.error) {
+                if (result.error.message?.includes('schema cache')) return [];
+                throw result.error;
+            }
             return result.data ?? [];
         },
         enabled: !!profileId,
@@ -232,6 +295,32 @@ export function useTogglePermission() {
     });
 }
 
+/** Bulk set permissions for a profile */
+export function useBulkSetPermissions() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ profileId, permissions }: {
+            profileId: string;
+            permissions: { resource: string; action: string; allowed: boolean }[];
+        }) => {
+            const rows = permissions.map(p => ({
+                profile_id: profileId,
+                resource: p.resource,
+                action: p.action,
+                allowed: p.allowed,
+            }));
+            const { error } = await supabase
+                .from('security_profile_permissions' as any)
+                .upsert(rows as any, { onConflict: 'profile_id,resource,action' });
+            if (error) throw error;
+        },
+        onSuccess: (_, { profileId }) => {
+            queryClient.invalidateQueries({ queryKey: ['security-profile-permissions', profileId] });
+            queryClient.invalidateQueries({ queryKey: ['my-permissions'] });
+        },
+    });
+}
+
 /** Assign a security profile to a user */
 export function useAssignSecurityProfile() {
     const queryClient = useQueryClient();
@@ -243,7 +332,7 @@ export function useAssignSecurityProfile() {
                 .eq('id', userId);
             if (error) throw error;
         },
-        onSuccess: (_, { profileId }) => {
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['security-profile-users'] });
             queryClient.invalidateQueries({ queryKey: ['profile'] });
             queryClient.invalidateQueries({ queryKey: ['my-permissions'] });

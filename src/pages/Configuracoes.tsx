@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
-import { useAuditLogs } from '@/hooks/useAuditLog';
 import { supabase } from '@/integrations/supabase/client';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { useQueryClient } from '@tanstack/react-query';
@@ -18,7 +17,7 @@ import { toast } from 'sonner';
 import {
     Settings, Shield, Database, Bell, Clock, Save,
     Trash2, Users, Activity, Eye, Lock, Plus, Pencil,
-    Check, X, UserPlus, ChevronRight, ShieldCheck
+    Check, X, UserPlus, ChevronRight, ShieldCheck, ChevronDown, AlertTriangle
 } from 'lucide-react';
 import {
     useSecurityProfiles,
@@ -31,6 +30,7 @@ import {
     useProfileUsers,
     RESOURCES,
     ACTIONS,
+    type ResourceDef,
 } from '@/hooks/useSecurityProfiles';
 
 const Configuracoes = () => {
@@ -44,7 +44,6 @@ const Configuracoes = () => {
     const [autoDeleteReadNotifs, setAutoDeleteReadNotifs] = useState(false);
     const [notifRetentionDays, setNotifRetentionDays] = useState('30');
     const [saving, setSaving] = useState(false);
-    const [loadingSettings, setLoadingSettings] = useState(true);
 
     // Security Profiles
     const { data: securityProfiles = [], isLoading: spLoading } = useSecurityProfiles();
@@ -64,6 +63,7 @@ const Configuracoes = () => {
     const [editingProfile, setEditingProfile] = useState<{ id: string; name: string; description: string } | null>(null);
     const [assignUserOpen, setAssignUserOpen] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+    const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
 
     const selectedProfile = securityProfiles.find(p => p.id === selectedProfileId);
 
@@ -82,7 +82,6 @@ const Configuracoes = () => {
                     if (notifDays) setNotifRetentionDays(notifDays.value);
                 }
             } catch { /* ignore */ }
-            setLoadingSettings(false);
         };
         loadSettings();
     }, []);
@@ -111,20 +110,15 @@ const Configuracoes = () => {
         if (!confirm('Tem certeza que deseja limpar logs antigos?')) return;
         try {
             const months = parseInt(retentionMonths);
-            if (months === 0) {
-                toast.info('Retenção ilimitada — nenhum log será excluído.');
-                return;
-            }
+            if (months === 0) { toast.info('Retenção ilimitada.'); return; }
             const cutoff = new Date();
             cutoff.setMonth(cutoff.getMonth() - months);
             const { error } = await supabase.from('audit_logs').delete().lt('created_at', cutoff.toISOString());
             if (error) throw error;
             queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
             logAction('limpar_logs', 'audit_logs', undefined, { meses: months });
-            toast.success('Logs antigos limpos com sucesso!');
-        } catch (err: any) {
-            toast.error(err.message || 'Erro ao limpar logs.');
-        }
+            toast.success('Logs antigos limpos!');
+        } catch (err: any) { toast.error(err.message); }
     };
 
     const handleCleanupNotifs = async () => {
@@ -136,22 +130,25 @@ const Configuracoes = () => {
             if (error) throw error;
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
             toast.success('Notificações lidas removidas!');
-        } catch (err: any) {
-            toast.error(err.message || 'Erro ao limpar notificações.');
-        }
+        } catch (err: any) { toast.error(err.message); }
     };
 
     const handleCreateProfile = async () => {
         if (!newProfileName.trim()) { toast.error('Nome obrigatório.'); return; }
         try {
-            await createProfile.mutateAsync({ name: newProfileName.trim(), description: newProfileDesc.trim() || undefined });
+            const result = await createProfile.mutateAsync({ name: newProfileName.trim(), description: newProfileDesc.trim() || undefined });
             logAction('criar_perfil_seguranca', 'security_profiles', undefined, { name: newProfileName });
             toast.success(`Perfil "${newProfileName}" criado!`);
             setNewProfileOpen(false);
             setNewProfileName('');
             setNewProfileDesc('');
+            setSelectedProfileId(result.id);
         } catch (err: any) {
-            toast.error(err.message || 'Erro ao criar perfil.');
+            if (err.message?.includes('schema cache')) {
+                toast.error('Tabela security_profiles não encontrada. Execute a migration SQL no Supabase Dashboard.');
+            } else {
+                toast.error(err.message || 'Erro ao criar perfil.');
+            }
         }
     };
 
@@ -159,12 +156,10 @@ const Configuracoes = () => {
         if (!editingProfile) return;
         try {
             await updateProfile.mutateAsync({ id: editingProfile.id, name: editingProfile.name, description: editingProfile.description });
-            logAction('editar_perfil_seguranca', 'security_profiles', editingProfile.id, { name: editingProfile.name });
+            logAction('editar_perfil_seguranca', 'security_profiles', editingProfile.id);
             toast.success('Perfil atualizado!');
             setEditingProfile(null);
-        } catch (err: any) {
-            toast.error(err.message || 'Erro ao atualizar perfil.');
-        }
+        } catch (err: any) { toast.error(err.message); }
     };
 
     const handleDeleteProfile = async () => {
@@ -175,16 +170,25 @@ const Configuracoes = () => {
             toast.success('Perfil excluído!');
             if (selectedProfileId === confirmDeleteId) setSelectedProfileId(null);
             setConfirmDeleteId(null);
-        } catch (err: any) {
-            toast.error(err.message || 'Erro ao excluir perfil.');
-        }
+        } catch (err: any) { toast.error(err.message); }
     };
 
     const handleTogglePerm = (resource: string, action: string) => {
         if (!selectedProfileId) return;
         const existing = profilePerms.find(p => p.resource === resource && p.action === action);
         const newAllowed = !(existing?.allowed ?? false);
-        togglePerm.mutate({ profileId: selectedProfileId, resource, action, allowed: newAllowed });
+
+        // If toggling a parent resource, also toggle all children
+        const resDef = RESOURCES.find(r => r.key === resource);
+        if (resDef?.children && action === 'view') {
+            // Toggle parent + all children
+            togglePerm.mutate({ profileId: selectedProfileId, resource, action, allowed: newAllowed });
+            for (const child of resDef.children) {
+                togglePerm.mutate({ profileId: selectedProfileId, resource: child.key, action, allowed: newAllowed });
+            }
+        } else {
+            togglePerm.mutate({ profileId: selectedProfileId, resource, action, allowed: newAllowed });
+        }
     };
 
     const isPermAllowed = (resource: string, action: string): boolean => {
@@ -192,35 +196,36 @@ const Configuracoes = () => {
         return perm?.allowed ?? false;
     };
 
+    const toggleExpanded = (key: string) => {
+        setExpandedResources(prev => {
+            const next = new Set(prev);
+            if (next.has(key)) next.delete(key); else next.add(key);
+            return next;
+        });
+    };
+
     const handleAssignUser = (userId: string) => {
         if (!selectedProfileId) return;
-        assignProfile.mutate(
-            { userId, profileId: selectedProfileId },
-            {
-                onSuccess: () => {
-                    const userName = profiles.find(p => p.id === userId)?.nome_completo;
-                    logAction('vincular_perfil_seguranca', 'security_profiles', selectedProfileId, { user: userName });
-                    toast.success(`Usuário vinculado ao perfil!`);
-                    setAssignUserOpen(false);
-                    queryClient.invalidateQueries({ queryKey: ['security-profile-users', selectedProfileId] });
-                },
-            }
-        );
+        assignProfile.mutate({ userId, profileId: selectedProfileId }, {
+            onSuccess: () => {
+                const userName = profiles.find(p => p.id === userId)?.nome_completo;
+                logAction('vincular_perfil_seguranca', 'security_profiles', selectedProfileId, { user: userName });
+                toast.success('Usuário vinculado!');
+                setAssignUserOpen(false);
+                queryClient.invalidateQueries({ queryKey: ['security-profile-users', selectedProfileId] });
+            },
+        });
     };
 
     const handleRemoveUser = (userId: string) => {
-        assignProfile.mutate(
-            { userId, profileId: null },
-            {
-                onSuccess: () => {
-                    toast.success('Usuário removido do perfil.');
-                    queryClient.invalidateQueries({ queryKey: ['security-profile-users', selectedProfileId] });
-                },
-            }
-        );
+        assignProfile.mutate({ userId, profileId: null }, {
+            onSuccess: () => {
+                toast.success('Usuário removido do perfil.');
+                queryClient.invalidateQueries({ queryKey: ['security-profile-users', selectedProfileId] });
+            },
+        });
     };
 
-    // System stats
     const activeProfiles = profiles.filter(p => !p.disabled).length;
     const disabledProfiles = profiles.filter(p => p.disabled).length;
 
@@ -236,8 +241,41 @@ const Configuracoes = () => {
         );
     }
 
-    // Users not assigned to the currently selected profile
     const unassignedUsers = profiles.filter(p => !p.disabled && !profileUsers.some(u => (u as any).id === p.id));
+
+    // Render permission row (parent or child)
+    const renderPermRow = (res: { key: string; label: string }, isChild: boolean = false) => {
+        return (
+            <tr key={res.key} className={`border-b border-border/10 ${isChild ? 'bg-muted/10' : 'bg-muted/20'}`}>
+                <td className={`py-2.5 px-3 text-sm text-foreground ${isChild ? 'pl-10 text-[13px]' : 'font-semibold'}`}>
+                    {isChild && <span className="text-muted-foreground/40 mr-1.5">└</span>}
+                    {res.label}
+                </td>
+                {ACTIONS.map(act => {
+                    const allowed = isPermAllowed(res.key, act.key);
+                    // For children, if parent view is off, disable
+                    const parentKey = res.key.split('.')[0];
+                    const parentOff = isChild && !isPermAllowed(parentKey, 'view');
+                    return (
+                        <td key={act.key} className="text-center py-2.5 px-3">
+                            <button
+                                onClick={() => !parentOff && handleTogglePerm(res.key, act.key)}
+                                disabled={parentOff}
+                                className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${parentOff
+                                        ? 'bg-muted/20 border-border/10 text-muted-foreground/20 cursor-not-allowed'
+                                        : allowed
+                                            ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
+                                            : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
+                                    }`}
+                            >
+                                {allowed && !parentOff ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                            </button>
+                        </td>
+                    );
+                })}
+            </tr>
+        );
+    };
 
     return (
         <div className="space-y-6 animate-fade-in-up">
@@ -246,7 +284,6 @@ const Configuracoes = () => {
                 <p className="text-sm text-muted-foreground mt-1">Gerencie perfis de segurança e configurações do sistema</p>
             </div>
 
-            {/* System Stats */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="bg-card rounded-xl border border-border/30 shadow-card p-4 text-center">
                     <Users className="w-5 h-5 text-primary mx-auto mb-1" />
@@ -282,6 +319,19 @@ const Configuracoes = () => {
 
                 {/* ═══════════ TAB: PERFIS DE SEGURANÇA ═══════════ */}
                 <TabsContent value="profiles" className="space-y-4">
+                    {/* Migration warning */}
+                    {!spLoading && securityProfiles.length === 0 && (
+                        <div className="bg-warning/5 border border-warning/20 rounded-xl p-4 flex items-start gap-3">
+                            <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+                            <div>
+                                <p className="text-sm font-semibold text-foreground">Migration necessária</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    Execute o script SQL <code className="bg-muted px-1 rounded text-[11px]">supabase/migrations/add_security_profiles.sql</code> no Supabase Dashboard → SQL Editor para criar as tabelas de perfis de segurança.
+                                </p>
+                            </div>
+                        </div>
+                    )}
+
                     <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
@@ -293,18 +343,11 @@ const Configuracoes = () => {
                             </Button>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Crie perfis com permissões granulares e vincule usuários. Inspirado no modelo Zabbix — cada perfil define exatamente o que o usuário pode visualizar, editar e aprovar.
+                            Crie perfis com permissões granulares por guia e subguia. Vincule usuários para aplicar o nível de acesso.
                         </p>
 
-                        {/* Profile list */}
                         {spLoading ? (
                             <div className="text-center py-8 text-muted-foreground text-xs">Carregando perfis...</div>
-                        ) : securityProfiles.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground">
-                                <Shield className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                                <p className="text-sm">Nenhum perfil de segurança criado ainda.</p>
-                                <p className="text-xs mt-1">Execute a migration SQL no Supabase para criar os perfis padrão.</p>
-                            </div>
                         ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                                 {securityProfiles.map(sp => (
@@ -334,7 +377,7 @@ const Configuracoes = () => {
                         )}
                     </div>
 
-                    {/* Selected profile detail panel */}
+                    {/* ── Selected profile detail ── */}
                     {selectedProfile && (
                         <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-5 animate-fade-in-up">
                             <div className="flex items-center justify-between">
@@ -342,16 +385,14 @@ const Configuracoes = () => {
                                     <Shield className="w-5 h-5 text-primary" />
                                     <div>
                                         <h3 className="text-base font-bold text-foreground">{selectedProfile.name}</h3>
-                                        <p className="text-xs text-muted-foreground">{selectedProfile.description}</p>
+                                        {selectedProfile.description && <p className="text-xs text-muted-foreground">{selectedProfile.description}</p>}
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     {!selectedProfile.is_system && (
                                         <>
                                             <Button variant="outline" size="sm" className="gap-1" onClick={() => setEditingProfile({
-                                                id: selectedProfile.id,
-                                                name: selectedProfile.name,
-                                                description: selectedProfile.description || '',
+                                                id: selectedProfile.id, name: selectedProfile.name, description: selectedProfile.description || '',
                                             })}>
                                                 <Pencil className="w-3 h-3" /> Editar
                                             </Button>
@@ -365,48 +406,69 @@ const Configuracoes = () => {
 
                             <Separator className="bg-border/20" />
 
-                            {/* Permission matrix */}
+                            {/* ── Permission matrix with sub-tabs ── */}
                             <div className="space-y-3">
                                 <div className="flex items-center gap-2">
                                     <Lock className="w-4 h-4 text-primary" />
                                     <h4 className="text-sm font-bold text-foreground">Matriz de Permissões</h4>
                                 </div>
                                 <p className="text-[11px] text-muted-foreground">
-                                    Defina quais recursos cada ação permite. As alterações são salvas automaticamente.
+                                    Defina quais guias e subguias este perfil pode visualizar e editar. Clique na seta para expandir subguias.
                                 </p>
 
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-sm border-collapse">
                                         <thead>
                                             <tr className="border-b border-border/30">
-                                                <th className="text-left py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[200px]">Recurso</th>
+                                                <th className="text-left py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[250px]">Recurso</th>
                                                 {ACTIONS.map(a => (
-                                                    <th key={a.key} className="text-center py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{a.label}</th>
+                                                    <th key={a.key} className="text-center py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[100px]">{a.label}</th>
                                                 ))}
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {RESOURCES.map((res, i) => (
-                                                <tr key={res.key} className={`border-b border-border/10 ${i % 2 === 0 ? 'bg-muted/20' : ''}`}>
-                                                    <td className="py-2 px-3 text-sm font-medium text-foreground">{res.label}</td>
-                                                    {ACTIONS.map(act => {
-                                                        const allowed = isPermAllowed(res.key, act.key);
-                                                        return (
-                                                            <td key={act.key} className="text-center py-2 px-3">
-                                                                <button
-                                                                    onClick={() => handleTogglePerm(res.key, act.key)}
-                                                                    className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${allowed
-                                                                            ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
-                                                                            : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
-                                                                        }`}
-                                                                >
-                                                                    {allowed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                                                                </button>
+                                            {RESOURCES.map((res) => {
+                                                const hasChildren = !!(res.children && res.children.length > 0);
+                                                const isExpanded = expandedResources.has(res.key);
+                                                return (
+                                                    <>
+                                                        <tr key={res.key} className="border-b border-border/10 bg-muted/20 hover:bg-muted/30 transition-colors">
+                                                            <td className="py-2.5 px-3 text-sm font-semibold text-foreground">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    {hasChildren ? (
+                                                                        <button
+                                                                            onClick={() => toggleExpanded(res.key)}
+                                                                            className="p-0.5 rounded hover:bg-muted/50 transition-colors"
+                                                                        >
+                                                                            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
+                                                                        </button>
+                                                                    ) : (
+                                                                        <span className="w-5" />
+                                                                    )}
+                                                                    {res.label}
+                                                                </div>
                                                             </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            ))}
+                                                            {ACTIONS.map(act => {
+                                                                const allowed = isPermAllowed(res.key, act.key);
+                                                                return (
+                                                                    <td key={act.key} className="text-center py-2.5 px-3">
+                                                                        <button
+                                                                            onClick={() => handleTogglePerm(res.key, act.key)}
+                                                                            className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${allowed
+                                                                                    ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
+                                                                                    : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
+                                                                                }`}
+                                                                        >
+                                                                            {allowed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                                                                        </button>
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                        {hasChildren && isExpanded && res.children!.map(child => renderPermRow(child, true))}
+                                                    </>
+                                                );
+                                            })}
                                         </tbody>
                                     </table>
                                 </div>
@@ -414,7 +476,7 @@ const Configuracoes = () => {
 
                             <Separator className="bg-border/20" />
 
-                            {/* Users assigned to this profile */}
+                            {/* ── Users assigned ── */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
@@ -450,22 +512,17 @@ const Configuracoes = () => {
 
                 {/* ═══════════ TAB: SISTEMA ═══════════ */}
                 <TabsContent value="system" className="space-y-4">
-                    {/* Log Retention */}
                     <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-4">
                         <div className="flex items-center gap-2">
                             <Database className="w-5 h-5 text-primary" />
                             <h2 className="text-base font-bold font-display text-foreground">Retenção de Logs</h2>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                            Define por quanto tempo os logs de auditoria são mantidos no sistema.
-                        </p>
+                        <p className="text-xs text-muted-foreground">Define por quanto tempo os logs de auditoria são mantidos.</p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Período de Retenção</label>
                                 <Select value={retentionMonths} onValueChange={setRetentionMonths}>
-                                    <SelectTrigger className="h-10">
-                                        <Clock className="w-3.5 h-3.5 mr-1 text-muted-foreground" /><SelectValue />
-                                    </SelectTrigger>
+                                    <SelectTrigger className="h-10"><Clock className="w-3.5 h-3.5 mr-1 text-muted-foreground" /><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="3">3 meses</SelectItem>
                                         <SelectItem value="6">6 meses</SelectItem>
@@ -483,15 +540,12 @@ const Configuracoes = () => {
                         </div>
                     </div>
 
-                    {/* Notification Settings */}
                     <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-4">
                         <div className="flex items-center gap-2">
                             <Bell className="w-5 h-5 text-primary" />
                             <h2 className="text-base font-bold font-display text-foreground">Notificações</h2>
                         </div>
-                        <p className="text-xs text-muted-foreground">
-                            Configure a retenção e limpeza automática de notificações lidas.
-                        </p>
+                        <p className="text-xs text-muted-foreground">Configure a limpeza automática de notificações lidas.</p>
                         <div className="space-y-4">
                             <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
                                 <Switch checked={autoDeleteReadNotifs} onCheckedChange={setAutoDeleteReadNotifs} />
@@ -523,7 +577,6 @@ const Configuracoes = () => {
                         </div>
                     </div>
 
-                    {/* Save */}
                     <div className="flex justify-end">
                         <Button onClick={handleSaveSettings} disabled={saving} className="gap-2 font-semibold shadow-brand px-6">
                             {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
@@ -533,12 +586,12 @@ const Configuracoes = () => {
                 </TabsContent>
             </Tabs>
 
-            {/* ═══════════ DIALOG: Criar Perfil ═══════════ */}
+            {/* ═══════════ DIALOGS ═══════════ */}
             <Dialog open={newProfileOpen} onOpenChange={setNewProfileOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle className="font-display text-lg">Novo Perfil de Segurança</DialogTitle>
-                        <DialogDescription>Defina o nome e descrição do perfil. As permissões podem ser configuradas depois.</DialogDescription>
+                        <DialogDescription>Defina o nome e descrição. As permissões granulares podem ser configuradas depois.</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-3 py-2">
                         <div className="space-y-1.5">
@@ -546,8 +599,8 @@ const Configuracoes = () => {
                             <Input value={newProfileName} onChange={e => setNewProfileName(e.target.value)} placeholder="Ex: Consultor Pleno" className="h-10" />
                         </div>
                         <div className="space-y-1.5">
-                            <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-                            <Textarea value={newProfileDesc} onChange={e => setNewProfileDesc(e.target.value)} placeholder="Descreva as responsabilidades deste perfil..." rows={3} />
+                            <Label className="text-xs font-semibold text-muted-foreground">Descrição (opcional)</Label>
+                            <Textarea value={newProfileDesc} onChange={e => setNewProfileDesc(e.target.value)} placeholder="Descreva as responsabilidades..." rows={2} />
                         </div>
                     </div>
                     <DialogFooter className="gap-2">
@@ -560,7 +613,6 @@ const Configuracoes = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* ═══════════ DIALOG: Editar Perfil ═══════════ */}
             <Dialog open={!!editingProfile} onOpenChange={() => setEditingProfile(null)}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
@@ -575,7 +627,7 @@ const Configuracoes = () => {
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-                                <Textarea value={editingProfile.description} onChange={e => setEditingProfile({ ...editingProfile, description: e.target.value })} rows={3} />
+                                <Textarea value={editingProfile.description} onChange={e => setEditingProfile({ ...editingProfile, description: e.target.value })} rows={2} />
                             </div>
                         </div>
                     )}
@@ -588,7 +640,6 @@ const Configuracoes = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* ═══════════ DIALOG: Vincular Usuário ═══════════ */}
             <Dialog open={assignUserOpen} onOpenChange={setAssignUserOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
@@ -597,7 +648,7 @@ const Configuracoes = () => {
                     </DialogHeader>
                     <div className="space-y-2 py-2 max-h-[50vh] overflow-y-auto">
                         {unassignedUsers.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-4">Todos os usuários já estão vinculados a este perfil.</p>
+                            <p className="text-xs text-muted-foreground text-center py-4">Todos os usuários já estão vinculados.</p>
                         ) : (
                             unassignedUsers.map(p => (
                                 <div key={p.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/20 hover:bg-muted/50 transition-colors">
@@ -615,17 +666,16 @@ const Configuracoes = () => {
                 </DialogContent>
             </Dialog>
 
-            {/* ═══════════ DIALOG: Confirmar exclusão ═══════════ */}
             <Dialog open={!!confirmDeleteId} onOpenChange={() => setConfirmDeleteId(null)}>
                 <DialogContent className="sm:max-w-sm">
                     <DialogHeader>
                         <DialogTitle className="font-display text-lg text-destructive">Excluir Perfil</DialogTitle>
-                        <DialogDescription>Esta ação é irreversível. Usuários vinculados perderão o perfil de segurança.</DialogDescription>
+                        <DialogDescription>Esta ação é irreversível. Usuários vinculados perderão o perfil.</DialogDescription>
                     </DialogHeader>
                     <DialogFooter className="gap-2">
                         <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancelar</Button>
                         <Button variant="destructive" onClick={handleDeleteProfile} disabled={deleteProfile.isPending} className="gap-1.5">
-                            <Trash2 className="w-4 h-4" /> Confirmar Exclusão
+                            <Trash2 className="w-4 h-4" /> Confirmar
                         </Button>
                     </DialogFooter>
                 </DialogContent>
