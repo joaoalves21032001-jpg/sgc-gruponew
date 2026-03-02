@@ -10,6 +10,7 @@ export interface Atividade {
   mensagens: number;
   cotacoes_enviadas: number;
   cotacoes_fechadas: number;
+  cotacoes_nao_respondidas?: number;
   follow_up: number;
   created_at: string;
   updated_at: string;
@@ -28,7 +29,7 @@ export function useMyAtividades() {
         .eq('user_id', user.id)
         .order('data', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Atividade[];
+      return (data ?? []) as unknown as Atividade[];
     },
     enabled: !!user,
   });
@@ -46,7 +47,7 @@ export function useTeamAtividades() {
         .select('*')
         .order('data', { ascending: false });
       if (error) throw error;
-      return (data ?? []) as Atividade[];
+      return (data ?? []) as unknown as Atividade[];
     },
     enabled: !!user,
   });
