@@ -311,7 +311,13 @@ const Aprovacoes = () => {
   };
 
   /* ─── Filters ─── */
+  // Build set of registro_ids that have pending correction requests (3.5 — duplicate control)
+  const pendingCRRegistroIds = new Set(
+    correctionRequests.filter(cr => cr.status === 'pendente').map(cr => cr.registro_id)
+  );
+
   const filteredVendas = vendas.filter(v => {
+    if (pendingCRRegistroIds.has(v.id)) return false; // exclude records with pending CR
     const matchesSearch = !search || v.nome_titular.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = filterStatus === 'todos' || v.status === filterStatus;
     const matchesConsultor = filterConsultor === 'todos' || v.user_id === filterConsultor;
@@ -320,6 +326,7 @@ const Aprovacoes = () => {
   });
 
   const filteredAtividades = atividades.filter(a => {
+    if (pendingCRRegistroIds.has(a.id)) return false; // exclude records with pending CR
     const name = getConsultorName(a.user_id);
     const matchesSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || a.data.includes(search);
     const ativStatus = (a as any).status || 'pendente';
@@ -717,6 +724,10 @@ const Aprovacoes = () => {
 
       toast.success(`Acesso aprovado e usuário criado para ${req.nome}! (Código: ${nextCode})`);
       logAction('aprovar_acesso', 'access_request', req.id, { nome: req.nome, email: req.email, codigo: nextCode });
+      // Send welcome email (fire-and-forget)
+      supabase.functions.invoke('send-notification', {
+        body: { type: 'boas_vindas', data: { nome: req.nome, email: req.email, codigo: nextCode, cargo: req.cargo } },
+      }).catch(e => console.error('Welcome email error:', e));
       // Notify the new user that their access was approved
       if (userId) {
         notifySelf(userId, 'Acesso Aprovado', `Bem-vindo(a) ${req.nome}! Seu acesso ao sistema foi aprovado. Seu código é ${nextCode}.`, 'acesso', '/meu-progresso');
@@ -766,7 +777,7 @@ const Aprovacoes = () => {
       const alteracoes = payload.alteracoesPropostas || [];
       const updateObj: Record<string, any> = {};
       // Valid columns per table to avoid schema errors
-      const ativCols = ['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'follow_up', 'data', 'observacoes'];
+      const ativCols = ['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'data', 'observacoes'];
       const vendaCols = ['nome_titular', 'modalidade', 'vidas', 'valor', 'observacoes', 'data_lancamento', 'justificativa_retroativo'];
       const validCols = cr.tipo === 'atividade' ? ativCols : vendaCols;
       for (const a of alteracoes) {
@@ -1135,7 +1146,7 @@ const Aprovacoes = () => {
                                 <Pencil className="w-3.5 h-3.5" /> Editar
                               </Button>
                               <Button size="sm" className="gap-1 bg-success hover:bg-success/90 text-success-foreground font-semibold" onClick={() => handleApproveAccess(req)} disabled={savingAccess}>
-                                <CheckCircle2 className="w-3.5 h-3.5" /> Aprovar
+                                {savingAccess ? <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />} {savingAccess ? 'Aprovando...' : 'Aprovar'}
                               </Button>
                               <Button size="sm" variant="destructive" className="gap-1 font-semibold" onClick={() => { setRejectAccess(req); setRejectReason(''); }} disabled={savingAccess}>
                                 <XCircle className="w-3.5 h-3.5" /> Recusar

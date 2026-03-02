@@ -12,10 +12,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ClipboardList, ShoppingCart, Search, Pencil, Trash2, Plus,
-  CheckCircle2, Clock, XCircle, Undo2, AlertCircle, Send
+  CheckCircle2, Clock, XCircle, Undo2, AlertCircle, Send, GitCompareArrows
 } from 'lucide-react';
 import { maskCurrency, unmaskCurrency, formatCurrencyDisplay } from '@/lib/masks';
 
@@ -35,13 +35,29 @@ const MinhasAcoes = () => {
   const { data: atividades = [], isLoading: loadingAtiv } = useMyAtividades();
   const { data: vendas = [], isLoading: loadingVendas } = useMyVendas();
 
+  // Fetch user's own correction requests
+  const { data: myCorrectionRequests = [] } = useQuery({
+    queryKey: ['my-correction-requests', user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from('correction_requests')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
   const [search, setSearch] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [mainTab, setMainTab] = useState('pendentes');
   const [deleteItem, setDeleteItem] = useState<{ type: 'atividade' | 'venda'; id: string; label: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [editAtiv, setEditAtiv] = useState<any>(null);
-  const [editForm, setEditForm] = useState({ ligacoes: '', mensagens: '', cotacoes_enviadas: '', cotacoes_fechadas: '', follow_up: '' });
+  const [editForm, setEditForm] = useState({ ligacoes: '', mensagens: '', cotacoes_enviadas: '', cotacoes_fechadas: '', cotacoes_nao_respondidas: '', follow_up: '' });
   const [editSaving, setEditSaving] = useState(false);
 
   // Edit venda state
@@ -136,6 +152,7 @@ const MinhasAcoes = () => {
     + vendas.filter(v => v.status === 'aprovado').length;
   const devolvidoCount = atividades.filter(a => (a as any).status === 'devolvido').length
     + vendas.filter(v => v.status === 'devolvido').length;
+  const solicitadoCount = myCorrectionRequests.filter((cr: any) => cr.status === 'pendente').length;
 
   const handleDelete = async () => {
     if (!deleteItem) return;
@@ -171,6 +188,7 @@ const MinhasAcoes = () => {
       mensagens: String(a.mensagens),
       cotacoes_enviadas: String(a.cotacoes_enviadas),
       cotacoes_fechadas: String(a.cotacoes_fechadas),
+      cotacoes_nao_respondidas: String(a.cotacoes_nao_respondidas ?? 0),
       follow_up: String(a.follow_up),
     });
   };
@@ -249,6 +267,7 @@ const MinhasAcoes = () => {
         mensagens: parseInt(editForm.mensagens) || 0,
         cotacoes_enviadas: parseInt(editForm.cotacoes_enviadas) || 0,
         cotacoes_fechadas: parseInt(editForm.cotacoes_fechadas) || 0,
+        cotacoes_nao_respondidas: parseInt(editForm.cotacoes_nao_respondidas) || 0,
         follow_up: parseInt(editForm.follow_up) || 0,
         status: 'pendente',
       } as any).eq('id', editAtiv.id);
@@ -292,6 +311,7 @@ const MinhasAcoes = () => {
     const StatusIcon = sc.icon;
     const isDevolvido = ativStatus === 'devolvido';
     const showRequestBtn = canRequestChange(ativStatus);
+    const hasPendingCR = myCorrectionRequests.some((cr: any) => cr.status === 'pendente' && cr.registro_id === a.id);
     return (
       <div key={a.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4">
         <div className="flex items-start justify-between gap-3">
@@ -301,12 +321,18 @@ const MinhasAcoes = () => {
               <Badge variant="outline" className={`text-[10px] ${sc.className}`}>
                 <StatusIcon className="w-3 h-3 mr-1" />{sc.label}
               </Badge>
+              {hasPendingCR && (
+                <Badge variant="outline" className="text-[10px] bg-info/10 text-info border-info/20">
+                  ⏳ Alteração em análise
+                </Badge>
+              )}
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-x-4 gap-y-1 text-xs text-muted-foreground mt-2">
               <span>Ligações: <strong className="text-foreground">{a.ligacoes}</strong></span>
               <span>Mensagens: <strong className="text-foreground">{a.mensagens}</strong></span>
               <span>Cot. Enviadas: <strong className="text-foreground">{a.cotacoes_enviadas}</strong></span>
               <span>Cot. Fechadas: <strong className="text-foreground">{a.cotacoes_fechadas}</strong></span>
+              <span>Cot. N.Resp: <strong className="text-foreground">{(a as any).cotacoes_nao_respondidas ?? 0}</strong></span>
               <span>Follow-up: <strong className="text-foreground">{a.follow_up}</strong></span>
             </div>
           </div>
@@ -337,6 +363,7 @@ const MinhasAcoes = () => {
     const StatusIcon = sc.icon;
     const isDevolvido = v.status === 'devolvido';
     const showRequestBtn = canRequestChange(v.status);
+    const hasPendingCR = myCorrectionRequests.some((cr: any) => cr.status === 'pendente' && cr.registro_id === v.id);
     return (
       <div key={v.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4">
         <div className="flex items-start justify-between gap-3">
@@ -346,6 +373,11 @@ const MinhasAcoes = () => {
               <Badge variant="outline" className={`text-[10px] ${sc.className}`}>
                 <StatusIcon className="w-3 h-3 mr-1" />{sc.label}
               </Badge>
+              {hasPendingCR && (
+                <Badge variant="outline" className="text-[10px] bg-info/10 text-info border-info/20">
+                  ⏳ Alteração em análise
+                </Badge>
+              )}
               <Badge variant="outline" className="text-[10px]">{v.modalidade}</Badge>
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
@@ -407,6 +439,9 @@ const MinhasAcoes = () => {
           <TabsTrigger value="devolvidos" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
             <Undo2 className="w-4 h-4" /> Devolvidos ({devolvidoCount})
           </TabsTrigger>
+          <TabsTrigger value="solicitados" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
+            <GitCompareArrows className="w-4 h-4" /> Alterações ({solicitadoCount})
+          </TabsTrigger>
         </TabsList>
 
         <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
@@ -444,6 +479,63 @@ const MinhasAcoes = () => {
             </div>
           </TabsContent>
         ))}
+
+        {/* Alterações Solicitadas Tab */}
+        <TabsContent value="solicitados">
+          <div className="space-y-4">
+            {myCorrectionRequests.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <GitCompareArrows className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                Nenhuma solicitação de alteração encontrada.
+              </div>
+            ) : (
+              myCorrectionRequests.map((cr: any) => {
+                const crStatus = cr.status || 'pendente';
+                const sc = crStatus === 'aprovado'
+                  ? statusConfig.aprovado
+                  : crStatus === 'recusado'
+                    ? statusConfig.recusado
+                    : statusConfig.solicitado;
+                const StatusIcon = sc.icon;
+                let parsed: any = {};
+                try { parsed = JSON.parse(cr.motivo); } catch { }
+                const alteracoes = parsed.alteracoesPropostas || [];
+                return (
+                  <div key={cr.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className={`text-[10px] ${sc.className}`}>
+                            <StatusIcon className="w-3 h-3 mr-1" />{sc.label}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] uppercase bg-muted/40">{cr.tipo}</Badge>
+                          <Badge variant="outline" className="text-[10px]">📅 {new Date(cr.created_at).toLocaleDateString('pt-BR')}</Badge>
+                        </div>
+                        {parsed.justificativa && <p className="text-xs text-muted-foreground mt-1 italic">📝 {parsed.justificativa}</p>}
+                        <div className="mt-2 space-y-1">
+                          {alteracoes.map((a: any, i: number) => (
+                            <div key={i} className="flex items-center gap-2 text-xs">
+                              <span className="text-muted-foreground font-medium">{a.campo}:</span>
+                              <span className="text-destructive line-through">{String(a.valorAntigo)}</span>
+                              <span>→</span>
+                              <span className="text-primary font-semibold">{String(a.valorNovo)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {cr.admin_resposta && (
+                          <div className="mt-2 p-2 bg-muted/30 rounded-lg border border-border/20">
+                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Resposta do Supervisor</p>
+                            <p className="text-xs text-foreground mt-0.5">{cr.admin_resposta}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* Delete Dialog */}
@@ -545,6 +637,7 @@ const MinhasAcoes = () => {
               { key: 'mensagens', label: 'Mensagens' },
               { key: 'cotacoes_enviadas', label: 'Cot. Enviadas' },
               { key: 'cotacoes_fechadas', label: 'Cot. Fechadas' },
+              { key: 'cotacoes_nao_respondidas', label: 'Cot. Não Respondidas' },
               { key: 'follow_up', label: 'Follow-up' },
             ].map(({ key, label }) => (
               <div key={key} className="space-y-1">

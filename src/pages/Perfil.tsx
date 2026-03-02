@@ -63,6 +63,8 @@ const Perfil = () => {
       endereco: profile.endereco || '',
       numero_emergencia_1: profile.numero_emergencia_1 || '',
       numero_emergencia_2: profile.numero_emergencia_2 || '',
+      nome_emergencia_1: (profile as any).nome_emergencia_1 || '',
+      nome_emergencia_2: (profile as any).nome_emergencia_2 || '',
       data_admissao: (profile as any).data_admissao || '',
       data_nascimento: (profile as any).data_nascimento || '',
     });
@@ -104,6 +106,8 @@ const Perfil = () => {
         endereco: 'Endereço',
         numero_emergencia_1: 'Emergência 1',
         numero_emergencia_2: 'Emergência 2',
+        nome_emergencia_1: 'Nome Contato Emerg. 1',
+        nome_emergencia_2: 'Nome Contato Emerg. 2',
         data_admissao: 'Data de Admissão',
         data_nascimento: 'Data de Nascimento',
       };
@@ -232,7 +236,9 @@ const Perfil = () => {
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
               <InfoRow icon={Phone} label="Emergência 1" value={profile.numero_emergencia_1 || '—'} />
+              {(profile as any).nome_emergencia_1 && <InfoRow icon={User} label="Nome Contato 1" value={(profile as any).nome_emergencia_1} />}
               <InfoRow icon={Phone} label="Emergência 2" value={profile.numero_emergencia_2 || '—'} />
+              {(profile as any).nome_emergencia_2 && <InfoRow icon={User} label="Nome Contato 2" value={(profile as any).nome_emergencia_2} />}
             </div>
           </div>
 
@@ -333,13 +339,29 @@ const Perfil = () => {
             <Separator className="bg-border/20" />
             <p className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-bold">Contatos de Emergência</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs font-semibold text-muted-foreground">Emergência 1</Label>
-                <Input value={editForm.numero_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground">Emergência 1</Label>
+                  <Input value={editForm.numero_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                </div>
+                {(editForm.numero_emergencia_1 || '').trim() && (
+                  <div className="animate-fade-in-up">
+                    <Label className="text-xs font-semibold text-muted-foreground">Nome do Contato 1</Label>
+                    <Input value={editForm.nome_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, nome_emergencia_1: e.target.value }))} placeholder="Nome do contato..." className="h-10" />
+                  </div>
+                )}
               </div>
-              <div>
-                <Label className="text-xs font-semibold text-muted-foreground">Emergência 2</Label>
-                <Input value={editForm.numero_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+              <div className="space-y-3">
+                <div>
+                  <Label className="text-xs font-semibold text-muted-foreground">Emergência 2</Label>
+                  <Input value={editForm.numero_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                </div>
+                {(editForm.numero_emergencia_2 || '').trim() && (
+                  <div className="animate-fade-in-up">
+                    <Label className="text-xs font-semibold text-muted-foreground">Nome do Contato 2</Label>
+                    <Input value={editForm.nome_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, nome_emergencia_2: e.target.value }))} placeholder="Nome do contato..." className="h-10" />
+                  </div>
+                )}
               </div>
             </div>
             <Separator className="bg-border/20" />

@@ -22,7 +22,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { useProfile, useSupervisorProfile, useUserRole } from '@/hooks/useProfile';
+import { useProfile, useSupervisorProfile, useGerenteProfile, useUserRole, useTeamProfiles } from '@/hooks/useProfile';
 import { useCreateAtividade, useMyAtividades } from '@/hooks/useAtividades';
 import { useCreateVenda, useMyVendas, uploadVendaDocumento } from '@/hooks/useVendas';
 import { useAuth } from '@/contexts/AuthContext';
@@ -91,6 +91,12 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const { data: supervisor } = useSupervisorProfile(profile?.supervisor_id);
+  const { data: gerente } = useGerenteProfile(profile?.gerente_id);
+  const { data: allProfiles = [] } = useTeamProfiles();
+
+  // Fallback: resolve supervisor/gerente from allProfiles if hooks return null
+  const resolvedSupervisor = supervisor || (profile?.supervisor_id ? allProfiles.find(p => p.id === profile.supervisor_id) : null);
+  const resolvedGerente = gerente || (profile?.gerente_id ? allProfiles.find(p => p.id === profile.gerente_id) : null);
   const { data: myAtividades } = useMyAtividades();
   const { data: myVendas } = useMyVendas();
   const createAtividade = useCreateAtividade();
@@ -336,12 +342,13 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 bg-muted/40 rounded-lg border border-border/20 space-y-1.5">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Supervisor</p>
-            <p className="text-sm font-bold text-foreground">{supervisor?.nome_completo || '—'}</p>
-            {supervisor?.email && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Mail className="w-3 h-3" />{supervisor.email}</div>}
+            <p className="text-sm font-bold text-foreground">{resolvedSupervisor?.nome_completo || '—'}</p>
+            {resolvedSupervisor?.email && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Mail className="w-3 h-3" />{resolvedSupervisor.email}</div>}
           </div>
           <div className="p-4 bg-muted/40 rounded-lg border border-border/20 space-y-1.5">
             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Gerente</p>
-            <p className="text-sm font-bold text-foreground">—</p>
+            <p className="text-sm font-bold text-foreground">{resolvedGerente?.nome_completo || '—'}</p>
+            {resolvedGerente?.email && <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Mail className="w-3 h-3" />{resolvedGerente.email}</div>}
           </div>
         </div>
       </div>

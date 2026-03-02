@@ -4,7 +4,7 @@ import { useAuditLogs, type AuditLog } from '@/hooks/useAuditLog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Shield, Search, Activity, User, Calendar, Filter, FileText } from 'lucide-react';
+import { Shield, Search, Activity, User, Calendar, Filter, FileText, Settings2 } from 'lucide-react';
 
 const actionLabels: Record<string, string> = {
   login: 'Login',
@@ -87,12 +87,22 @@ const AuditLogs = () => {
   const [filterStartDate, setFilterStartDate] = useState('');
   const [filterEndDate, setFilterEndDate] = useState('');
   const [search, setSearch] = useState('');
+  const [retentionMonths, setRetentionMonths] = useState('6');
+
+  // Compute effective start date based on retention period
+  const effectiveStartDate = (() => {
+    if (filterStartDate) return filterStartDate; // manual filter takes priority
+    if (retentionMonths === 'todos') return undefined;
+    const d = new Date();
+    d.setMonth(d.getMonth() - parseInt(retentionMonths));
+    return d.toISOString().split('T')[0];
+  })();
 
   const { data: logs = [], isLoading } = useAuditLogs({
     userId: filterUser,
     action: filterAction,
     entityType: filterEntity,
-    startDate: filterStartDate,
+    startDate: effectiveStartDate,
     endDate: filterEndDate,
   });
 
@@ -126,7 +136,7 @@ const AuditLogs = () => {
     <div className="space-y-6 animate-fade-in-up">
       <div>
         <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Monitoramento de Logs</h1>
-        <p className="text-sm text-muted-foreground mt-1">Auditoria completa de todas as ações do sistema — retenção de 1 ano</p>
+        <p className="text-sm text-muted-foreground mt-1">Auditoria completa de todas as ações do sistema</p>
       </div>
 
       {/* Filters */}
@@ -157,11 +167,29 @@ const AuditLogs = () => {
           <Input type="date" value={filterStartDate} onChange={e => setFilterStartDate(e.target.value)} className="h-10 bg-background border-border/40" placeholder="Data início" />
           <Input type="date" value={filterEndDate} onChange={e => setFilterEndDate(e.target.value)} className="h-10 bg-background border-border/40" placeholder="Data fim" />
         </div>
+        {/* Retention period */}
+        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/20">
+          <Settings2 className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Retenção:</span>
+          <Select value={retentionMonths} onValueChange={setRetentionMonths}>
+            <SelectTrigger className="h-8 w-[140px] text-xs border-border/40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="3">3 meses</SelectItem>
+              <SelectItem value="6">6 meses</SelectItem>
+              <SelectItem value="12">1 ano</SelectItem>
+              <SelectItem value="24">2 anos</SelectItem>
+              <SelectItem value="todos">Ilimitado</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-[10px] text-muted-foreground">Período de exibição dos logs</span>
+        </div>
       </div>
 
       {/* Results */}
       <div className="text-xs text-muted-foreground">{filteredLogs.length} registro(s) encontrado(s)</div>
-      
+
       <div className="space-y-2">
         {isLoading ? (
           <div className="text-center py-12 text-muted-foreground">Carregando...</div>
@@ -207,7 +235,7 @@ const AuditLogs = () => {
           ))
         )}
       </div>
-    </div>
+    </div >
   );
 };
 

@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface NotificationPayload {
-  type: "atividade_registrada" | "venda_registrada" | "venda_status_atualizado" | "novo_usuario" | "acesso_solicitado" | "acesso_negado";
+  type: "atividade_registrada" | "venda_registrada" | "venda_status_atualizado" | "novo_usuario" | "acesso_solicitado" | "acesso_negado" | "boas_vindas";
   data: Record<string, any>;
 }
 
@@ -222,6 +222,29 @@ serve(async (req) => {
           </p>
           <div style="margin-top: 16px; padding: 16px; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">
             <p style="font-size: 14px; color: #991b1b; margin: 0;">${motivo}</p>
+          </div>
+        `);
+        break;
+      }
+
+      case "boas_vindas": {
+        const { nome, email, codigo, cargo } = data;
+        recipients = [email];
+        subject = `🎉 Bem-vindo(a) ao SGC — Grupo New`;
+        html = emailTemplate("Bem-vindo(a) ao SGC!", `
+          <p style="color: #374151; font-size: 14px; line-height: 1.6;">
+            Olá <strong>${nome}</strong>,
+          </p>
+          <p style="color: #374151; font-size: 14px; line-height: 1.6;">
+            Seu acesso ao <strong>Sistema de Gestão Comercial (SGC)</strong> do Grupo New foi aprovado!
+          </p>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 16px;">
+            <tr style="background: #f3f4f6;"><td style="padding: 10px 12px; font-size: 13px; color: #6b7280;">Seu Código</td><td style="padding: 10px 12px; font-size: 14px; font-weight: 700; text-align: right; color: #1a4a5c;">${codigo}</td></tr>
+            <tr><td style="padding: 10px 12px; font-size: 13px; color: #6b7280;">Cargo</td><td style="padding: 10px 12px; font-size: 13px; font-weight: 600; text-align: right;">${cargo || 'Consultor de Vendas'}</td></tr>
+            <tr style="background: #f3f4f6;"><td style="padding: 10px 12px; font-size: 13px; color: #6b7280;">E-mail</td><td style="padding: 10px 12px; font-size: 13px; font-weight: 600; text-align: right;">${email}</td></tr>
+          </table>
+          <div style="margin-top: 24px; padding: 16px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe;">
+            <p style="font-size: 13px; color: #1e40af; margin: 0;"><strong>Próximo passo:</strong> Acesse o sistema com sua conta Google corporativa. Caso utilize login por e-mail/senha, clique em "Esqueci minha senha" para definir sua senha de acesso.</p>
           </div>
         `);
         break;

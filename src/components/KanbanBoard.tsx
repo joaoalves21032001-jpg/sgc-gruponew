@@ -380,6 +380,8 @@ export function KanbanBoard() {
     // Load existing carência paths from origem JSON
     setExistingCarteirinhaPath(ext.carteirinha_anterior_path || null);
     setExistingCartaPath(ext.carta_permanencia_path || null);
+    // Set current owner for transfer field (admin only)
+    setAssignedTo(l.created_by || user?.id || '');
     setShowForm(true);
   };
 
@@ -483,6 +485,10 @@ export function KanbanBoard() {
       let leadId: string;
       if (editItem) {
         leadId = editItem.id;
+        // Allow admin to transfer lead ownership
+        if (isAdmin && assignedTo && assignedTo !== editItem.created_by) {
+          payload.created_by = assignedTo;
+        }
         await updateMut.mutateAsync({ id: editItem.id, ...payload });
       } else {
         const result = await createMut.mutateAsync(payload);

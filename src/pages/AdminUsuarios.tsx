@@ -71,6 +71,8 @@ interface FormData {
   role: 'consultor' | 'supervisor' | 'gerente' | 'administrador';
   numero_emergencia_1: string;
   numero_emergencia_2: string;
+  nome_emergencia_1: string;
+  nome_emergencia_2: string;
   supervisor_id: string;
   gerente_id: string;
   meta_faturamento: string;
@@ -82,7 +84,9 @@ interface FormData {
 const emptyForm: FormData = {
   email: '', nome_completo: '', apelido: '', celular: '', cpf: '', rg: '',
   endereco: '', cargo: 'Consultor de Vendas', codigo: '', role: 'consultor',
-  numero_emergencia_1: '', numero_emergencia_2: '', supervisor_id: '', gerente_id: '',
+  numero_emergencia_1: '', numero_emergencia_2: '',
+  nome_emergencia_1: '', nome_emergencia_2: '',
+  supervisor_id: '', gerente_id: '',
   meta_faturamento: '', atividades_desabilitadas: false,
   data_admissao: '', data_nascimento: '',
 };
@@ -220,6 +224,8 @@ const AdminUsuarios = () => {
       role: currentRole,
       numero_emergencia_1: profile.numero_emergencia_1 || '',
       numero_emergencia_2: profile.numero_emergencia_2 || '',
+      nome_emergencia_1: (profile as any).nome_emergencia_1 || '',
+      nome_emergencia_2: (profile as any).nome_emergencia_2 || '',
       supervisor_id: profile.supervisor_id || 'none',
       gerente_id: profile.gerente_id || 'none',
       meta_faturamento: profile.meta_faturamento?.toString() || '',
@@ -235,7 +241,7 @@ const AdminUsuarios = () => {
   const handleSave = async () => {
     const required: (keyof FormData)[] = [
       'email', 'nome_completo', 'apelido', 'celular', 'cpf', 'rg',
-      'endereco', 'cargo', 'numero_emergencia_1', 'numero_emergencia_2',
+      'endereco', 'cargo',
     ];
     for (const field of required) {
       const val = form[field];
@@ -272,6 +278,8 @@ const AdminUsuarios = () => {
           cargo: form.cargo,
           numero_emergencia_1: form.numero_emergencia_1,
           numero_emergencia_2: form.numero_emergencia_2,
+          nome_emergencia_1: form.nome_emergencia_1 || null,
+          nome_emergencia_2: form.nome_emergencia_2 || null,
           supervisor_id: form.supervisor_id && form.supervisor_id !== 'none' ? form.supervisor_id : null,
           gerente_id: form.gerente_id && form.gerente_id !== 'none' ? form.gerente_id : null,
           meta_faturamento: form.meta_faturamento ? parseFloat(form.meta_faturamento) : null,
@@ -301,6 +309,8 @@ const AdminUsuarios = () => {
             gerente_id: form.gerente_id && form.gerente_id !== 'none' ? form.gerente_id : null,
             numero_emergencia_1: form.numero_emergencia_1,
             numero_emergencia_2: form.numero_emergencia_2,
+            nome_emergencia_1: form.nome_emergencia_1 || null,
+            nome_emergencia_2: form.nome_emergencia_2 || null,
           },
         });
         if (createError) throw createError;
@@ -523,12 +533,26 @@ const AdminUsuarios = () => {
                 <AlertTriangle className="w-3.5 h-3.5" /> Contatos de Emergência
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FieldWithTooltip label="Emergência 1" tooltip="Número de um contato de emergência (familiar ou próximo)." required>
-                  <Input value={form.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
-                </FieldWithTooltip>
-                <FieldWithTooltip label="Emergência 2" tooltip="Segundo contato de emergência. Deve ser diferente do primeiro." required>
-                  <Input value={form.numero_emergencia_2} onChange={(e) => setField('numero_emergencia_2', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
-                </FieldWithTooltip>
+                <div className="space-y-3">
+                  <FieldWithTooltip label="Emergência 1 (Opcional)" tooltip="Número de um contato de emergência (familiar ou próximo).">
+                    <Input value={form.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                  </FieldWithTooltip>
+                  {form.numero_emergencia_1.trim() && (
+                    <FieldWithTooltip label="Nome do Contato 1" tooltip="Nome completo do contato de emergência 1.">
+                      <Input value={form.nome_emergencia_1} onChange={(e) => setField('nome_emergencia_1', e.target.value)} placeholder="Nome do contato..." className="h-10 animate-fade-in-up" />
+                    </FieldWithTooltip>
+                  )}
+                </div>
+                <div className="space-y-3">
+                  <FieldWithTooltip label="Emergência 2 (Opcional)" tooltip="Segundo contato de emergência. Deve ser diferente do primeiro.">
+                    <Input value={form.numero_emergencia_2} onChange={(e) => setField('numero_emergencia_2', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                  </FieldWithTooltip>
+                  {form.numero_emergencia_2.trim() && (
+                    <FieldWithTooltip label="Nome do Contato 2" tooltip="Nome completo do contato de emergência 2.">
+                      <Input value={form.nome_emergencia_2} onChange={(e) => setField('nome_emergencia_2', e.target.value)} placeholder="Nome do contato..." className="h-10 animate-fade-in-up" />
+                    </FieldWithTooltip>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -561,8 +585,8 @@ const AdminUsuarios = () => {
                   <Input type="number" value={form.meta_faturamento} onChange={(e) => setField('meta_faturamento', e.target.value)} className="h-10" />
                 </FieldWithTooltip>
                 <FieldWithTooltip label="Supervisor" tooltip="Supervisor direto do colaborador. Bloqueado para Supervisores e acima.">
-                  <Select 
-                    value={form.supervisor_id} 
+                  <Select
+                    value={form.supervisor_id}
                     onValueChange={(v) => setField('supervisor_id', v)}
                     disabled={['Supervisor', 'Gerente', 'Diretor'].includes(form.cargo)}
                   >
@@ -574,8 +598,8 @@ const AdminUsuarios = () => {
                   </Select>
                 </FieldWithTooltip>
                 <FieldWithTooltip label="Gerente" tooltip="Gerente responsável pela equipe. Bloqueado para Gerentes e Diretores.">
-                  <Select 
-                    value={form.gerente_id} 
+                  <Select
+                    value={form.gerente_id}
                     onValueChange={(v) => setField('gerente_id', v)}
                     disabled={['Gerente', 'Diretor'].includes(form.cargo)}
                   >
