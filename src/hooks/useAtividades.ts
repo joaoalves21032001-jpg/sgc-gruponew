@@ -89,8 +89,7 @@ export function useCreateAtividade() {
         .select()
         .single();
 
-      // If insert fails because of an unknown column (e.g. cotacoes_nao_respondidas not yet migrated),
-      // strip the offending field and retry
+      // If insert fails because of an unknown column, strip and retry
       if (result.error && result.error.message?.includes('schema cache')) {
         const match = result.error.message.match(/\'(\w+)\'/);
         if (match) delete payload[match[1]];
@@ -101,39 +100,16 @@ export function useCreateAtividade() {
           .single();
       }
       if (result.error) throw result.error;
-      return { ...result.data, _userRole: userRole };
+      // Append computed cotacoes_nao_respondidas even if DB column doesn't exist
+      const returned = result.data as any;
+      if (returned.cotacoes_nao_respondidas === undefined || returned.cotacoes_nao_respondidas === null) {
+        returned.cotacoes_nao_respondidas = Math.max(0, (returned.cotacoes_enviadas ?? 0) - (returned.cotacoes_fechadas ?? 0));
+      }
+      return { ...returned, _userRole: userRole };
     },
     onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['atividades'] });
       queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
-
-      const userRole = data._userRole;
-
-      // Send email notification (fire and forget)
-      // Supervisors: auto-approved but email gerente
-      // Gerentes: auto-approved, no email
-      if (userRole !== 'gerente') {
-        try {
-          const { data: profile } = await supabase.from('profiles').select('nome_completo').eq('id', user!.id).single();
-          await supabase.functions.invoke('send-notification', {
-            body: {
-              type: 'atividade_registrada',
-              data: {
-                user_id: user!.id,
-                user_name: profile?.nome_completo || user!.email,
-                data: data.data,
-                ligacoes: data.ligacoes,
-                mensagens: data.mensagens,
-                cotacoes_enviadas: data.cotacoes_enviadas,
-                follow_up: data.follow_up,
-                auto_aprovado: userRole === 'supervisor',
-              },
-            },
-          });
-        } catch (e) {
-          console.error('Notification error:', e);
-        }
-      }
     },
   });
 }

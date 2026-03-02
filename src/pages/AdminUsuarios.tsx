@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
-import { useUserTabPermissions, useSetTabPermission, ALL_TABS } from '@/hooks/useTabPermissions';
+
 import { useLogAction } from '@/hooks/useAuditLog';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -91,43 +91,7 @@ const emptyForm: FormData = {
   data_admissao: '', data_nascimento: '',
 };
 
-// Component: Tab permissions panel shown inside edit dialog
-function TabPermissionsPanel({ userId }: { userId: string }) {
-  const { data: perms = [], isLoading } = useUserTabPermissions(userId);
-  const setTabPerm = useSetTabPermission();
 
-  const isEnabled = (key: string) => {
-    const p = perms.find(p => p.tab_key === key);
-    return p ? p.enabled : true; // default: enabled
-  };
-
-  const handleToggle = (key: string, enabled: boolean) => {
-    setTabPerm.mutate({ userId, tabKey: key, enabled });
-  };
-
-  if (isLoading) return null;
-
-  return (
-    <div>
-      <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3 flex items-center gap-2">
-        <span>🔒</span> Permissão de Guias
-      </h3>
-      <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-border/20">
-        <p className="text-xs text-muted-foreground mb-3">Defina quais guias este usuário pode visualizar. Guias de acesso por cargo (Aprovações, Dashboard) continuam restritas pelo nível.</p>
-        {ALL_TABS.map(tab => (
-          <div key={tab.key} className="flex items-center justify-between py-1.5">
-            <span className="text-sm text-foreground">{tab.label}</span>
-            <Switch
-              checked={isEnabled(tab.key)}
-              onCheckedChange={(v) => handleToggle(tab.key, v)}
-              disabled={setTabPerm.isPending}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 const AdminUsuarios = () => {
   const { data: role } = useUserRole();
@@ -613,8 +577,7 @@ const AdminUsuarios = () => {
               </div>
             </div>
 
-            {/* Tab Permissions (only when editing existing user) */}
-            {editingId && <TabPermissionsPanel userId={editingId} />}
+
 
             <Button onClick={handleSave} disabled={saving} className="w-full h-12 font-semibold shadow-brand min-w-[160px]">
               {saving ? (

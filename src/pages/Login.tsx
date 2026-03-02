@@ -103,10 +103,6 @@ const Login = () => {
         data_nascimento: requestForm.data_nascimento || null,
       } as any);
       if (error) throw error;
-      // Fire-and-forget notification email (doesn't block the user)
-      supabase.functions.invoke('send-notification', {
-        body: { type: 'acesso_solicitado', data: { nome: requestForm.nome, email: requestForm.email, telefone: requestForm.telefone, mensagem: requestForm.mensagem } },
-      }).catch(e => console.error('Notification error:', e));
       toast.success('Solicitação enviada! O administrador será notificado.');
       setShowRequest(false);
       setRequestForm({

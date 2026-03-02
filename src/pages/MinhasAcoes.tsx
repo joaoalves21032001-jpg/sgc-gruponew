@@ -332,7 +332,7 @@ const MinhasAcoes = () => {
               <span>Mensagens: <strong className="text-foreground">{a.mensagens}</strong></span>
               <span>Cot. Enviadas: <strong className="text-foreground">{a.cotacoes_enviadas}</strong></span>
               <span>Cot. Fechadas: <strong className="text-foreground">{a.cotacoes_fechadas}</strong></span>
-              <span>Cot. N.Resp: <strong className="text-foreground">{(a as any).cotacoes_nao_respondidas ?? 0}</strong></span>
+              <span>Cot. N.Resp: <strong className="text-foreground">{(a as any).cotacoes_nao_respondidas || Math.max(0, ((a as any).cotacoes_enviadas ?? 0) - ((a as any).cotacoes_fechadas ?? 0))}</strong></span>
               <span>Follow-up: <strong className="text-foreground">{a.follow_up}</strong></span>
             </div>
           </div>

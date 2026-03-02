@@ -98,12 +98,7 @@ const AdminSolicitacoes = () => {
         .update({ status: 'rejeitado', motivo_recusa: rejectReason.trim() } as any)
         .eq('id', rejectAccess.id);
       if (error) throw error;
-      try {
-        await supabase.functions.invoke('send-notification', {
-          body: { type: 'acesso_negado', data: { nome: rejectAccess.nome, email: rejectAccess.email, motivo: rejectReason.trim() } },
-        });
-      } catch (e) { console.error('Email error:', e); }
-      toast.success('Solicitação recusada e e-mail enviado.');
+      toast.success('Solicitação recusada.');
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
       setRejectAccess(null); setRejectReason('');
     } catch (err: any) {
@@ -257,7 +252,7 @@ const AdminSolicitacoes = () => {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="font-display text-lg text-destructive">Recusar Solicitação</DialogTitle>
-            <DialogDescription>Informe o motivo da recusa. Um e-mail será enviado para {rejectAccess?.nome}.</DialogDescription>
+            <DialogDescription>Informe o motivo da recusa.</DialogDescription>
           </DialogHeader>
           <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Motivo da recusa (obrigatório)..." rows={3} />
           <DialogFooter className="gap-2">

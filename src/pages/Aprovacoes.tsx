@@ -724,10 +724,6 @@ const Aprovacoes = () => {
 
       toast.success(`Acesso aprovado e usuário criado para ${req.nome}! (Código: ${nextCode})`);
       logAction('aprovar_acesso', 'access_request', req.id, { nome: req.nome, email: req.email, codigo: nextCode });
-      // Send welcome email (fire-and-forget)
-      supabase.functions.invoke('send-notification', {
-        body: { type: 'boas_vindas', data: { nome: req.nome, email: req.email, codigo: nextCode, cargo: req.cargo } },
-      }).catch(e => console.error('Welcome email error:', e));
       // Notify the new user that their access was approved
       if (userId) {
         notifySelf(userId, 'Acesso Aprovado', `Bem-vindo(a) ${req.nome}! Seu acesso ao sistema foi aprovado. Seu código é ${nextCode}.`, 'acesso', '/meu-progresso');
@@ -751,11 +747,6 @@ const Aprovacoes = () => {
         .update({ status: 'rejeitado', motivo_recusa: rejectReason.trim() } as any)
         .eq('id', rejectAccess.id);
       if (error) throw error;
-      try {
-        await supabase.functions.invoke('send-notification', {
-          body: { type: 'acesso_negado', data: { nome: rejectAccess.nome, email: rejectAccess.email, motivo: rejectReason.trim() } },
-        });
-      } catch (e) { console.error('Email error:', e); }
       logAction('rejeitar_acesso', 'access_request', rejectAccess.id, { nome: rejectAccess.nome, email: rejectAccess.email });
       // Notify leadership about the rejection for awareness
       notifyGlobalLeaders('', 'Solicitação de Acesso Recusada', `A solicitação de acesso de "${rejectAccess.nome}" (${rejectAccess.email}) foi recusada.`, 'acesso', '/aprovacoes');
