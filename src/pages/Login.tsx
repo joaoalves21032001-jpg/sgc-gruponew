@@ -97,8 +97,6 @@ const Login = () => {
         nivel_acesso: requestForm.nivel_acesso,
         numero_emergencia_1: requestForm.numero_emergencia_1 || null,
         numero_emergencia_2: requestForm.numero_emergencia_2 || null,
-        nome_emergencia_1: requestForm.nome_emergencia_1 || null,
-        nome_emergencia_2: requestForm.nome_emergencia_2 || null,
         supervisor_id: selectedSupervisor === 'nenhum' ? null : selectedSupervisor || null,
         gerente_id: selectedGerente || null,
         data_admissao: requestForm.data_admissao || null,
