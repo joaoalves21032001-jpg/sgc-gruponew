@@ -19,6 +19,7 @@ import Inventario from "./pages/Inventario";
 import CRM from "./pages/CRM";
 import Notificacoes from "./pages/Notificacoes";
 import AuditLogs from "./pages/AuditLogs";
+import Configuracoes from "./pages/Configuracoes";
 import Equipe from "./pages/Equipe";
 import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
@@ -49,7 +50,7 @@ function NoAccessScreen() {
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, mfaVerified, needsMfa, setMfaVerified, hasProfile } = useAuth();
-  
+
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
       <div className="relative">
@@ -59,7 +60,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       <p className="text-xs text-muted-foreground animate-pulse">Carregando...</p>
     </div>
   );
-  
+
   if (!user) return <Navigate to="/login" replace />;
 
   // Check if user has a profile (is authorized)
@@ -79,11 +80,11 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       </div>
     );
   }
-  
+
   if (needsMfa && !mfaVerified) {
     return <MfaSetup onVerified={() => setMfaVerified(true)} />;
   }
-  
+
   return <>{children}</>;
 }
 
@@ -116,8 +117,9 @@ const App = () => (
               <Route path="/perfil" element={<Perfil />} />
               <Route path="/equipe" element={<Equipe />} />
               <Route path="/admin/usuarios" element={<AdminUsuarios />} />
-              
+
               <Route path="/admin/logs" element={<AuditLogs />} />
+              <Route path="/admin/configuracoes" element={<Configuracoes />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
