@@ -4,6 +4,7 @@ import { useAuditLogs } from '@/hooks/useAuditLog';
 import { supabase } from '@/integrations/supabase/client';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { useQueryClient } from '@tanstack/react-query';
+import { ALL_TABS, useUserTabPermissions, useSetTabPermission } from '@/hooks/useTabPermissions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,7 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
     Settings, Shield, Database, Bell, Clock, Save,
-    Trash2, ToggleLeft, Users, Activity, Eye
+    Trash2, ToggleLeft, Users, Activity, Eye, Lock
 } from 'lucide-react';
 
 const Configuracoes = () => {
@@ -29,6 +30,11 @@ const Configuracoes = () => {
     const [notifRetentionDays, setNotifRetentionDays] = useState('30');
     const [saving, setSaving] = useState(false);
     const [loadingSettings, setLoadingSettings] = useState(true);
+
+    // Permissions
+    const [selectedUserId, setSelectedUserId] = useState<string>('');
+    const { data: userPermissions = [], isLoading: permLoading } = useUserTabPermissions(selectedUserId || null);
+    const setPermMut = useSetTabPermission();
 
     // Load settings from system_settings table
     useEffect(() => {
@@ -256,6 +262,66 @@ const Configuracoes = () => {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* Tab Permissions */}
+            <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-4">
+                <div className="flex items-center gap-2">
+                    <Lock className="w-5 h-5 text-primary" />
+                    <h2 className="text-base font-bold font-display text-foreground">Permissões de Guias</h2>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                    Controle quais guias cada usuário pode acessar. Guias desabilitadas ficam ocultas no menu lateral.
+                </p>
+
+                <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Selecionar Usuário</label>
+                    <Select value={selectedUserId || '__none__'} onValueChange={v => setSelectedUserId(v === '__none__' ? '' : v)}>
+                        <SelectTrigger className="h-10">
+                            <Users className="w-3.5 h-3.5 mr-1 text-muted-foreground" /><SelectValue placeholder="Selecione um usuário..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="__none__">Selecione um usuário...</SelectItem>
+                            {profiles.filter(p => !p.disabled).map(p => (
+                                <SelectItem key={p.id} value={p.id}>{p.nome_completo} ({p.cargo})</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+
+                {selectedUserId && (
+                    <div className="space-y-2 animate-fade-in-up">
+                        {permLoading ? (
+                            <div className="text-center py-4 text-muted-foreground text-xs">Carregando permissões...</div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {ALL_TABS.map(tab => {
+                                    const perm = userPermissions.find(p => p.tab_key === tab.key);
+                                    const isEnabled = perm ? perm.enabled : true; // default: visible
+                                    return (
+                                        <div key={tab.key} className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
+                                            <Switch
+                                                checked={isEnabled}
+                                                onCheckedChange={(checked) => {
+                                                    setPermMut.mutate({ userId: selectedUserId, tabKey: tab.key, enabled: checked });
+                                                    logAction('alterar_permissao_guia', 'user_tab_permissions', selectedUserId, {
+                                                        tab: tab.key, enabled: checked,
+                                                        usuario: profiles.find(p => p.id === selectedUserId)?.nome_completo,
+                                                    });
+                                                    toast.success(`${tab.label} ${checked ? 'habilitada' : 'desabilitada'}`);
+                                                }}
+                                            />
+                                            <Label className="text-sm text-foreground flex-1">{tab.label}</Label>
+                                            <Badge variant="outline" className={`text-[10px] ${isEnabled ? 'bg-success/10 text-success border-success/20' : 'bg-destructive/10 text-destructive border-destructive/20'}`}>
+                                                {isEnabled ? 'Visível' : 'Oculta'}
+                                            </Badge>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Save */}
