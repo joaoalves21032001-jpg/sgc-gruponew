@@ -40,19 +40,33 @@ export function useProfile() {
       if (!user) throw new Error('Not authenticated');
       const { data, error } = await supabase
         .from('profiles')
-        .select(`*, supervisor:profiles!profiles_supervisor_id_fkey(id, nome_completo, email), gerente:profiles!profiles_gerente_id_fkey(id, nome_completo, email)`)
+        .select('*')
         .eq('id', user.id)
         .maybeSingle();
       if (error) throw error;
-      // Flatten supervisor/gerente into the profile for easy access
-      const profile = data as any;
-      if (profile) {
-        profile._supervisor = profile.supervisor || null;
-        profile._gerente = profile.gerente || null;
-        delete profile.supervisor;
-        delete profile.gerente;
-      }
-      return profile as (Profile & { _supervisor?: { id: string; nome_completo: string; email: string } | null; _gerente?: { id: string; nome_completo: string; email: string } | null }) | null;
+      const profile = data as any as Profile | null;
+      if (!profile) return null;
+
+      // Resolve supervisor and gerente names in parallel (won't block profile)
+      let _supervisor: { id: string; nome_completo: string; email: string } | null = null;
+      let _gerente: { id: string; nome_completo: string; email: string } | null = null;
+      try {
+        const [supRes, gerRes] = await Promise.all([
+          profile.supervisor_id
+            ? supabase.from('profiles').select('id, nome_completo, email').eq('id', profile.supervisor_id).maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+          profile.gerente_id
+            ? supabase.from('profiles').select('id, nome_completo, email').eq('id', profile.gerente_id).maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+        ]);
+        if (supRes.data) _supervisor = supRes.data as any;
+        if (gerRes.data) _gerente = gerRes.data as any;
+      } catch { /* ignore - don't break profile for leader resolution */ }
+
+      return { ...profile, _supervisor, _gerente } as Profile & {
+        _supervisor?: { id: string; nome_completo: string; email: string } | null;
+        _gerente?: { id: string; nome_completo: string; email: string } | null;
+      };
     },
     enabled: !!user,
   });
