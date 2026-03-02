@@ -1313,6 +1313,20 @@ export default function SalesWizard() {
               </div>
             )}
 
+            {/* Loading overlay when docs are being fetched */}
+            {loadingLeadDocs && (
+              <div className="flex flex-col items-center justify-center py-16 gap-4 animate-fade-in-up">
+                <div className="relative">
+                  <div className="w-16 h-16 border-4 border-primary/15 rounded-full" />
+                  <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-primary rounded-full animate-spin" />
+                </div>
+                <div className="text-center space-y-1.5">
+                  <p className="text-sm font-semibold text-foreground">Carregando documentos...</p>
+                  <p className="text-xs text-muted-foreground">Os documentos cadastrados estão sendo buscados automaticamente do Inventário</p>
+                </div>
+              </div>
+            )}
+
             {/* Aproveitamento docs */}
             {possuiAproveitamento && (
               <div className="space-y-3 pt-4 border-t border-border/20">
