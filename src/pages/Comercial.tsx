@@ -94,9 +94,9 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const { data: gerente } = useGerenteProfile(profile?.gerente_id);
   const { data: allProfiles = [] } = useTeamProfiles();
 
-  // Fallback: resolve supervisor/gerente from allProfiles if hooks return null
-  const resolvedSupervisor = supervisor || (profile?.supervisor_id ? allProfiles.find(p => p.id === profile.supervisor_id) : null);
-  const resolvedGerente = gerente || (profile?.gerente_id ? allProfiles.find(p => p.id === profile.gerente_id) : null);
+  // Prefer FK-joined data from profile, fallback to separate hooks, then allProfiles
+  const resolvedSupervisor = (profile as any)?._supervisor || supervisor || (profile?.supervisor_id ? allProfiles.find(p => p.id === profile.supervisor_id) : null);
+  const resolvedGerente = (profile as any)?._gerente || gerente || (profile?.gerente_id ? allProfiles.find(p => p.id === profile.gerente_id) : null);
   const { data: myAtividades } = useMyAtividades();
   const { data: myVendas } = useMyVendas();
   const createAtividade = useCreateAtividade();

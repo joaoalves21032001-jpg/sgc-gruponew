@@ -40,11 +40,19 @@ export function useProfile() {
       if (!user) throw new Error('Not authenticated');
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`*, supervisor:profiles!profiles_supervisor_id_fkey(id, nome_completo, email), gerente:profiles!profiles_gerente_id_fkey(id, nome_completo, email)`)
         .eq('id', user.id)
         .maybeSingle();
       if (error) throw error;
-      return data as Profile | null;
+      // Flatten supervisor/gerente into the profile for easy access
+      const profile = data as any;
+      if (profile) {
+        profile._supervisor = profile.supervisor || null;
+        profile._gerente = profile.gerente || null;
+        delete profile.supervisor;
+        delete profile.gerente;
+      }
+      return profile as (Profile & { _supervisor?: { id: string; nome_completo: string; email: string } | null; _gerente?: { id: string; nome_completo: string; email: string } | null }) | null;
     },
     enabled: !!user,
   });
