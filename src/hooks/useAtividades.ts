@@ -77,17 +77,31 @@ export function useCreateAtividade() {
       const userRole = roleData?.role;
       const isAutoApprove = userRole === 'gerente';
 
-      const { data, error } = await supabase
+      const payload = {
+        ...atividade,
+        user_id: user.id,
+        ...(isAutoApprove ? { status: 'aprovado' } : {}),
+      } as any;
+
+      let result = await supabase
         .from('atividades')
-        .insert({
-          ...atividade,
-          user_id: user.id,
-          ...(isAutoApprove ? { status: 'aprovado' } : {}),
-        } as any)
+        .insert(payload)
         .select()
         .single();
-      if (error) throw error;
-      return { ...data, _userRole: userRole };
+
+      // If insert fails because of an unknown column (e.g. cotacoes_nao_respondidas not yet migrated),
+      // strip the offending field and retry
+      if (result.error && result.error.message?.includes('schema cache')) {
+        const match = result.error.message.match(/\'(\w+)\'/);
+        if (match) delete payload[match[1]];
+        result = await supabase
+          .from('atividades')
+          .insert(payload)
+          .select()
+          .single();
+      }
+      if (result.error) throw result.error;
+      return { ...result.data, _userRole: userRole };
     },
     onSuccess: async (data: any) => {
       queryClient.invalidateQueries({ queryKey: ['atividades'] });
