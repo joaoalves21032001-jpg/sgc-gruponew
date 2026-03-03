@@ -32,6 +32,14 @@ import {
     ACTIONS,
     type ResourceDef,
 } from '@/hooks/useSecurityProfiles';
+import {
+    useNotificationRules,
+    useToggleNotificationRule,
+    useUpdateRuleAudience,
+    AUDIENCES,
+    EVENTS,
+    type NotificationRule,
+} from '@/hooks/useNotificationRules';
 
 const Configuracoes = () => {
     const { data: role } = useUserRole();
@@ -55,6 +63,11 @@ const Configuracoes = () => {
     const deleteProfile = useDeleteSecurityProfile();
     const togglePerm = useTogglePermission();
     const assignProfile = useAssignSecurityProfile();
+
+    // Notification Rules
+    const { data: notifRules = [], isLoading: nrLoading } = useNotificationRules();
+    const toggleRule = useToggleNotificationRule();
+    const updateAudience = useUpdateRuleAudience();
 
     // Dialogs
     const [newProfileOpen, setNewProfileOpen] = useState(false);
@@ -262,10 +275,10 @@ const Configuracoes = () => {
                                 onClick={() => !parentOff && handleTogglePerm(res.key, act.key)}
                                 disabled={parentOff}
                                 className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${parentOff
-                                        ? 'bg-muted/20 border-border/10 text-muted-foreground/20 cursor-not-allowed'
-                                        : allowed
-                                            ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
-                                            : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
+                                    ? 'bg-muted/20 border-border/10 text-muted-foreground/20 cursor-not-allowed'
+                                    : allowed
+                                        ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
+                                        : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
                                     }`}
                             >
                                 {allowed && !parentOff ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
@@ -312,6 +325,9 @@ const Configuracoes = () => {
                     <TabsTrigger value="profiles" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
                         <Shield className="w-4 h-4" /> Perfis de Segurança
                     </TabsTrigger>
+                    <TabsTrigger value="notifications" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
+                        <Bell className="w-4 h-4" /> Notificações
+                    </TabsTrigger>
                     <TabsTrigger value="system" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
                         <Settings className="w-4 h-4" /> Sistema
                     </TabsTrigger>
@@ -355,8 +371,8 @@ const Configuracoes = () => {
                                         key={sp.id}
                                         onClick={() => setSelectedProfileId(sp.id)}
                                         className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${selectedProfileId === sp.id
-                                                ? 'border-primary bg-primary/[0.03] shadow-md ring-1 ring-primary/20'
-                                                : 'border-border/30 bg-muted/20 hover:border-primary/30'
+                                            ? 'border-primary bg-primary/[0.03] shadow-md ring-1 ring-primary/20'
+                                            : 'border-border/30 bg-muted/20 hover:border-primary/30'
                                             }`}
                                     >
                                         <div className="flex items-center justify-between mb-1">
@@ -455,8 +471,8 @@ const Configuracoes = () => {
                                                                         <button
                                                                             onClick={() => handleTogglePerm(res.key, act.key)}
                                                                             className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${allowed
-                                                                                    ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
-                                                                                    : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
+                                                                                ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
+                                                                                : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
                                                                                 }`}
                                                                         >
                                                                             {allowed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
@@ -582,6 +598,77 @@ const Configuracoes = () => {
                             {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
                             {saving ? 'Salvando...' : 'Salvar Configurações'}
                         </Button>
+                    </div>
+                </TabsContent>
+
+                {/* ═══════════ TAB: NOTIFICAÇÕES ═══════════ */}
+                <TabsContent value="notifications" className="space-y-4">
+                    <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Bell className="w-5 h-5 text-primary" />
+                            <h2 className="text-base font-bold font-display text-foreground">Regras de Notificação</h2>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Configure quais eventos geram notificações e para quem. Ative/desative regras e altere o público-alvo conforme necessário.
+                        </p>
+
+                        {nrLoading ? (
+                            <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
+                        ) : notifRules.length === 0 ? (
+                            <div className="bg-warning/5 border border-warning/20 rounded-xl p-4 flex items-start gap-3">
+                                <AlertTriangle className="w-5 h-5 text-warning shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="text-sm font-semibold text-foreground">Migration necessária</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        Execute o script SQL <code className="bg-muted px-1 rounded text-[11px]">supabase/migrations/add_notification_rules.sql</code> no Supabase Dashboard → SQL Editor.
+                                    </p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="rounded-lg border border-border/30 overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="bg-muted/30 border-b border-border/20">
+                                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Evento</th>
+                                            <th className="text-center py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-48">Público-Alvo</th>
+                                            <th className="text-center py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-24">Ativo</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {EVENTS.map(evt => {
+                                            const rule = notifRules.find((r: NotificationRule) => r.event_key === evt.key);
+                                            if (!rule) return null;
+                                            return (
+                                                <tr key={rule.id} className="border-b border-border/10 hover:bg-muted/10 transition-colors">
+                                                    <td className="py-2.5 px-3 text-sm font-medium text-foreground">{evt.label}</td>
+                                                    <td className="py-2.5 px-3 text-center">
+                                                        <Select
+                                                            value={rule.audience}
+                                                            onValueChange={v => updateAudience.mutate({ id: rule.id, audience: v })}
+                                                        >
+                                                            <SelectTrigger className="h-8 text-xs w-full">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                {AUDIENCES.map(aud => (
+                                                                    <SelectItem key={aud.key} value={aud.key}>{aud.label}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-center">
+                                                        <Switch
+                                                            checked={rule.enabled}
+                                                            onCheckedChange={checked => toggleRule.mutate({ id: rule.id, enabled: checked })}
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 </TabsContent>
             </Tabs>
