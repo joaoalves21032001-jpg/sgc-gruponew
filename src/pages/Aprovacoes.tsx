@@ -122,10 +122,12 @@ function useCorrectionRequests() {
 }
 
 /* ─── Venda Detail Dialog with docs ─── */
-function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, setJustificativa, onAction }: {
+function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, setJustificativa, onAction, canEdit, canDelete, onDelete }: {
   venda: Venda | null; onClose: () => void; getConsultorName: (id: string) => string;
   justificativa: string; setJustificativa: (v: string) => void;
   onAction: (v: Venda, action: 'aprovado' | 'devolvido') => void;
+  canEdit: boolean; canDelete: boolean;
+  onDelete: (venda: Venda) => void;
 }) {
   const { data: docs = [] } = useVendaDocumentos(venda?.id || null);
   const [downloadingDoc, setDownloadingDoc] = useState<string | null>(null);
@@ -226,8 +228,16 @@ function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, se
             <div className="space-y-1.5"><label className="text-xs font-semibold text-muted-foreground uppercase">Justificativa da Devolução <span className="text-destructive">*</span></label>
               <Textarea value={justificativa} onChange={e => setJustificativa(e.target.value)} placeholder="Obrigatório para devolver..." rows={3} className="border-border/40" /></div>
             <div className="flex gap-2 flex-wrap">
-              <Button onClick={() => onAction(venda, 'aprovado')} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg"><CheckCircle2 className="w-5 h-5" /> Aprovar</Button>
-              <Button onClick={() => onAction(venda, 'devolvido')} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg"><Undo2 className="w-5 h-5" /> Devolver</Button>
+              {canEdit && (
+                <>
+                  <Button onClick={() => onAction(venda, 'aprovado')} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg"><CheckCircle2 className="w-5 h-5" /> Aprovar</Button>
+                  <Button onClick={() => onAction(venda, 'devolvido')} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg"><Undo2 className="w-5 h-5" /> Devolver</Button>
+                  <Button onClick={() => toast.info('Edição detalhada será implementada em breve.')} variant="outline" className="flex-1 font-semibold gap-1.5 border-muted-foreground text-foreground hover:bg-muted" size="lg"><Pencil className="w-5 h-5" /> Editar</Button>
+                </>
+              )}
+              {canDelete && (
+                <Button variant="destructive" className="flex-1 font-semibold gap-1.5" size="lg" onClick={() => onDelete(venda)}><Trash2 className="w-5 h-5" /> Excluir</Button>
+              )}
             </div>
           </div>
         </div>)}
@@ -946,13 +956,24 @@ const Aprovacoes = () => {
                           {new Date(a.created_at).toLocaleDateString('pt-BR')} — ID: {a.id.slice(0, 8)}...
                         </p>
                       </div>
-                      <div className="flex gap-1.5 shrink-0">
+                      <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedAtiv(a); setAtivJustificativa(''); }}>
+                          <Eye className="w-4 h-4" /> Analisar
+                        </Button>
                         {(ativStatus === 'pendente') && hasPermission(myPermissions, 'aprovacoes.atividades', 'edit') && (
-                          <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedAtiv(a); setAtivJustificativa(''); }}>
-                            <Eye className="w-4 h-4" /> Analisar
-                          </Button>
+                          <>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleAtivAction(a, 'aprovado')}>
+                              <CheckCircle2 className="w-4 h-4" /> Aprovar
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {
+                              const just = window.prompt('Motivo da devolução:');
+                              if (just !== null) { setAtivJustificativa(just); handleAtivAction(a, 'devolvido'); }
+                            }}>
+                              <XCircle className="w-4 h-4" /> Recusar
+                            </Button>
+                          </>
                         )}
-                        {isAdmin && (
+                        {hasPermission(myPermissions, 'aprovacoes.atividades', 'delete') && (
                           <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={async () => {
                             if (!confirm('Excluir esta atividade?')) return;
                             try {
@@ -1008,13 +1029,24 @@ const Aprovacoes = () => {
                         </div>
                         <p className="text-[10px] text-muted-foreground mt-1">ID: {v.id.slice(0, 8)}...</p>
                       </div>
-                      <div className="flex gap-1.5 shrink-0">
+                      <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedVenda(v); setObs(v.observacoes || ''); setJustificativa(''); }}>
+                          <Eye className="w-4 h-4" /> Analisar
+                        </Button>
                         {isPending && hasPermission(myPermissions, 'aprovacoes.vendas', 'edit') && (
-                          <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedVenda(v); setObs(v.observacoes || ''); setJustificativa(''); }}>
-                            <Eye className="w-4 h-4" /> Analisar
-                          </Button>
+                          <>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleVendaAction(v, 'aprovado')}>
+                              <CheckCircle2 className="w-4 h-4" /> Aprovar
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {
+                              const just = window.prompt('Motivo da devolução:');
+                              if (just !== null) { setJustificativa(just); handleVendaAction(v, 'devolvido'); }
+                            }}>
+                              <XCircle className="w-4 h-4" /> Recusar
+                            </Button>
+                          </>
                         )}
-                        {isAdmin && (
+                        {hasPermission(myPermissions, 'aprovacoes.vendas', 'delete') && (
                           <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={async () => {
                             if (!confirm('Excluir esta venda?')) return;
                             try {
@@ -1077,26 +1109,24 @@ const Aprovacoes = () => {
                           {new Date(c.created_at).toLocaleDateString('pt-BR')} — Origem: Landing Page
                         </p>
                       </div>
-                      <div className="flex gap-1.5 shrink-0">
+                      <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => setViewCotacao(c)}>
+                          <Eye className="w-4 h-4" /> Analisar
+                        </Button>
                         {c.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.cotacoes', 'edit') && (
                           <>
-                            <Button size="sm" className="gap-1 bg-success hover:bg-success/90 text-success-foreground font-semibold" onClick={() => handleApproveCotacao(c)} disabled={savingCotacao}>
-                              <CheckCircle2 className="w-3.5 h-3.5" /> Aprovar
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleApproveCotacao(c)} disabled={savingCotacao}>
+                              <CheckCircle2 className="w-4 h-4" /> Aprovar
                             </Button>
-                            <Button size="sm" variant="destructive" className="gap-1 font-semibold" onClick={() => { setRejectCotacao(c); setRejectCotacaoReason(''); }}>
-                              <XCircle className="w-3.5 h-3.5" /> Recusar
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => { setRejectCotacao(c); setRejectCotacaoReason(''); }}>
+                              <XCircle className="w-4 h-4" /> Recusar
                             </Button>
                           </>
                         )}
-                        {isAdmin && (
-                          <>
-                            <Button size="sm" variant="outline" className="gap-1 font-semibold" onClick={() => openEditCotacao(c)}>
-                              <Pencil className="w-3.5 h-3.5" /> Editar
-                            </Button>
-                            <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteCotacao(c)}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </Button>
-                          </>
+                        {hasPermission(myPermissions, 'aprovacoes.cotacoes', 'delete') && (
+                          <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteCotacao(c)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
                         )}
                         {c.lead_id && <Badge className="bg-success/10 text-success text-[10px]">Lead criado</Badge>}
                       </div>
@@ -1143,26 +1173,25 @@ const Aprovacoes = () => {
                             {new Date(req.created_at).toLocaleDateString('pt-BR')} — ID: {req.id.slice(0, 8)}...
                           </p>
                         </div>
-                        <div className="flex gap-1.5 shrink-0">
-                          <Button variant="outline" size="sm" className="gap-1 font-semibold" onClick={() => setViewAccess(req)}>
-                            <Eye className="w-3.5 h-3.5" /> Detalhes
+                        <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                          <Button variant="outline" size="sm" className="gap-1.5 font-semibold" onClick={() => setViewAccess(req)}>
+                            <Eye className="w-4 h-4" /> Analisar
                           </Button>
                           {req.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.acesso', 'edit') && (
                             <>
-                              <Button size="sm" variant="outline" className="gap-1 font-semibold" onClick={() => openEditAccess(req)}>
-                                <Pencil className="w-3.5 h-3.5" /> Editar
+                              <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleApproveAccess(req)} disabled={savingAccess}>
+                                <CheckCircle2 className="w-4 h-4" /> Aprovar
                               </Button>
-                              <Button size="sm" className="gap-1 bg-success hover:bg-success/90 text-success-foreground font-semibold" onClick={() => handleApproveAccess(req)} disabled={savingAccess}>
-                                {savingAccess ? <div className="h-3.5 w-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />} {savingAccess ? 'Aprovando...' : 'Aprovar'}
-                              </Button>
-                              <Button size="sm" variant="destructive" className="gap-1 font-semibold" onClick={() => { setRejectAccess(req); setRejectReason(''); }} disabled={savingAccess}>
-                                <XCircle className="w-3.5 h-3.5" /> Recusar
+                              <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => { setRejectAccess(req); setRejectReason(''); }}>
+                                <XCircle className="w-4 h-4" /> Recusar
                               </Button>
                             </>
                           )}
-                          <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteAccess(req)}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
+                          {hasPermission(myPermissions, 'aprovacoes.acesso', 'delete') && (
+                            <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteAccess(req)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
                         </div>
                       </div>
                       {req.mensagem && (
@@ -1224,29 +1253,34 @@ const Aprovacoes = () => {
                         </div>
                         {cr.admin_resposta && <p className="text-xs text-muted-foreground mt-1">Resposta: {cr.admin_resposta}</p>}
                       </div>
-                      {cr.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.alteracoes', 'edit') && (
-                        <div className="flex gap-1.5 shrink-0">
-                          <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => handleApproveCR(cr)} disabled={savingCR}>
-                            <CheckCircle2 className="w-3 h-3" /> Aprovar
-                          </Button>
-                          <Button variant="outline" size="sm" className="gap-1 text-xs text-destructive" onClick={() => { setRejectCR(cr); setRejectCRReason(''); }}>
-                            <XCircle className="w-3 h-3" /> Recusar
-                          </Button>
-                        </div>
-                      )}
-                      {isAdmin && (
-                        <Button size="icon" variant="outline" className="h-7 w-7 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
-                          if (!confirm('Excluir esta solicitação de alteração?')) return;
-                          try {
-                            const { error } = await supabase.from('correction_requests').delete().eq('id', cr.id);
-                            if (error) throw error;
-                            toast.success('Solicitação excluída!');
-                            queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
-                          } catch (err: any) { toast.error(err.message); }
-                        }}>
-                          <Trash2 className="w-3 h-3" />
+                      <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => toast.info('Análise detalhada apenas via card principal para alterações por enquanto.')}>
+                          <Eye className="w-4 h-4" /> Analisar
                         </Button>
-                      )}
+                        {cr.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.alteracoes', 'edit') && (
+                          <>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleApproveCR(cr)} disabled={savingCR}>
+                              <CheckCircle2 className="w-4 h-4" /> Aprovar
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => { setRejectCR(cr); setRejectCRReason(''); }}>
+                              <XCircle className="w-4 h-4" /> Recusar
+                            </Button>
+                          </>
+                        )}
+                        {hasPermission(myPermissions, 'aprovacoes.alteracoes', 'delete') && (
+                          <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
+                            if (!confirm('Excluir esta solicitação?')) return;
+                            try {
+                              const { error } = await supabase.from('correction_requests').delete().eq('id', cr.id);
+                              if (error) throw error;
+                              toast.success('Solicitação excluída!');
+                              queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
+                            } catch (err: any) { toast.error(err.message); }
+                          }}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -1290,36 +1324,55 @@ const Aprovacoes = () => {
                         <p className="text-sm whitespace-pre-wrap">{req.admin_resposta}</p>
                       </div>
                     )}
-                    {req.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.acesso', 'edit') && (
-                      <div className="flex gap-2 flex-wrap pt-1">
-                        <Button
-                          size="sm"
-                          className="bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5"
-                          disabled={savingMfaReset}
-                          onClick={async () => {
-                            setSavingMfaReset(true);
-                            try {
-                              const { user } = (await supabase.auth.getUser()).data;
-                              await approveMfaReset(req.id, user!.id);
-                              toast.success('MFA resetado com sucesso! O usuário verá o QR Code no próximo login.');
-                              notifySelf(req.user_id, 'MFA Resetado', 'Seu MFA foi resetado. Configure novamente no próximo login.', 'mfa', '/');
-                              queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
-                            } catch (err: any) { toast.error(err.message); }
-                            finally { setSavingMfaReset(false); }
-                          }}
-                        >
-                          <CheckCircle2 className="w-4 h-4" /> Aprovar Reset
+                    <div className="flex gap-1.5 shrink-0 flex-wrap justify-end mt-2">
+                      <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => toast.info('Análise detalhada apenas via card principal para MFA por enquanto.')}>
+                        <Eye className="w-4 h-4" /> Analisar
+                      </Button>
+                      {req.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.mfa', 'edit') && (
+                        <>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30"
+                            disabled={savingMfaReset}
+                            onClick={async () => {
+                              setSavingMfaReset(true);
+                              try {
+                                const { user } = (await supabase.auth.getUser()).data;
+                                await approveMfaReset(req.id, user!.id);
+                                toast.success('MFA resetado com sucesso! O usuário verá o QR Code no próximo login.');
+                                notifySelf(req.user_id, 'MFA Resetado', 'Seu MFA foi resetado. Configure novamente no próximo login.', 'mfa', '/');
+                                queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
+                              } catch (err: any) { toast.error(err.message); }
+                              finally { setSavingMfaReset(false); }
+                            }}
+                          >
+                            <CheckCircle2 className="w-4 h-4" /> Aprovar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30"
+                            onClick={() => { setRejectMfaReq(req); setRejectMfaReason(''); }}
+                          >
+                            <XCircle className="w-4 h-4" /> Recusar
+                          </Button>
+                        </>
+                      )}
+                      {hasPermission(myPermissions, 'aprovacoes.mfa', 'delete') && (
+                        <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
+                          if (!confirm('Excluir esta solicitação?')) return;
+                          try {
+                            const { error } = await supabase.from('mfa_reset_requests').delete().eq('id', req.id);
+                            if (error) throw error;
+                            toast.success('Solicitação excluída!');
+                            queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
+                          } catch (err: any) { toast.error(err.message); }
+                        }}>
+                          <Trash2 className="w-3.5 h-3.5" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="font-semibold gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
-                          onClick={() => { setRejectMfaReq(req); setRejectMfaReason(''); }}
-                        >
-                          <XCircle className="w-4 h-4" /> Recusar
-                        </Button>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 );
               })
@@ -1332,11 +1385,23 @@ const Aprovacoes = () => {
       {/* ── Venda Detail Dialog ── */}
       <VendaDetailDialog
         venda={selectedVenda}
-        onClose={() => setSelectedVenda(null)}
+        onClose={() => { setSelectedVenda(null); setJustificativa(''); }}
         getConsultorName={getConsultorName}
         justificativa={justificativa}
         setJustificativa={setJustificativa}
         onAction={handleVendaAction}
+        canEdit={hasPermission(myPermissions, 'aprovacoes.vendas', 'edit')}
+        canDelete={hasPermission(myPermissions, 'aprovacoes.vendas', 'delete')}
+        onDelete={async (v: Venda) => {
+          if (!confirm('Excluir esta venda?')) return;
+          try {
+            const { error } = await supabase.from('vendas').delete().eq('id', v.id);
+            if (error) throw error;
+            toast.success('Venda excluída!');
+            queryClient.invalidateQueries({ queryKey: ['team-vendas'] });
+            setSelectedVenda(null);
+          } catch (err: any) { toast.error(err.message); }
+        }}
       />
 
       {/* ── Atividade Detail Dialog ── */}
@@ -1364,12 +1429,33 @@ const Aprovacoes = () => {
                 <Textarea value={ativJustificativa} onChange={(e) => setAtivJustificativa(e.target.value)} placeholder="Obrigatório para devolver. Explique o motivo..." rows={3} className="border-border/40" />
               </div>
               <div className="flex gap-2 flex-wrap">
-                <Button onClick={() => handleAtivAction(selectedAtiv, 'aprovado')} disabled={savingAtiv} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
-                  <CheckCircle2 className="w-5 h-5" /> Aprovar Atividade
-                </Button>
-                <Button onClick={() => handleAtivAction(selectedAtiv, 'devolvido')} disabled={savingAtiv} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
-                  <Undo2 className="w-5 h-5" /> Devolver Atividade
-                </Button>
+                {hasPermission(myPermissions, 'aprovacoes.atividades', 'edit') && (
+                  <>
+                    <Button onClick={() => handleAtivAction(selectedAtiv, 'aprovado')} disabled={savingAtiv} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
+                      <CheckCircle2 className="w-5 h-5" /> Aprovar
+                    </Button>
+                    <Button onClick={() => handleAtivAction(selectedAtiv, 'devolvido')} disabled={savingAtiv} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
+                      <Undo2 className="w-5 h-5" /> Devolver
+                    </Button>
+                    <Button onClick={() => toast.info('Edição detalhada será implementada em breve.')} variant="outline" className="flex-1 font-semibold gap-1.5 border-muted-foreground text-foreground hover:bg-muted" size="lg">
+                      <Pencil className="w-5 h-5" /> Editar
+                    </Button>
+                  </>
+                )}
+                {hasPermission(myPermissions, 'aprovacoes.atividades', 'delete') && (
+                  <Button variant="destructive" className="flex-1 font-semibold gap-1.5" size="lg" onClick={async () => {
+                    if (!confirm('Excluir esta atividade?')) return;
+                    try {
+                      const { error } = await supabase.from('atividades').delete().eq('id', selectedAtiv.id);
+                      if (error) throw error;
+                      toast.success('Atividade excluída!');
+                      queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
+                      setSelectedAtiv(null);
+                    } catch (err: any) { toast.error(err.message); }
+                  }}>
+                    <Trash2 className="w-5 h-5" /> Excluir
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -1398,6 +1484,26 @@ const Aprovacoes = () => {
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Data de Admissão</span><p className="font-semibold mt-0.5">{viewAccess.data_admissao ? new Date(viewAccess.data_admissao + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Emergência 1</span><p className="font-semibold mt-0.5">{viewAccess.numero_emergencia_1 || '—'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Emergência 2</span><p className="font-semibold mt-0.5">{viewAccess.numero_emergencia_2 || '—'}</p></div>
+              <div className="col-span-2 flex gap-2 flex-wrap border-t border-border/20 pt-4 mt-2">
+                {viewAccess.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.acesso', 'edit') && (
+                  <>
+                    <Button onClick={() => { handleApproveAccess(viewAccess); setViewAccess(null); }} disabled={savingAccess} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
+                      <CheckCircle2 className="w-5 h-5" /> Aprovar
+                    </Button>
+                    <Button onClick={() => { setRejectAccess(viewAccess); setRejectReason(''); setViewAccess(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
+                      <Undo2 className="w-5 h-5" /> Recusar
+                    </Button>
+                    <Button onClick={() => { openEditAccess(viewAccess); setViewAccess(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-muted-foreground text-foreground hover:bg-muted" size="lg">
+                      <Pencil className="w-5 h-5" /> Editar
+                    </Button>
+                  </>
+                )}
+                {hasPermission(myPermissions, 'aprovacoes.acesso', 'delete') && (
+                  <Button variant="destructive" className="flex-1 font-semibold gap-1.5" size="lg" onClick={() => { setDeleteAccess(viewAccess); setViewAccess(null); }}>
+                    <Trash2 className="w-5 h-5" /> Excluir
+                  </Button>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>
@@ -1549,6 +1655,47 @@ const Aprovacoes = () => {
               {savingCotacao ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <>Salvar</>}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── View Cotação Dialog ── */}
+      <Dialog open={!!viewCotacao} onOpenChange={(v) => { if (!v) setViewCotacao(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Detalhes da Cotação</DialogTitle>
+          </DialogHeader>
+          {viewCotacao && (
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Nome</span><p className="font-semibold mt-0.5">{viewCotacao.nome}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Contato</span><p className="font-semibold mt-0.5">{viewCotacao.contato}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">E-mail</span><p className="font-semibold mt-0.5">{viewCotacao.email || '—'}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Modalidade</span><p className="font-semibold mt-0.5">{viewCotacao.modalidade || '—'}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Companhia</span><p className="font-semibold mt-0.5">{viewCotacao.companhia_nome || '—'}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Vidas</span><p className="font-semibold mt-0.5">{viewCotacao.quantidade_vidas}</p></div>
+              </div>
+              <div className="flex gap-2 flex-wrap border-t border-border/20 pt-4">
+                {viewCotacao.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.cotacoes', 'edit') && (
+                  <>
+                    <Button onClick={() => { handleApproveCotacao(viewCotacao); setViewCotacao(null); }} disabled={savingCotacao} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
+                      <CheckCircle2 className="w-5 h-5" /> Aprovar
+                    </Button>
+                    <Button onClick={() => { setRejectCotacao(viewCotacao); setRejectCotacaoReason(''); setViewCotacao(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
+                      <Undo2 className="w-5 h-5" /> Recusar
+                    </Button>
+                    <Button onClick={() => { openEditCotacao(viewCotacao); setViewCotacao(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-muted-foreground text-foreground hover:bg-muted" size="lg">
+                      <Pencil className="w-5 h-5" /> Editar
+                    </Button>
+                  </>
+                )}
+                {hasPermission(myPermissions, 'aprovacoes.cotacoes', 'delete') && (
+                  <Button variant="destructive" className="flex-1 font-semibold gap-1.5" size="lg" onClick={() => { setDeleteCotacao(viewCotacao); setViewCotacao(null); }}>
+                    <Trash2 className="w-5 h-5" /> Excluir
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 

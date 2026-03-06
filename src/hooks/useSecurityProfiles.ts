@@ -56,6 +56,7 @@ export const RESOURCES: ResourceDef[] = [
             { key: 'aprovacoes.cotacoes', label: 'Cotações' },
             { key: 'aprovacoes.acesso', label: 'Acesso' },
             { key: 'aprovacoes.alteracoes', label: 'Alterações' },
+            { key: 'aprovacoes.mfa', label: 'MFA' },
         ],
     },
     { key: 'dashboard', label: 'Dashboard' },
@@ -77,6 +78,7 @@ export const RESOURCES: ResourceDef[] = [
 export const ACTIONS = [
     { key: 'view', label: 'Visualizar' },
     { key: 'edit', label: 'Editar' },
+    { key: 'delete', label: 'Excluir' },
 ] as const;
 
 // Map sidebar paths → resource keys
