@@ -1250,6 +1250,79 @@ const Aprovacoes = () => {
             )}
           </div>
         </TabsContent>
+
+        {/* ── MFA Tab Content ── */}
+        <TabsContent value="mfa">
+          <div className="grid gap-3">
+            {loadingMfaReset ? (
+              <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+            ) : mfaResetReqs.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <KeyRound className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                Nenhuma solicitação de reset MFA.
+              </div>
+            ) : (
+              mfaResetReqs.map((req) => {
+                const sc = req.status === 'pendente' ? statusColors.pendente : req.status === 'aprovado' ? statusColors.aprovado : statusColors.devolvido;
+                return (
+                  <div key={req.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground">{getConsultorName(req.user_id)}</p>
+                          <Badge variant="outline" className={`text-[10px] ${sc}`}>{statusLabel[req.status] || req.status}</Badge>
+                          <Badge variant="outline" className="text-[10px] uppercase bg-muted/40">Reset MFA</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{new Date(req.created_at).toLocaleString('pt-BR')}</p>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-lg">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">Motivo</p>
+                      <p className="text-sm whitespace-pre-wrap">{req.motivo}</p>
+                    </div>
+                    {req.admin_resposta && (
+                      <div className="p-3 bg-destructive/5 rounded-lg">
+                        <p className="text-[10px] text-destructive uppercase font-semibold mb-1">Resposta do Aprovador</p>
+                        <p className="text-sm whitespace-pre-wrap">{req.admin_resposta}</p>
+                      </div>
+                    )}
+                    {req.status === 'pendente' && (
+                      <div className="flex gap-2 flex-wrap pt-1">
+                        <Button
+                          size="sm"
+                          className="bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5"
+                          disabled={savingMfaReset}
+                          onClick={async () => {
+                            setSavingMfaReset(true);
+                            try {
+                              const { user } = (await supabase.auth.getUser()).data;
+                              await approveMfaReset(req.id, user!.id);
+                              toast.success('MFA resetado com sucesso!');
+                              notifySelf(req.user_id, 'MFA Resetado', 'Seu MFA foi resetado. Configure novamente no próximo login.', 'mfa', '/');
+                              queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
+                            } catch (err: any) { toast.error(err.message); }
+                            finally { setSavingMfaReset(false); }
+                          }}
+                        >
+                          <CheckCircle2 className="w-4 h-4" /> Aprovar Reset
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="font-semibold gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
+                          onClick={() => { setRejectMfaReq(req); setRejectMfaReason(''); }}
+                        >
+                          <XCircle className="w-4 h-4" /> Recusar
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </TabsContent>
+
       </Tabs>
 
       {/* ── Venda Detail Dialog ── */}
@@ -1619,115 +1692,42 @@ const Aprovacoes = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ── MFA Tab Content ── */}
-      <TabsContent value="mfa">
-        <div className="grid gap-3">
-          {loadingMfaReset ? (
-            <div className="text-center py-12 text-muted-foreground">Carregando...</div>
-          ) : mfaResetReqs.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground">
-              <KeyRound className="w-10 h-10 mx-auto mb-2 opacity-30" />
-              Nenhuma solicitação de reset MFA.
-            </div>
-          ) : (
-            mfaResetReqs.map((req) => {
-              const sc = req.status === 'pendente' ? statusColors.pendente : req.status === 'aprovado' ? statusColors.aprovado : statusColors.devolvido;
-              return (
-                <div key={req.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-semibold text-foreground">{getConsultorName(req.user_id)}</p>
-                        <Badge variant="outline" className={`text-[10px] ${sc}`}>{statusLabel[req.status] || req.status}</Badge>
-                        <Badge variant="outline" className="text-[10px] uppercase bg-muted/40">Reset MFA</Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">{new Date(req.created_at).toLocaleString('pt-BR')}</p>
-                    </div>
-                  </div>
-                  <div className="p-3 bg-muted/30 rounded-lg">
-                    <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">Motivo</p>
-                    <p className="text-sm whitespace-pre-wrap">{req.motivo}</p>
-                  </div>
-                  {req.admin_resposta && (
-                    <div className="p-3 bg-destructive/5 rounded-lg">
-                      <p className="text-[10px] text-destructive uppercase font-semibold mb-1">Resposta do Aprovador</p>
-                      <p className="text-sm whitespace-pre-wrap">{req.admin_resposta}</p>
-                    </div>
-                  )}
-                  {req.status === 'pendente' && (
-                    <div className="flex gap-2 flex-wrap pt-1">
-                      <Button
-                        size="sm"
-                        className="bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5"
-                        disabled={savingMfaReset}
-                        onClick={async () => {
-                          setSavingMfaReset(true);
-                          try {
-                            const { user } = (await supabase.auth.getUser()).data;
-                            await approveMfaReset(req.id, user!.id);
-                            toast.success('MFA resetado com sucesso!');
-                            notifySelf(req.user_id, 'MFA Resetado', 'Seu MFA foi resetado. Configure novamente no próximo login.', 'mfa', '/');
-                            queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
-                          } catch (err: any) { toast.error(err.message); }
-                          finally { setSavingMfaReset(false); }
-                        }}
-                      >
-                        <CheckCircle2 className="w-4 h-4" /> Aprovar Reset
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="font-semibold gap-1.5 text-destructive border-destructive/30 hover:bg-destructive/10"
-                        onClick={() => { setRejectMfaReq(req); setRejectMfaReason(''); }}
-                      >
-                        <XCircle className="w-4 h-4" /> Recusar
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              );
-            })
-          )}
-        </div>
-      </TabsContent>
 
-    </Tabs>
-
-      {/* ── Reject MFA Reset Dialog ── */ }
-  <Dialog open={!!rejectMfaReq} onOpenChange={(v) => { if (!v) setRejectMfaReq(null); }}>
-    <DialogContent className="sm:max-w-sm">
-      <DialogHeader>
-        <DialogTitle className="font-display text-lg text-destructive">Recusar Reset MFA</DialogTitle>
-        <DialogDescription>Informe o motivo da recusa para esta solicitação de reset MFA.</DialogDescription>
-      </DialogHeader>
-      <Textarea value={rejectMfaReason} onChange={(e) => setRejectMfaReason(e.target.value)} placeholder="Motivo da recusa (obrigatório)..." rows={3} />
-      <DialogFooter className="gap-2">
-        <Button variant="outline" onClick={() => setRejectMfaReq(null)}>Cancelar</Button>
-        <Button
-          variant="destructive"
-          disabled={savingMfaReset}
-          className="gap-1"
-          onClick={async () => {
-            if (!rejectMfaReq || !rejectMfaReason.trim()) { toast.error('Informe o motivo da recusa.'); return; }
-            setSavingMfaReset(true);
-            try {
-              const { user } = (await supabase.auth.getUser()).data;
-              await rejectMfaReset(rejectMfaReq.id, user!.id, rejectMfaReason.trim());
-              toast.success('Solicitação de reset MFA recusada.');
-              notifySelf(rejectMfaReq.user_id, 'Reset MFA Recusado', `Sua solicitação de reset MFA foi recusada: ${rejectMfaReason.trim()}`, 'mfa', '/');
-              queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
-              setRejectMfaReq(null);
-              setRejectMfaReason('');
-            } catch (err: any) { toast.error(err.message); }
-            finally { setSavingMfaReset(false); }
-          }}
-        >
-          {savingMfaReset ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><XCircle className="w-4 h-4" /> Recusar</>}
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
-    </div >
+      {/* ── Reject MFA Reset Dialog ── */}
+      <Dialog open={!!rejectMfaReq} onOpenChange={(v) => { if (!v) setRejectMfaReq(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg text-destructive">Recusar Reset MFA</DialogTitle>
+            <DialogDescription>Informe o motivo da recusa para esta solicitação de reset MFA.</DialogDescription>
+          </DialogHeader>
+          <Textarea value={rejectMfaReason} onChange={(e) => setRejectMfaReason(e.target.value)} placeholder="Motivo da recusa (obrigatório)..." rows={3} />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRejectMfaReq(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={savingMfaReset}
+              className="gap-1"
+              onClick={async () => {
+                if (!rejectMfaReq || !rejectMfaReason.trim()) { toast.error('Informe o motivo da recusa.'); return; }
+                setSavingMfaReset(true);
+                try {
+                  const { user } = (await supabase.auth.getUser()).data;
+                  await rejectMfaReset(rejectMfaReq.id, user!.id, rejectMfaReason.trim());
+                  toast.success('Solicitação de reset MFA recusada.');
+                  notifySelf(rejectMfaReq.user_id, 'Reset MFA Recusado', `Sua solicitação de reset MFA foi recusada: ${rejectMfaReason.trim()}`, 'mfa', '/');
+                  queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
+                  setRejectMfaReq(null);
+                  setRejectMfaReason('');
+                } catch (err: any) { toast.error(err.message); }
+                finally { setSavingMfaReset(false); }
+              }}
+            >
+              {savingMfaReset ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><XCircle className="w-4 h-4" /> Recusar</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 };
 
