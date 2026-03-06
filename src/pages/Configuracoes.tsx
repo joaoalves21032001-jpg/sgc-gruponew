@@ -28,6 +28,8 @@ import {
     useTogglePermission,
     useAssignSecurityProfile,
     useProfileUsers,
+    useMyPermissions,
+    hasPermission,
     RESOURCES,
     ACTIONS,
     type ResourceDef,
@@ -46,6 +48,7 @@ const Configuracoes = () => {
     const { data: profiles = [] } = useTeamProfiles();
     const logAction = useLogAction();
     const queryClient = useQueryClient();
+    const { data: myPagePermissions } = useMyPermissions();
 
     // Log Retention
     const [retentionMonths, setRetentionMonths] = useState('6');
@@ -242,13 +245,13 @@ const Configuracoes = () => {
     const activeProfiles = profiles.filter(p => !p.disabled).length;
     const disabledProfiles = profiles.filter(p => p.disabled).length;
 
-    if (role !== 'administrador') {
+    if (!hasPermission(myPagePermissions, 'configuracoes', 'view')) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="text-center space-y-2">
                     <Shield className="w-12 h-12 text-muted-foreground mx-auto" />
                     <h2 className="text-lg font-bold font-display">Acesso Restrito</h2>
-                    <p className="text-sm text-muted-foreground">Somente administradores podem acessar as configurações.</p>
+                    <p className="text-sm text-muted-foreground">Você não tem permissão para acessar as configurações. Verifique seu perfil de segurança.</p>
                 </div>
             </div>
         );

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 import { supabase } from '@/integrations/supabase/client';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
@@ -242,6 +243,7 @@ const Aprovacoes = () => {
   const updateStatus = useUpdateVendaStatus();
   const queryClient = useQueryClient();
   const logAction = useLogAction();
+  const { data: myPermissions } = useMyPermissions();
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('todos');
@@ -291,15 +293,15 @@ const Aprovacoes = () => {
   const [savingCR, setSavingCR] = useState(false);
 
   const isAdmin = role === 'administrador';
-  const isSupervisorUp = role === 'supervisor' || role === 'gerente' || role === 'administrador';
 
-  if (!isSupervisorUp) {
+  // Use security profile permissions as the source of truth for access control
+  if (!hasPermission(myPermissions, 'aprovacoes', 'view')) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center space-y-2">
           <Shield className="w-12 h-12 text-muted-foreground mx-auto" />
           <h2 className="text-lg font-bold font-display">Acesso Restrito</h2>
-          <p className="text-sm text-muted-foreground">Disponível para Supervisores, Gerentes e Diretores.</p>
+          <p className="text-sm text-muted-foreground">Você não tem permissão para acessar esta página. Verifique seu perfil de segurança.</p>
         </div>
       </div>
     );

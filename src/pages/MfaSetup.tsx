@@ -87,14 +87,14 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
       // Trust device until next Monday 00:00 BRT (Monday Reset policy)
       if (trustDevice) {
         const deviceHash = await generateDeviceHash();
-        const trustedUntil = getNextMondayBRT();
-        
+        const trustedUntil = getTrusted30Days();
+
         await supabase.from('mfa_trusted_devices').insert({
           user_id: (await supabase.auth.getUser()).data.user!.id,
           device_hash: deviceHash,
           trusted_until: trustedUntil.toISOString(),
         });
-        
+
         localStorage.setItem('mfa_device_hash', deviceHash);
       }
 
@@ -189,7 +189,7 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
               />
               <div>
                 <p className="text-xs font-semibold text-foreground">Confiar neste navegador</p>
-                <p className="text-[10px] text-muted-foreground">Não pedir MFA novamente até a próxima segunda-feira</p>
+                <p className="text-[10px] text-muted-foreground">Não pedir MFA novamente por 30 dias</p>
               </div>
             </label>
 
@@ -210,22 +210,10 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
   );
 };
 
-function getNextMondayBRT(): Date {
-  // Get current time in BRT (UTC-3)
+function getTrusted30Days(): Date {
   const now = new Date();
-  const brtOffset = -3 * 60; // BRT is UTC-3
-  const localOffset = now.getTimezoneOffset();
-  const brtNow = new Date(now.getTime() + (localOffset + brtOffset) * 60000);
-  
-  const dayOfWeek = brtNow.getDay(); // 0=Sun, 1=Mon, ...
-  const daysUntilMonday = dayOfWeek === 0 ? 1 : (8 - dayOfWeek);
-  
-  const nextMonday = new Date(brtNow);
-  nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
-  nextMonday.setHours(0, 0, 0, 0);
-  
-  // Convert back from BRT to UTC
-  return new Date(nextMonday.getTime() - (localOffset + brtOffset) * 60000);
+  const trusted = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+  return trusted;
 }
 
 async function generateDeviceHash(): Promise<string> {

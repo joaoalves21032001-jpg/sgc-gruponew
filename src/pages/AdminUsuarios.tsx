@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
+import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 
 import { useLogAction } from '@/hooks/useAuditLog';
 import { Switch } from '@/components/ui/switch';
@@ -97,6 +98,7 @@ const AdminUsuarios = () => {
   const { data: role } = useUserRole();
   const { data: allProfiles, isLoading } = useTeamProfiles();
   const logAction = useLogAction();
+  const { data: myPermissions } = useMyPermissions();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormData>({ ...emptyForm });
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -111,13 +113,13 @@ const AdminUsuarios = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'disabled'>('active');
   const queryClient = useQueryClient();
 
-  if (role !== 'administrador') {
+  if (!hasPermission(myPermissions, 'usuarios', 'view')) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center space-y-2">
           <Shield className="w-12 h-12 text-muted-foreground mx-auto" />
           <h2 className="text-lg font-bold font-display">Acesso Restrito</h2>
-          <p className="text-sm text-muted-foreground">Somente administradores podem acessar esta página.</p>
+          <p className="text-sm text-muted-foreground">Você não tem permissão para acessar esta página. Verifique seu perfil de segurança.</p>
         </div>
       </div>
     );

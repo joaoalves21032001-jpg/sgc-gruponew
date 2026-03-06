@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
+import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 import { useAuditLogs, type AuditLog } from '@/hooks/useAuditLog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -81,6 +82,7 @@ function getActionColor(action: string) {
 const AuditLogs = () => {
   const { data: role } = useUserRole();
   const { data: profiles = [] } = useTeamProfiles();
+  const { data: myPermissions } = useMyPermissions();
   const [filterUser, setFilterUser] = useState('todos');
   const [filterAction, setFilterAction] = useState('todos');
   const [filterEntity, setFilterEntity] = useState('todos');
@@ -96,13 +98,13 @@ const AuditLogs = () => {
     endDate: filterEndDate,
   });
 
-  if (role !== 'administrador') {
+  if (!hasPermission(myPermissions, 'logs_auditoria', 'view')) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center space-y-2">
           <Shield className="w-12 h-12 text-muted-foreground mx-auto" />
           <h2 className="text-lg font-bold font-display">Acesso Restrito</h2>
-          <p className="text-sm text-muted-foreground">Somente administradores podem acessar os logs.</p>
+          <p className="text-sm text-muted-foreground">Você não tem permissão para acessar os logs. Verifique seu perfil de segurança.</p>
         </div>
       </div>
     );
