@@ -947,7 +947,7 @@ const Aprovacoes = () => {
                         </p>
                       </div>
                       <div className="flex gap-1.5 shrink-0">
-                        {(ativStatus === 'pendente') && (
+                        {(ativStatus === 'pendente') && hasPermission(myPermissions, 'aprovacoes.atividades', 'edit') && (
                           <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedAtiv(a); setAtivJustificativa(''); }}>
                             <Eye className="w-4 h-4" /> Analisar
                           </Button>
@@ -1009,7 +1009,7 @@ const Aprovacoes = () => {
                         <p className="text-[10px] text-muted-foreground mt-1">ID: {v.id.slice(0, 8)}...</p>
                       </div>
                       <div className="flex gap-1.5 shrink-0">
-                        {isPending && (
+                        {isPending && hasPermission(myPermissions, 'aprovacoes.vendas', 'edit') && (
                           <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedVenda(v); setObs(v.observacoes || ''); setJustificativa(''); }}>
                             <Eye className="w-4 h-4" /> Analisar
                           </Button>
@@ -1078,7 +1078,7 @@ const Aprovacoes = () => {
                         </p>
                       </div>
                       <div className="flex gap-1.5 shrink-0">
-                        {c.status === 'pendente' && (
+                        {c.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.cotacoes', 'edit') && (
                           <>
                             <Button size="sm" className="gap-1 bg-success hover:bg-success/90 text-success-foreground font-semibold" onClick={() => handleApproveCotacao(c)} disabled={savingCotacao}>
                               <CheckCircle2 className="w-3.5 h-3.5" /> Aprovar
@@ -1147,7 +1147,7 @@ const Aprovacoes = () => {
                           <Button variant="outline" size="sm" className="gap-1 font-semibold" onClick={() => setViewAccess(req)}>
                             <Eye className="w-3.5 h-3.5" /> Detalhes
                           </Button>
-                          {req.status === 'pendente' && (
+                          {req.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.acesso', 'edit') && (
                             <>
                               <Button size="sm" variant="outline" className="gap-1 font-semibold" onClick={() => openEditAccess(req)}>
                                 <Pencil className="w-3.5 h-3.5" /> Editar
@@ -1224,7 +1224,7 @@ const Aprovacoes = () => {
                         </div>
                         {cr.admin_resposta && <p className="text-xs text-muted-foreground mt-1">Resposta: {cr.admin_resposta}</p>}
                       </div>
-                      {cr.status === 'pendente' && (
+                      {cr.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.alteracoes', 'edit') && (
                         <div className="flex gap-1.5 shrink-0">
                           <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => handleApproveCR(cr)} disabled={savingCR}>
                             <CheckCircle2 className="w-3 h-3" /> Aprovar
@@ -1290,7 +1290,7 @@ const Aprovacoes = () => {
                         <p className="text-sm whitespace-pre-wrap">{req.admin_resposta}</p>
                       </div>
                     )}
-                    {req.status === 'pendente' && (
+                    {req.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.acesso', 'edit') && (
                       <div className="flex gap-2 flex-wrap pt-1">
                         <Button
                           size="sm"

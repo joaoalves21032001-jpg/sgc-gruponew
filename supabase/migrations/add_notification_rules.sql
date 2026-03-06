@@ -41,12 +41,21 @@ INSERT INTO notification_rules (event_key, event_label, audience, enabled) VALUE
   ('acesso_aprovado', 'Acesso Aprovado', 'proprio', true),
   -- Acesso rejeitado → próprio
   ('acesso_rejeitado', 'Acesso Rejeitado', 'proprio', true),
-  -- Aniversariante do mês → todos
   ('aniversariante_mes', 'Aniversariante do Mês', 'todos', true),
   -- Lead movido de etapa → liderança direta
   ('lead_movido', 'Lead Movido de Etapa', 'lideranca_direta', true),
   -- Meta batida → gestores
   ('meta_batida', 'Meta Batida', 'gestores', true),
   -- Premiação adicionada → próprio
-  ('premiacao_adicionada', 'Premiação Adicionada', 'proprio', true)
+  ('premiacao_adicionada', 'Premiação Adicionada', 'proprio', true),
+  -- NOVIDADES ABAIXO:
+  ('atividade_aprovada', 'Atividade Aprovada', 'proprio', true),
+  ('atividade_devolvida', 'Atividade Devolvida', 'proprio', true),
+  ('venda_alteracao', 'Solicitação de Alteração de Venda', 'lideranca_direta', true),
+  ('alteracao_aprovada', 'Alteração Aprovada', 'proprio', true),
+  ('alteracao_recusada', 'Alteração Recusada', 'proprio', true),
+  ('mfa_reset_solicitado', 'Solicitação de Reset MFA', 'gestores', true),
+  ('mfa_resetado', 'MFA Resetado', 'proprio', true),
+  ('mfa_reset_recusado', 'Reset MFA Recusado', 'proprio', true),
+  ('lead_atribuido', 'Lead Atribuído', 'proprio', true)
 ON CONFLICT (event_key, audience) DO NOTHING;
