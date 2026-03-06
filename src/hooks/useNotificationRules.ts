@@ -9,7 +9,7 @@ export interface NotificationRule {
     id: string;
     event_key: string;
     event_label: string;
-    audience: string;
+    audiences: string[];
     enabled: boolean;
     created_at: string;
 }
@@ -76,13 +76,13 @@ export function useToggleNotificationRule() {
     });
 }
 
-export function useUpdateRuleAudience() {
+export function useUpdateRuleAudiences() {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: async ({ id, audience }: { id: string; audience: string }) => {
+        mutationFn: async ({ id, audiences }: { id: string; audiences: string[] }) => {
             const { error } = await supabase
                 .from('notification_rules' as any)
-                .update({ audience })
+                .update({ audiences })
                 .eq('id', id);
             if (error) throw error;
         },
@@ -93,7 +93,7 @@ export function useUpdateRuleAudience() {
 export function useCreateNotificationRule() {
     const qc = useQueryClient();
     return useMutation({
-        mutationFn: async (rule: { event_key: string; event_label: string; audience: string; enabled: boolean }) => {
+        mutationFn: async (rule: { event_key: string; event_label: string; audiences: string[]; enabled: boolean }) => {
             const { error } = await supabase
                 .from('notification_rules' as any)
                 .insert(rule);
@@ -219,12 +219,21 @@ export async function dispatchNotification(
             return;
         }
 
-        // For each enabled rule, resolve recipients and send
+        // For each enabled rule, resolve recipients logically avoiding duplicates
+        const uniqueRecipients = new Set<string>();
+
         for (const rule of rules) {
-            const recipients = await getRecipientsForAudience((rule as any).audience, userId);
-            if (recipients.length > 0) {
-                await insertNotifications(recipients, titulo, descricao, tipo, link);
+            const audiences = (rule as any).audiences || [];
+            if (!Array.isArray(audiences)) continue;
+
+            for (const audience of audiences) {
+                const recipients = await getRecipientsForAudience(audience, userId);
+                recipients.forEach(r => uniqueRecipients.add(r));
             }
+        }
+
+        if (uniqueRecipients.size > 0) {
+            await insertNotifications(Array.from(uniqueRecipients), titulo, descricao, tipo, link);
         }
     } catch (err) {
         console.error(`[Notify] dispatchNotification error for ${eventKey}:`, err);

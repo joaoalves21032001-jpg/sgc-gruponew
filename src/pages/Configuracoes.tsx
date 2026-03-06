@@ -37,11 +37,14 @@ import {
 import {
     useNotificationRules,
     useToggleNotificationRule,
-    useUpdateRuleAudience,
+    useUpdateRuleAudiences,
+    useCreateNotificationRule,
+    useDeleteNotificationRule,
     AUDIENCES,
     EVENTS,
     type NotificationRule,
 } from '@/hooks/useNotificationRules';
+import { MultiSelect } from '@/components/ui/multi-select';
 
 const Configuracoes = () => {
     const { data: role } = useUserRole();
@@ -70,7 +73,18 @@ const Configuracoes = () => {
     // Notification Rules
     const { data: notifRules = [], isLoading: nrLoading } = useNotificationRules();
     const toggleRule = useToggleNotificationRule();
-    const updateAudience = useUpdateRuleAudience();
+    const updateAudiences = useUpdateRuleAudiences();
+    const createRule = useCreateNotificationRule();
+    const deleteRule = useDeleteNotificationRule();
+
+    // Notification Dialogs
+    const [newRuleOpen, setNewRuleOpen] = useState(false);
+    const [newRuleEvent, setNewRuleEvent] = useState('');
+    const [newRuleLabel, setNewRuleLabel] = useState('');
+    const [newRuleAudiences, setNewRuleAudiences] = useState<string[]>([]);
+
+    const [editingRule, setEditingRule] = useState<{ id: string; event_label: string } | null>(null);
+    const [confirmDeleteRuleId, setConfirmDeleteRuleId] = useState<string | null>(null);
 
     // Dialogs
     const [newProfileOpen, setNewProfileOpen] = useState(false);
@@ -146,6 +160,39 @@ const Configuracoes = () => {
             if (error) throw error;
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
             toast.success('Notificações lidas removidas!');
+        } catch (err: any) { toast.error(err.message); }
+    };
+
+    const handleCreateRule = async () => {
+        if (!newRuleEvent.trim() || !newRuleLabel.trim() || newRuleAudiences.length === 0) {
+            toast.error('Preencha os campos obrigatórios (Evento, Label e ao menos um Público).');
+            return;
+        }
+        try {
+            await createRule.mutateAsync({
+                event_key: newRuleEvent.trim(),
+                event_label: newRuleLabel.trim(),
+                audiences: newRuleAudiences,
+                enabled: true
+            });
+            logAction('criar_regra_notificacao', 'notification_rules', undefined, { event: newRuleEvent });
+            toast.success('Regra criada com sucesso!');
+            setNewRuleOpen(false);
+            setNewRuleEvent('');
+            setNewRuleLabel('');
+            setNewRuleAudiences([]);
+        } catch (err: any) {
+            toast.error(err.message || 'Erro ao criar regra.');
+        }
+    };
+
+    const handleDeleteRule = async () => {
+        if (!confirmDeleteRuleId) return;
+        try {
+            await deleteRule.mutateAsync(confirmDeleteRuleId);
+            logAction('excluir_regra_notificacao', 'notification_rules', confirmDeleteRuleId);
+            toast.success('Regra excluída!');
+            setConfirmDeleteRuleId(null);
         } catch (err: any) { toast.error(err.message); }
     };
 
@@ -593,48 +640,63 @@ const Configuracoes = () => {
                             </div>
                         ) : (
                             <div className="rounded-lg border border-border/30 overflow-hidden">
+                                <div className="p-3 bg-muted/20 border-b flex justify-between items-center">
+                                    <h3 className="text-sm font-semibold">Regras Configuradas</h3>
+                                    {hasPermission(myPagePermissions, 'configuracoes', 'edit') && (
+                                        <Button size="sm" className="h-8 gap-1.5" onClick={() => setNewRuleOpen(true)}>
+                                            <Plus className="w-3.5 h-3.5" /> Nova Regra
+                                        </Button>
+                                    )}
+                                </div>
                                 <table className="w-full text-sm">
                                     <thead>
                                         <tr className="bg-muted/30 border-b border-border/20">
-                                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Evento</th>
-                                            <th className="text-center py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-48">Público-Alvo</th>
+                                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Evento / Label</th>
+                                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-64">Públicos-Alvo</th>
                                             <th className="text-center py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-24">Ativo</th>
+                                            <th className="text-center py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-24">Ações</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {EVENTS.map(evt => {
-                                            const rule = notifRules.find((r: NotificationRule) => r.event_key === evt.key);
-                                            if (!rule) return null;
+                                        {notifRules.map((rule: NotificationRule) => {
                                             const canEditRules = hasPermission(myPagePermissions, 'configuracoes', 'edit');
                                             return (
                                                 <tr key={rule.id} className="border-b border-border/10 hover:bg-muted/10 transition-colors">
-                                                    <td className="py-2.5 px-3 text-sm font-medium text-foreground">{evt.label}</td>
-                                                    <td className="py-2.5 px-3 text-center">
-                                                        <Select
-                                                            value={rule.audience}
-                                                            onValueChange={v => updateAudience.mutate({ id: rule.id, audience: v })}
-                                                            disabled={!canEditRules}
-                                                        >
-                                                            <SelectTrigger className="h-8 text-xs w-full">
-                                                                <SelectValue />
-                                                            </SelectTrigger>
-                                                            <SelectContent>
-                                                                {AUDIENCES.map(aud => (
-                                                                    <SelectItem key={aud.key} value={aud.key}>{aud.label}</SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
+                                                    <td className="py-2.5 px-3">
+                                                        <p className="text-sm font-medium text-foreground">{rule.event_label}</p>
+                                                        <p className="text-[10px] text-muted-foreground font-mono">{rule.event_key}</p>
                                                     </td>
-                                                    <td className="py-2.5 px-3 text-center">
+                                                    <td className="py-2.5 px-3">
+                                                        <MultiSelect
+                                                            options={AUDIENCES.map(a => ({ label: a.label, value: a.key }))}
+                                                            onValueChange={(vals) => updateAudiences.mutate({ id: rule.id, audiences: vals })}
+                                                            defaultValue={rule.audiences || []}
+                                                            placeholder="Selecionar públicos"
+                                                            disabled={!canEditRules}
+                                                            className="h-8 py-0.5 text-xs shadow-none border-border/50 bg-background hover:bg-muted/20"
+                                                            maxCount={2}
+                                                        />
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-center align-middle">
                                                         <Switch
                                                             checked={rule.enabled}
                                                             onCheckedChange={checked => toggleRule.mutate({ id: rule.id, enabled: checked })}
                                                             disabled={!canEditRules}
                                                         />
                                                     </td>
+                                                    <td className="py-2.5 px-3 text-center align-middle">
+                                                        {canEditRules && (
+                                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/60 hover:text-destructive" onClick={() => setConfirmDeleteRuleId(rule.id)}>
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        )}
+                                                    </td>
                                                 </tr>
                                             );
                                         })}
+                                        {notifRules.length === 0 && (
+                                            <tr><td colSpan={4} className="text-center py-6 text-muted-foreground">Nenhuma regra configurada.</td></tr>
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
@@ -733,6 +795,58 @@ const Configuracoes = () => {
                         <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancelar</Button>
                         <Button variant="destructive" onClick={handleDeleteProfile} disabled={deleteProfile.isPending} className="gap-1.5">
                             <Trash2 className="w-4 h-4" /> Confirmar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!confirmDeleteRuleId} onOpenChange={() => setConfirmDeleteRuleId(null)}>
+                <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="font-display text-lg text-destructive">Excluir Regra de Notificação</DialogTitle>
+                        <DialogDescription>Tem certeza que deseja remover esta regra permanentemente?</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setConfirmDeleteRuleId(null)}>Cancelar</Button>
+                        <Button variant="destructive" onClick={handleDeleteRule} disabled={deleteRule.isPending} className="gap-1.5">
+                            <Trash2 className="w-4 h-4" /> Confirmar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={newRuleOpen} onOpenChange={setNewRuleOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="font-display text-lg">Nova Regra de Notificação</DialogTitle>
+                        <DialogDescription>Defina o label de exibição, a chave do evento no sistema (ex: atividade_pendente) e os públicos que receberão.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-muted-foreground">Label (Exibição) *</Label>
+                            <Input value={newRuleLabel} onChange={e => setNewRuleLabel(e.target.value)} placeholder="Ex: Nova Atividade Cadastrada" className="h-9 text-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-muted-foreground">Chave do Evento *</Label>
+                            <Input value={newRuleEvent} onChange={e => setNewRuleEvent(e.target.value)} placeholder="Ex: comercial_atividade_cadastrada" className="h-9 text-sm font-mono" />
+                            <p className="text-[10px] text-muted-foreground">Esta é a chave utilizada nativamente pelo sistema para despachar.</p>
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-muted-foreground">Públicos Múltiplos *</Label>
+                            <MultiSelect
+                                options={AUDIENCES.map(a => ({ label: a.label, value: a.key }))}
+                                onValueChange={setNewRuleAudiences}
+                                defaultValue={newRuleAudiences}
+                                placeholder="Selecionar públicos..."
+                                maxCount={3}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setNewRuleOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleCreateRule} disabled={createRule.isPending} className="gap-1.5">
+                            {createRule.isPending ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
+                            Criar Regra
                         </Button>
                     </DialogFooter>
                 </DialogContent>
