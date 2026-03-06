@@ -32,12 +32,54 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
   }, []);
 
   const checkMfaStatus = async () => {
+    // Check if the user has an approved MFA reset request
+    let hasApprovedReset = false;
+    try {
+      const { data: resetReqs } = await supabase
+        .from('mfa_reset_requests' as any)
+        .select('id, status')
+        .eq('user_id', user?.id ?? '')
+        .eq('status', 'aprovado')
+        .order('updated_at', { ascending: false })
+        .limit(1);
+      if (resetReqs && (resetReqs as any[]).length > 0) {
+        hasApprovedReset = true;
+        // Mark the reset request as consumed so it doesn't trigger again
+        await supabase
+          .from('mfa_reset_requests' as any)
+          .update({ status: 'consumido' } as any)
+          .eq('id', (resetReqs as any[])[0].id);
+      }
+    } catch (e) {
+      console.warn('Could not check mfa_reset_requests:', e);
+    }
+
     const { data, error } = await supabase.auth.mfa.listFactors();
     if (error) {
       toast.error('Erro ao verificar MFA.');
       return;
     }
     const totp = data.totp;
+
+    // If the user has an approved reset, unenroll ALL factors and start fresh
+    if (hasApprovedReset && totp.length > 0) {
+      for (const factor of totp) {
+        try {
+          await supabase.auth.mfa.unenroll({ factorId: factor.id });
+        } catch (e) {
+          console.warn('Failed to unenroll factor:', factor.id, e);
+        }
+      }
+      // Also clear trusted devices
+      if (user?.id) {
+        await supabase.from('mfa_trusted_devices').delete().eq('user_id', user.id);
+        localStorage.removeItem('mfa_device_hash');
+      }
+      toast.info('Seu MFA foi resetado. Configure novamente.');
+      enrollMfa();
+      return;
+    }
+
     const verifiedFactor = totp.find(f => (f as any).status === 'verified');
     const unverifiedFactor = totp.find(f => (f as any).status === 'unverified');
 
