@@ -30,6 +30,7 @@ import { useLogAction } from '@/hooks/useAuditLog';
 import { maskPhone } from '@/lib/masks';
 import { supabase } from '@/integrations/supabase/client';
 import { notifyDirectLeadership } from '@/hooks/useNotifications';
+import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 
 /* ─── Shared Components ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
@@ -102,6 +103,8 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const createAtividade = useCreateAtividade();
   const logAction = useLogAction();
   const navigate = useNavigate();
+  const { data: myPermissions } = useMyPermissions();
+  const canEdit = hasPermission(myPermissions, 'comercial.atividades', 'edit');
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const [showConfirm, setShowConfirm] = useState(false);
   const [showChangeConfirm, setShowChangeConfirm] = useState(false);
@@ -307,7 +310,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
             <FieldWithTooltip key={m.key} label={m.label} tooltip={m.tooltip} required>
               <div className="relative">
                 <m.icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/50" />
-                <Input type="number" min={0} placeholder="0" value={form[m.key]} onChange={(e) => update(m.key, e.target.value)} className="pl-10 h-11 border-border/40 focus:border-primary bg-muted/30 focus:bg-card transition-all" />
+                <Input type="number" min={0} placeholder="0" value={form[m.key]} onChange={(e) => update(m.key, e.target.value)} disabled={!canEdit} className={cn("pl-10 h-11 border-border/40 focus:border-primary bg-muted/30 focus:bg-card transition-all", !canEdit && "opacity-60 cursor-not-allowed")} />
               </div>
             </FieldWithTooltip>
           ))}
@@ -355,16 +358,25 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
       </div>
 
       {/* ── Floating Register Button ── */}
-      <div className="fixed bottom-6 right-6 z-40">
-        <Button
-          onClick={handleSave}
-          disabled={editAtividade ? changeRequestFields.length === 0 : !canSave}
-          size="lg"
-          className="gradient-hero text-white font-bold px-8 h-14 shadow-brand text-sm tracking-wide rounded-full hover:scale-105 transition-all duration-300 fab-animated disabled:animate-none"
-        >
-          {editAtividade ? (<><Send className="w-5 h-5 mr-2" /> SOLICITAR ALTERAÇÃO</>) : (<><Save className="w-5 h-5 mr-2" /> REGISTRAR ATIVIDADES</>)}
-        </Button>
-      </div>
+      {canEdit && (
+        <div className="fixed bottom-6 right-6 z-40">
+          <Button
+            onClick={handleSave}
+            disabled={editAtividade ? changeRequestFields.length === 0 : !canSave}
+            size="lg"
+            className="gradient-hero text-white font-bold px-8 h-14 shadow-brand text-sm tracking-wide rounded-full hover:scale-105 transition-all duration-300 fab-animated disabled:animate-none"
+          >
+            {editAtividade ? (<><Send className="w-5 h-5 mr-2" /> SOLICITAR ALTERAÇÃO</>) : (<><Save className="w-5 h-5 mr-2" /> REGISTRAR ATIVIDADES</>)}
+          </Button>
+        </div>
+      )}
+
+      {!canEdit && (
+        <div className="p-4 bg-warning/8 border border-warning/20 rounded-lg flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-warning shrink-0" />
+          <p className="text-sm text-muted-foreground">Você possui permissão apenas para <strong>visualizar</strong> esta página. Edição desabilitada pelo seu perfil de segurança.</p>
+        </div>
+      )}
 
       {/* Modal de Confirmação - Manual */}
       <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
@@ -455,6 +467,10 @@ const Comercial = () => {
   const prefillLead = (location.state as any)?.prefillLead;
   const editAtividade = (location.state as any)?.editAtividade;
   const defaultTab = (editVenda || prefillLead) ? 'nova-venda' : 'atividades';
+  const { data: myPermissions } = useMyPermissions();
+  const canViewAtividades = hasPermission(myPermissions, 'comercial.atividades', 'view');
+  const canViewNovaVenda = hasPermission(myPermissions, 'comercial.nova_venda', 'view');
+  const canViewEvolucao = hasPermission(myPermissions, 'comercial.evolucao', 'view');
 
   return (
     <div className="max-w-5xl space-y-6 page-enter">
@@ -465,20 +481,26 @@ const Comercial = () => {
 
       <Tabs defaultValue={defaultTab} className="space-y-6">
         <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg">
-          <TabsTrigger value="atividades" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
-            <ClipboardList className="w-4 h-4" /> Atividades
-          </TabsTrigger>
-          <TabsTrigger value="nova-venda" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
-            <ShoppingCart className="w-4 h-4" /> Nova Venda
-          </TabsTrigger>
-          <TabsTrigger value="evolucao" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
-            <TrendingUp className="w-4 h-4" /> Evolução
-          </TabsTrigger>
+          {canViewAtividades && (
+            <TabsTrigger value="atividades" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
+              <ClipboardList className="w-4 h-4" /> Atividades
+            </TabsTrigger>
+          )}
+          {canViewNovaVenda && (
+            <TabsTrigger value="nova-venda" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
+              <ShoppingCart className="w-4 h-4" /> Nova Venda
+            </TabsTrigger>
+          )}
+          {canViewEvolucao && (
+            <TabsTrigger value="evolucao" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
+              <TrendingUp className="w-4 h-4" /> Evolução
+            </TabsTrigger>
+          )}
         </TabsList>
 
-        <TabsContent value="atividades"><AtividadesTab editAtividade={editAtividade} /></TabsContent>
-        <TabsContent value="nova-venda"><NovaVendaTab /></TabsContent>
-        <TabsContent value="evolucao"><EvolucaoTab /></TabsContent>
+        {canViewAtividades && <TabsContent value="atividades"><AtividadesTab editAtividade={editAtividade} /></TabsContent>}
+        {canViewNovaVenda && <TabsContent value="nova-venda"><NovaVendaTab /></TabsContent>}
+        {canViewEvolucao && <TabsContent value="evolucao"><EvolucaoTab /></TabsContent>}
       </Tabs>
     </div>
   );
