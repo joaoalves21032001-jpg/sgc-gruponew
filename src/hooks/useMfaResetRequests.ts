@@ -43,10 +43,10 @@ export async function requestMfaReset(userId: string, motivo: string) {
     if (error) throw error;
 }
 
-/** Call the Edge Function to actually reset MFA factors */
+/** Reset MFA factors using server-side SQL function */
 export async function resetMfaFactors(userId: string) {
-    const { data, error } = await supabase.functions.invoke('reset-mfa', {
-        body: { user_id: userId },
+    const { data, error } = await (supabase.rpc as any)('reset_user_mfa', {
+        target_user_id: userId,
     });
     if (error) throw error;
     return data;
@@ -62,16 +62,10 @@ export async function approveMfaReset(requestId: string, adminId: string) {
         .single();
     if (fetchErr) throw fetchErr;
 
-    // Try to call Edge Function to reset MFA factors (may not be deployed yet)
-    let edgeFunctionWorked = false;
-    try {
-        await resetMfaFactors((req as any).user_id);
-        edgeFunctionWorked = true;
-    } catch (e) {
-        console.warn('Edge Function reset-mfa not available, marking as approved only:', e);
-    }
+    // Call the SQL function to delete MFA factors server-side
+    await resetMfaFactors((req as any).user_id);
 
-    // Update request status regardless
+    // Update request status
     const { error } = await supabase
         .from('mfa_reset_requests' as any)
         .update({
@@ -81,9 +75,6 @@ export async function approveMfaReset(requestId: string, adminId: string) {
         } as any)
         .eq('id', requestId);
     if (error) throw error;
-
-    // Return whether the actual MFA deletion happened
-    return { edgeFunctionWorked };
 }
 
 /** Reject an MFA reset request */
