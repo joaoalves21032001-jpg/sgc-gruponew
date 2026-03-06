@@ -383,50 +383,70 @@ const Configuracoes = () => {
                                 </p>
 
                                 <div className="space-y-6">
-                                    {MODULES_DEF.map((group) => (
-                                        <div key={group.groupLabel} className="space-y-2">
-                                            <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
-                                                {group.groupLabel}
-                                            </h5>
-                                            <div className="overflow-x-auto rounded-lg border border-border/30">
-                                                <table className="w-full text-sm border-collapse bg-card">
-                                                    <thead>
-                                                        <tr className="border-b border-border/30 bg-muted/20">
-                                                            <th className="text-left py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[250px]">Recurso</th>
-                                                            {group.resources[0].actions.map(a => (
-                                                                <th key={a.key} className="text-center py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[100px]">{a.label}</th>
-                                                            ))}
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {group.resources.map((res) => (
-                                                            <tr key={res.key} className="border-b border-border/10 hover:bg-muted/10 transition-colors">
-                                                                <td className="py-2.5 px-3 text-sm font-semibold text-foreground">
-                                                                    {res.label}
-                                                                </td>
-                                                                {res.actions.map(act => {
-                                                                    const allowed = isPermAllowed(res.key, act.key);
-                                                                    return (
-                                                                        <td key={act.key} className="text-center py-2.5 px-3">
-                                                                            <button
-                                                                                onClick={() => handleTogglePerm(res.key, act.key)}
-                                                                                className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${allowed
-                                                                                    ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
-                                                                                    : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
-                                                                                    }`}
-                                                                            >
-                                                                                {allowed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                                                                            </button>
-                                                                        </td>
-                                                                    );
-                                                                })}
+                                    {MODULES_DEF.map((group) => {
+                                        const groupActions = new Map<string, { key: string; label: string }>();
+                                        group.resources.forEach(res => {
+                                            res.actions.forEach(a => {
+                                                if (!groupActions.has(a.key)) groupActions.set(a.key, a);
+                                            });
+                                        });
+                                        const uniqueActions = Array.from(groupActions.values());
+
+                                        return (
+                                            <div key={group.groupLabel} className="space-y-2">
+                                                <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
+                                                    {group.groupLabel}
+                                                </h5>
+                                                <div className="overflow-x-auto rounded-lg border border-border/30">
+                                                    <table className="w-full text-sm border-collapse bg-card">
+                                                        <thead>
+                                                            <tr className="border-b border-border/30 bg-muted/20">
+                                                                <th className="text-left py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[250px]">Recurso</th>
+                                                                {uniqueActions.map(a => (
+                                                                    <th key={a.key} className="text-center py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[100px]">{a.label}</th>
+                                                                ))}
                                                             </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
+                                                        </thead>
+                                                        <tbody>
+                                                            {group.resources.map((res) => (
+                                                                <tr key={res.key} className="border-b border-border/10 hover:bg-muted/10 transition-colors">
+                                                                    <td className="py-2.5 px-3 text-sm font-semibold text-foreground">
+                                                                        {res.label}
+                                                                    </td>
+                                                                    {uniqueActions.map(act => {
+                                                                        const actionExists = res.actions.some(a => a.key === act.key);
+                                                                        if (!actionExists) {
+                                                                            return (
+                                                                                <td key={act.key} className="text-center py-2.5 px-3">
+                                                                                    <div className="w-7 h-7 mx-auto flex items-center justify-center opacity-30 select-none">
+                                                                                        <span className="text-xs text-muted-foreground font-bold">-</span>
+                                                                                    </div>
+                                                                                </td>
+                                                                            );
+                                                                        }
+                                                                        const allowed = isPermAllowed(res.key, act.key);
+                                                                        return (
+                                                                            <td key={act.key} className="text-center py-2.5 px-3">
+                                                                                <button
+                                                                                    onClick={() => handleTogglePerm(res.key, act.key)}
+                                                                                    className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${allowed
+                                                                                        ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
+                                                                                        : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
+                                                                                        }`}
+                                                                                >
+                                                                                    {allowed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                                                                                </button>
+                                                                            </td>
+                                                                        );
+                                                                    })}
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             </div>
 
