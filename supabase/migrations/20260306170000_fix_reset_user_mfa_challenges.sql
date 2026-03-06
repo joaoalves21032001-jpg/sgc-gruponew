@@ -1,6 +1,5 @@
--- Server-side function to reset a user's MFA factors.
--- Uses SECURITY DEFINER to access auth.mfa_factors directly.
--- Only callable by admins, supervisors, or gerentes.
+-- Updated reset_user_mfa function: also deletes mfa_challenges (FK dependency)
+-- before deleting mfa_factors.
 
 CREATE OR REPLACE FUNCTION public.reset_user_mfa(target_user_id uuid)
 RETURNS jsonb
@@ -30,6 +29,3 @@ BEGIN
   RETURN jsonb_build_object('success', true, 'factors_removed', deleted_count);
 END;
 $$;
-
--- Grant execute to authenticated users (security check is inside the function)
-GRANT EXECUTE ON FUNCTION public.reset_user_mfa(uuid) TO authenticated;

@@ -103,15 +103,15 @@ const sections: HelpSection[] = [
   },
 
   /* ═══════════════════════════════════════════
-   *  EVOLUÇÃO CRM (tabKey: comercial)
+   *  EVOLUÇÃO CRM (tabKey: progresso)
    * ═══════════════════════════════════════════ */
   {
     icon: TrendingUp,
     title: 'Evolução CRM',
     access: 'all',
-    tabKey: 'comercial',
+    tabKey: 'progresso',
     content: [
-      'Acesse "Registro de Atividades" → aba "Evolução".',
+      'A seção de Evolução CRM está disponível na página \"Meu Progresso\", na parte inferior do painel.',
       'Visualize gráficos de área com a tendência de atividades (ligações, cotações) por semana.',
       'Gráfico de faturamento semanal mostra sua receita aprovada ao longo do tempo.',
       'Filtros disponíveis: últimos 30, 60 ou 90 dias.',

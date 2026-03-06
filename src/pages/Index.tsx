@@ -9,6 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useMemo, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
 import { DashboardSkeleton } from '@/components/LoadingSkeleton';
+import EvolucaoTab from '@/components/EvolucaoTab';
 
 const Index = () => {
   const { data: profile, isLoading: loadingProfile } = useProfile();
@@ -411,6 +412,9 @@ const Index = () => {
           </div>
         </div>
       </div>
+
+      {/* Evolução CRM */}
+      <EvolucaoTab />
     </div>
   );
 };

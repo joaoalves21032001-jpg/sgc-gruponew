@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Phone, MessageSquare, FileText, CheckCircle2, RotateCcw, Info, Save, Send,
   ChevronRight, ChevronLeft, AlertCircle, CalendarIcon, DollarSign,
-  ClipboardList, ShoppingCart, Trash2, Plus, TrendingUp,
+  ClipboardList, ShoppingCart, Trash2, Plus,
   Mail, User, XCircle, MessageCircle, BarChart3, Flag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -452,7 +452,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
 /*       TAB: NOVA VENDA (uses SalesWizard)        */
 /* ═══════════════════════════════════════════════ */
 import SalesWizard from '@/components/SalesWizard';
-import EvolucaoTab from '@/components/EvolucaoTab';
+
 
 function NovaVendaTab() {
   return <SalesWizard />;
@@ -470,7 +470,7 @@ const Comercial = () => {
   const { data: myPermissions } = useMyPermissions();
   const canViewAtividades = hasPermission(myPermissions, 'comercial.atividades', 'view');
   const canViewNovaVenda = hasPermission(myPermissions, 'comercial.nova_venda', 'view');
-  const canViewEvolucao = hasPermission(myPermissions, 'comercial.evolucao', 'view');
+
 
   return (
     <div className="max-w-5xl space-y-6 page-enter">
@@ -491,16 +491,12 @@ const Comercial = () => {
               <ShoppingCart className="w-4 h-4" /> Nova Venda
             </TabsTrigger>
           )}
-          {canViewEvolucao && (
-            <TabsTrigger value="evolucao" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
-              <TrendingUp className="w-4 h-4" /> Evolução
-            </TabsTrigger>
-          )}
+
         </TabsList>
 
         {canViewAtividades && <TabsContent value="atividades"><AtividadesTab editAtividade={editAtividade} /></TabsContent>}
         {canViewNovaVenda && <TabsContent value="nova-venda"><NovaVendaTab /></TabsContent>}
-        {canViewEvolucao && <TabsContent value="evolucao"><EvolucaoTab /></TabsContent>}
+
       </Tabs>
     </div>
   );

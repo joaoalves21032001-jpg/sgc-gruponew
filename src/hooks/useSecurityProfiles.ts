@@ -35,7 +35,6 @@ export const RESOURCES: ResourceDef[] = [
         children: [
             { key: 'comercial.atividades', label: 'Atividades' },
             { key: 'comercial.nova_venda', label: 'Nova Venda' },
-            { key: 'comercial.evolucao', label: 'Evolução' },
         ],
     },
     {

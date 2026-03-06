@@ -54,6 +54,12 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
       console.warn('Could not check mfa_reset_requests:', e);
     }
 
+    // If there's an approved reset, refresh the session first so the client
+    // picks up the server-side factor deletion done by reset_user_mfa().
+    if (hasApprovedReset) {
+      await supabase.auth.refreshSession();
+    }
+
     const { data, error } = await supabase.auth.mfa.listFactors();
     if (error) {
       toast.error('Erro ao verificar MFA.');
@@ -61,22 +67,25 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
     }
     const totp = data.totp;
 
-    // If the user has an approved reset, unenroll ALL factors and start fresh
-    if (hasApprovedReset && totp.length > 0) {
+    // If the user has an approved reset, unenroll any remaining factors and start fresh
+    if (hasApprovedReset) {
+      // Unenroll any factors the client still sees (they may already be gone server-side)
       for (const factor of totp) {
         try {
           await supabase.auth.mfa.unenroll({ factorId: factor.id });
         } catch (e) {
-          console.warn('Failed to unenroll factor:', factor.id, e);
+          console.warn('Failed to unenroll factor (may already be deleted):', factor.id, e);
         }
       }
-      // Also clear trusted devices
+      // Clear trusted devices
       if (user?.id) {
         await supabase.from('mfa_trusted_devices').delete().eq('user_id', user.id);
         localStorage.removeItem('mfa_device_hash');
       }
+      // Refresh session again after unenrolling so enroll() works clean
+      await supabase.auth.refreshSession();
       toast.info('Seu MFA foi resetado. Configure novamente.');
-      enrollMfa();
+      await enrollMfa();
       return;
     }
 
@@ -90,25 +99,45 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
     } else if (unverifiedFactor) {
       // Unenroll the unverified factor and start fresh
       await supabase.auth.mfa.unenroll({ factorId: unverifiedFactor.id });
-      enrollMfa();
+      await enrollMfa();
     } else {
-      enrollMfa();
+      await enrollMfa();
     }
   };
 
   const enrollMfa = async () => {
-    const { data, error } = await supabase.auth.mfa.enroll({
-      factorType: 'totp',
-      friendlyName: 'Google Authenticator',
-    });
-    if (error) {
-      toast.error('Erro ao configurar MFA.');
-      return;
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: 'totp',
+        friendlyName: 'Google Authenticator',
+      });
+      if (error) {
+        console.error('MFA enroll error:', error);
+        // If enrollment fails, try refreshing the session and retrying once
+        await supabase.auth.refreshSession();
+        const retry = await supabase.auth.mfa.enroll({
+          factorType: 'totp',
+          friendlyName: 'Google Authenticator',
+        });
+        if (retry.error) {
+          console.error('MFA enroll retry error:', retry.error);
+          toast.error('Erro ao configurar MFA. Tente fazer logout e login novamente.');
+          return;
+        }
+        setQrCode(retry.data.totp.qr_code);
+        setSecret(retry.data.totp.secret);
+        setFactorId(retry.data.id);
+        setStep('enroll');
+        return;
+      }
+      setQrCode(data.totp.qr_code);
+      setSecret(data.totp.secret);
+      setFactorId(data.id);
+      setStep('enroll');
+    } catch (err) {
+      console.error('MFA enroll exception:', err);
+      toast.error('Erro ao configurar MFA. Tente fazer logout e login novamente.');
     }
-    setQrCode(data.totp.qr_code);
-    setSecret(data.totp.secret);
-    setFactorId(data.id);
-    setStep('enroll');
   };
 
   const handleVerify = async (e: React.FormEvent) => {
