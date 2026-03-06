@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useTeamProfiles, useUserRole, type Profile } from '@/hooks/useProfile';
+import { useTeamProfiles, type Profile } from '@/hooks/useProfile';
+import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 import { useCompanhias, type Companhia } from '@/hooks/useInventario';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
@@ -150,9 +150,9 @@ function computeCompanyTitle(
 }
 
 /* ═══ OrgCard — Enriched Member Card ═══ */
-const OrgCard = ({ profile, isAdmin, salesData, companyTitles, patenteData, premiacoesCounts, onSelect }: {
+const OrgCard = ({ profile, canEdit, salesData, companyTitles, patenteData, premiacoesCounts, onSelect }: {
   profile: Profile;
-  isAdmin: boolean;
+  canEdit: boolean;
   salesData: Record<string, { total: number; month: number }>;
   companyTitles: Record<string, CompanyTitle | null>;
   patenteData: Record<string, PatenteInfo | null>;
@@ -243,10 +243,10 @@ const OrgCard = ({ profile, isAdmin, salesData, companyTitles, patenteData, prem
 };
 
 /* ═══ OrgChart Tree Node (recursive) ═══ */
-const OrgTreeNode = ({ profile, profiles, isAdmin, salesData, companyTitles, patenteData, premiacoesCounts, onSelect, isRoot }: {
+const OrgTreeNode = ({ profile, profiles, canEdit, salesData, companyTitles, patenteData, premiacoesCounts, onSelect, isRoot }: {
   profile: Profile;
   profiles: Profile[];
-  isAdmin: boolean;
+  canEdit: boolean;
   salesData: Record<string, { total: number; month: number }>;
   companyTitles: Record<string, CompanyTitle | null>;
   patenteData: Record<string, PatenteInfo | null>;
@@ -288,7 +288,7 @@ const OrgTreeNode = ({ profile, profiles, isAdmin, salesData, companyTitles, pat
   return (
     <div className="flex flex-col items-center">
       <div className="relative">
-        <OrgCard profile={profile} isAdmin={isAdmin} salesData={salesData} companyTitles={companyTitles} patenteData={patenteData} premiacoesCounts={premiacoesCounts} onSelect={onSelect} />
+        <OrgCard profile={profile} canEdit={canEdit} salesData={salesData} companyTitles={companyTitles} patenteData={patenteData} premiacoesCounts={premiacoesCounts} onSelect={onSelect} />
         {hasChildren && (
           <button
             onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
@@ -316,7 +316,7 @@ const OrgTreeNode = ({ profile, profiles, isAdmin, salesData, companyTitles, pat
                   <OrgTreeNode
                     profile={child}
                     profiles={profiles}
-                    isAdmin={isAdmin}
+                    canEdit={canEdit}
                     salesData={salesData}
                     companyTitles={companyTitles}
                     patenteData={patenteData}
@@ -334,9 +334,9 @@ const OrgTreeNode = ({ profile, profiles, isAdmin, salesData, companyTitles, pat
 };
 
 /* ═══ Profile Detail Modal ═══ */
-const ProfileDetailModal = ({ profile, isAdmin, salesData, companyTitles, patenteData, onClose }: {
+const ProfileDetailModal = ({ profile, canEdit, salesData, companyTitles, patenteData, onClose }: {
   profile: Profile | null;
-  isAdmin: boolean;
+  canEdit: boolean;
   salesData: Record<string, { total: number; month: number }>;
   companyTitles: Record<string, CompanyTitle | null>;
   patenteData: Record<string, PatenteInfo | null>;
@@ -433,12 +433,12 @@ const ProfileDetailModal = ({ profile, isAdmin, salesData, companyTitles, patent
                       {a.descricao && <p className="text-xs text-muted-foreground">{a.descricao}</p>}
                       <p className="text-[10px] text-muted-foreground mt-1">{new Date(a.created_at).toLocaleDateString()}</p>
                     </div>
-                    {isAdmin && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteAward.mutate(a.id)}><Trash2 className="w-3 h-3" /></Button>}
+                    {canEdit && <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => deleteAward.mutate(a.id)}><Trash2 className="w-3 h-3" /></Button>}
                   </div>
                 ))
               )}
             </div>
-            {isAdmin && (
+            {canEdit && (
               <div className="space-y-2 pt-3 border-t border-border/20 mt-3">
                 <Input placeholder="Título da premiação" value={awardTitle} onChange={e => setAwardTitle(e.target.value)} className="h-8 text-xs" />
                 <Input placeholder="Descrição (opcional)" value={awardDesc} onChange={e => setAwardDesc(e.target.value)} className="h-8 text-xs" />
@@ -454,8 +454,8 @@ const ProfileDetailModal = ({ profile, isAdmin, salesData, companyTitles, patent
 
 /* ═══ Main Component ═══ */
 const Equipe = () => {
-  const { data: role } = useUserRole();
-  const isAdmin = role === 'administrador';
+  const { data: myPermissions } = useMyPermissions();
+  const canEdit = hasPermission(myPermissions, 'equipe', 'edit');
   const { data: profiles = [], isLoading } = useTeamProfiles();
   const { data: companhias = [] } = useCompanhias();
   const { data: premiacoesCounts = {} } = useAllPremiacoesCounts();
@@ -606,7 +606,7 @@ const Equipe = () => {
         /* Search results: flat grid */
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {roots.map(p => (
-            <OrgCard key={p.id} profile={p} isAdmin={isAdmin} salesData={salesData} companyTitles={companyTitles} patenteData={patenteData} premiacoesCounts={premiacoesCounts} onSelect={setSelectedProfile} />
+            <OrgCard key={p.id} profile={p} canEdit={canEdit} salesData={salesData} companyTitles={companyTitles} patenteData={patenteData} premiacoesCounts={premiacoesCounts} onSelect={setSelectedProfile} />
           ))}
           {roots.length === 0 && <p className="col-span-full text-center text-muted-foreground py-10">Nenhum colaborador encontrado.</p>}
         </div>
@@ -619,7 +619,7 @@ const Equipe = () => {
                 key={root.id}
                 profile={root}
                 profiles={activeProfiles}
-                isAdmin={isAdmin}
+                canEdit={canEdit}
                 salesData={salesData}
                 companyTitles={companyTitles}
                 patenteData={patenteData}
@@ -636,7 +636,7 @@ const Equipe = () => {
       {/* Detail modal */}
       <ProfileDetailModal
         profile={selectedProfile}
-        isAdmin={isAdmin}
+        canEdit={canEdit}
         salesData={salesData}
         companyTitles={companyTitles}
         patenteData={patenteData}

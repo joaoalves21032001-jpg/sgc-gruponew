@@ -30,6 +30,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useCompanhias, useProdutos, useModalidades, useLeads } from '@/hooks/useInventario';
 import { maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
 import { notifyDirectLeadership } from '@/hooks/useNotifications';
+import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 
 /* ─── Shared ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
@@ -193,6 +194,8 @@ export default function SalesWizard() {
   const logAction = useLogAction();
   const location = useLocation();
   const navigate = useNavigate();
+  const { data: myPermissions } = useMyPermissions();
+  const canEditVenda = hasPermission(myPermissions, 'comercial.vendas', 'edit');
 
   // Edit mode: editing an existing venda from Minhas Ações
   const [editVendaId, setEditVendaId] = useState<string | null>(null);
@@ -884,8 +887,17 @@ export default function SalesWizard() {
     }
   };
 
+  if (!canEditVenda && !isChangeRequest && !editVendaId) {
+    return (
+      <div className="p-6 bg-warning/8 border border-warning/20 rounded-xl flex items-center gap-3">
+        <AlertCircle className="w-5 h-5 text-warning shrink-0" />
+        <p className="text-sm text-foreground">Você possui permissão apenas para <strong>visualizar</strong> a página de vendas. A criação e edição estão desabilitadas pelo seu perfil de segurança.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-24 page-enter">
       <StepIndicator steps={STEPS} current={step} />
 
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">

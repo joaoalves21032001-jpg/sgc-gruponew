@@ -243,7 +243,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
         cotacoes_fechadas: parseInt(form.cotacoes_respondidas) || 0,
         cotacoes_nao_respondidas: parseInt(form.cotacoes_nao_respondidas) || 0,
         follow_up: parseInt(form.follow_up) || 0,
-      });
+      } as any);
       setShowConfirm(false);
       logAction('criar_atividade', 'atividade', undefined, { data: format(dataLancamento, 'yyyy-MM-dd') });
       toast.success('Atividades registradas com sucesso!');
@@ -277,7 +277,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
         <SectionHeader icon={CalendarIcon} title="Data de Lançamento" subtitle="Preenchida automaticamente com a data atual" />
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="outline" className={cn("w-[260px] justify-start text-left font-normal h-11 border-border/40", !dataLancamento && "text-muted-foreground")}>
+            <Button variant="outline" disabled={!canEdit} className={cn("w-[260px] justify-start text-left font-normal h-11 border-border/40", !dataLancamento && "text-muted-foreground")}>
               <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
               {dataLancamento ? format(dataLancamento, "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'Selecione a data'}
             </Button>
@@ -294,7 +294,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
               <p className="text-sm font-medium text-foreground">Lançamento retroativo detectado</p>
             </div>
             <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada para o <strong>Supervisor</strong>, <strong>Gerente</strong> e <strong>Diretor</strong>.</p>
-            <Textarea placeholder="Justifique o motivo do lançamento fora da data correta..." value={form.justificativa} onChange={(e) => update('justificativa', e.target.value)} rows={3} className="border-warning/30 focus:border-warning" />
+            <Textarea placeholder="Justifique o motivo do lançamento fora da data correta..." value={form.justificativa} onChange={(e) => update('justificativa', e.target.value)} rows={3} disabled={!canEdit} className="border-warning/30 focus:border-warning disabled:opacity-60 disabled:cursor-not-allowed" />
           </div>
         )}
       </div>
@@ -466,7 +466,7 @@ const Comercial = () => {
   const defaultTab = (editVenda || prefillLead) ? 'nova-venda' : 'atividades';
   const { data: myPermissions } = useMyPermissions();
   const canViewAtividades = hasPermission(myPermissions, 'comercial.atividades', 'view');
-  const canViewNovaVenda = hasPermission(myPermissions, 'comercial.nova_venda', 'view');
+  const canViewNovaVenda = hasPermission(myPermissions, 'comercial.vendas', 'view');
 
 
   return (

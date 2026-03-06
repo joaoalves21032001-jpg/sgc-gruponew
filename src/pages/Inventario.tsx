@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useUserRole } from '@/hooks/useProfile';
+import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 import { useLogAction } from '@/hooks/useAuditLog';
 import {
   useCompanhias, useCreateCompanhia, useUpdateCompanhia, useDeleteCompanhia,
@@ -24,8 +24,8 @@ import {
 
 /* ─── Companhias Tab with Logo Upload ─── */
 function CompanhiasTab() {
-  const { data: role } = useUserRole();
-  const isAdmin = role === 'administrador';
+  const { data: myPermissions } = useMyPermissions();
+  const canEdit = hasPermission(myPermissions, 'inventario.companhias', 'edit');
   const logAction = useLogAction();
   const { data: companhias = [], isLoading } = useCompanhias();
   const createMut = useCreateCompanhia();
@@ -101,7 +101,7 @@ function CompanhiasTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Buscar companhia..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-10 bg-card border-border/40" />
         </div>
-        {isAdmin && (
+        {canEdit && (
           <Button onClick={() => { setShowAdd(true); setEditItem(null); setNome(''); setMetaTitulo('10'); setLogoFile(null); }} className="gap-1.5 font-semibold shadow-brand">
             <Plus className="w-4 h-4" /> Nova Companhia
           </Button>
@@ -125,7 +125,7 @@ function CompanhiasTab() {
                     <p className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleDateString('pt-BR')} · Meta Título: {(c as any).meta_titulo ?? 10} vendas</p>
                   </div>
                 </div>
-                {isAdmin && (
+                {canEdit && (
                   <div className="flex gap-1.5 shrink-0">
                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditItem(c); setNome(c.nome); setMetaTitulo(String((c as any).meta_titulo ?? 10)); setLogoFile(null); setShowAdd(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
                     <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteItem(c)}><Trash2 className="w-3.5 h-3.5" /></Button>
@@ -177,8 +177,8 @@ function CompanhiasTab() {
 
 /* ─── Produtos Tab ─── */
 function ProdutosTab() {
-  const { data: role } = useUserRole();
-  const isAdmin = role === 'administrador';
+  const { data: myPermissions } = useMyPermissions();
+  const canEdit = hasPermission(myPermissions, 'inventario.produtos', 'edit');
   const logAction = useLogAction();
   const { data: produtos = [], isLoading } = useProdutos();
   const { data: companhias = [] } = useCompanhias();
@@ -221,7 +221,7 @@ function ProdutosTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input placeholder="Buscar produto..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-10 bg-card border-border/40" />
         </div>
-        {isAdmin && (
+        {canEdit && (
           <Button onClick={() => { setShowAdd(true); setEditItem(null); setNome(''); setCompanhiaId(''); }} className="gap-1.5 font-semibold shadow-brand">
             <Plus className="w-4 h-4" /> Novo Produto
           </Button>
@@ -237,7 +237,7 @@ function ProdutosTab() {
                   <p className="text-sm font-semibold text-foreground">{p.nome}</p>
                   <p className="text-xs text-muted-foreground">{getCompanhiaNome(p.companhia_id)}</p>
                 </div>
-                {isAdmin && (
+                {canEdit && (
                   <div className="flex gap-1.5 shrink-0">
                     <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditItem(p); setNome(p.nome); setCompanhiaId(p.companhia_id); setShowAdd(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
                     <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteItem(p)}><Trash2 className="w-3.5 h-3.5" /></Button>
@@ -281,8 +281,8 @@ function ProdutosTab() {
 
 /* ─── Modalidades Tab ─── */
 function ModalidadesTab() {
-  const { data: role } = useUserRole();
-  const isAdmin = role === 'administrador';
+  const { data: myPermissions } = useMyPermissions();
+  const canEdit = hasPermission(myPermissions, 'inventario.modalidades', 'edit');
   const logAction = useLogAction();
   const { data: modalidades = [], isLoading } = useModalidades();
   const createMut = useCreateModalidade();
@@ -324,7 +324,7 @@ function ModalidadesTab() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-end">
-        {isAdmin && (
+        {canEdit && (
           <Button onClick={() => { setShowAdd(true); setEditItem(null); setNome(''); setDocsObrig(''); setDocsOpc(''); setQtdVidas('indefinido'); }} className="gap-1.5 font-semibold shadow-brand">
             <Plus className="w-4 h-4" /> Nova Modalidade
           </Button>
@@ -338,7 +338,7 @@ function ModalidadesTab() {
               <div key={m.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-2">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-foreground">{m.nome}</p>
-                  {isAdmin && (
+                  {canEdit && (
                     <div className="flex gap-1.5 shrink-0">
                       <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEdit(m)}><Pencil className="w-3.5 h-3.5" /></Button>
                       <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteItem(m)}><Trash2 className="w-3.5 h-3.5" /></Button>

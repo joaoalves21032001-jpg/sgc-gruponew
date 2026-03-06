@@ -9,6 +9,7 @@ import { useUserRole, useProfile, useTeamProfiles } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { useSubmitCorrectionRequest } from '@/hooks/useCorrectionRequests';
+import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -55,17 +56,22 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, onAssume, lead
   leaderName?: string;
   stageName?: string;
   currentUserId?: string;
+  canEditOwn: boolean;
+  canCreate: boolean;
 }) {
   const valor = getLeadValor(lead);
   const isEnvioCotacao = stageName?.toLowerCase().includes('envio de cotação') || stageName?.toLowerCase().includes('cotação');
   const initials = leaderName ? leaderName.charAt(0).toUpperCase() : null;
-  const canAssume = lead.livre && lead.created_by !== currentUserId;
+  const canAssume = lead.livre && lead.created_by !== currentUserId && canEditOwn; // need edit permission to assume
+  const isOwner = lead.created_by === currentUserId;
+  const canEditLead = isAdmin || (canEditOwn && isOwner);
+  const showMenu = canEditLead || isAdmin; // Admin can always delete/edit. Regular user can edit if owner.
 
   return (
     <div
-      draggable
+      draggable={canEditLead}
       onDragStart={e => onDragStart(e, lead.id)}
-      className="bg-card rounded-lg border border-border/30 shadow-sm p-3 cursor-grab active:cursor-grabbing hover:shadow-card-hover transition-shadow group"
+      className={cn("bg-card rounded-lg border border-border/30 shadow-sm p-3 hover:shadow-card-hover transition-shadow group relative", canEditLead ? "cursor-grab active:cursor-grabbing" : "")}
     >
       <div className="flex items-start justify-between gap-1">
         <div className="min-w-0 flex-1">
@@ -88,17 +94,19 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, onAssume, lead
               <span className="text-[10px] font-bold text-primary">{initials}</span>
             </div>
           )}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
-                <MoreHorizontal className="w-3.5 h-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-36">
-              <DropdownMenuItem onClick={() => onEdit(lead)} className="text-xs gap-2"><Pencil className="w-3 h-3" /> Editar</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onDelete(lead)} className="text-xs gap-2 text-destructive"><Trash2 className="w-3 h-3" /> Excluir</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {showMenu && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <MoreHorizontal className="w-3.5 h-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-36">
+                <DropdownMenuItem onClick={() => onEdit(lead)} className="text-xs gap-2"><Pencil className="w-3 h-3" /> Editar</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onDelete(lead)} className="text-xs gap-2 text-destructive"><Trash2 className="w-3 h-3" /> Excluir</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </div>
       {leaderName && <span className="block text-[10px] text-muted-foreground mt-1 flex items-center gap-1"><User className="w-3 h-3" />{leaderName}</span>}
@@ -140,6 +148,8 @@ function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, on
   onAssume: (l: Lead) => void;
   getLeaderName: (createdBy: string | null) => string | undefined;
   currentUserId?: string;
+  canEditOwn: boolean;
+  canCreate: boolean;
 }) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -167,15 +177,17 @@ function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, on
       </div>
       <div className="flex-1 p-2 space-y-2 overflow-y-auto max-h-[calc(100vh-320px)] min-h-[120px]">
         {leads.map(l => (
-          <LeadCard key={l.id} lead={l} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} onDragStart={onDragStart} onAssume={onAssume} leaderName={getLeaderName(l.created_by)} stageName={stage.nome} currentUserId={currentUserId} />
+          <LeadCard key={l.id} lead={l} isAdmin={isAdmin} onEdit={onEdit} onDelete={onDelete} onDragStart={onDragStart} onAssume={onAssume} leaderName={getLeaderName(l.created_by)} stageName={stage.nome} currentUserId={currentUserId} canEditOwn={canEditOwn} canCreate={canCreate} />
         ))}
         {leads.length === 0 && (
           <div className="text-center py-6 text-muted-foreground/50 text-xs">Arraste leads para cá</div>
         )}
       </div>
-      <button onClick={() => onAddLead(stage.id)} className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border-t border-border/20">
-        <Plus className="w-3.5 h-3.5" /> Novo lead
-      </button>
+      {canCreate && (
+        <button onClick={() => onAddLead(stage.id)} className="flex items-center gap-1.5 px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors border-t border-border/20">
+          <Plus className="w-3.5 h-3.5" /> Novo lead
+        </button>
+      )}
       {/* Column total */}
       <div className="px-3 py-2 border-t border-border/20 bg-muted/30 rounded-b-xl">
         <div className="flex items-center justify-between">
@@ -194,10 +206,12 @@ export function KanbanBoard() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: role } = useUserRole();
   const { data: profile } = useProfile();
   const { data: allProfiles = [] } = useTeamProfiles();
-  const isAdmin = role === 'administrador';
+  const { data: myPermissions } = useMyPermissions();
+  const isAdmin = hasPermission(myPermissions, 'crm', 'edit_leads');
+  const canEditOwn = hasPermission(myPermissions, 'crm', 'edit');
+  const canCreate = hasPermission(myPermissions, 'crm', 'create');
   const { data: stages = [], isLoading: stagesLoading } = useLeadStages();
   const { data: leads = [], isLoading: leadsLoading } = useLeads();
   const { data: modalidadesList = [] } = useModalidades();
@@ -340,8 +354,12 @@ export function KanbanBoard() {
   };
 
   const openEdit = (l: Lead) => {
-    const canEdit = isAdmin || l.created_by === user?.id;
+    const isOwner = l.created_by === user?.id;
+    const canEdit = isAdmin || (canEditOwn && isOwner);
     if (!canEdit) {
+      if (!canEditOwn && !isAdmin) {
+        toast.error('Privilégios insuficientes para editar leads.'); return;
+      }
       setApprovalDialog({ type: 'edit', lead: l });
       setApprovalJustificativa('');
       return;
@@ -399,8 +417,12 @@ export function KanbanBoard() {
   };
 
   const requestDelete = (l: Lead) => {
-    const canDel = isAdmin || l.created_by === user?.id;
+    const isOwner = l.created_by === user?.id;
+    const canDel = isAdmin || (canEditOwn && isOwner);
     if (!canDel) {
+      if (!isAdmin && !canEditOwn) {
+        toast.error('Privilégios insuficientes para excluir leads.'); return;
+      }
       setApprovalDialog({ type: 'delete', lead: l });
       setApprovalJustificativa('');
       return;
@@ -601,37 +623,32 @@ export function KanbanBoard() {
           <h2 className="text-lg font-bold font-display text-foreground">CRM — Board de Leads</h2>
           <p className="text-xs text-muted-foreground">Arraste leads entre colunas para atualizar o status</p>
         </div>
-        <Button onClick={() => openAdd()} className="gap-1.5 font-semibold shadow-brand" size="sm">
-          <Plus className="w-4 h-4" /> Novo Lead
-        </Button>
+        {canCreate && (
+          <Button onClick={() => openAdd()} className="gap-1.5 font-semibold shadow-brand" size="sm">
+            <Plus className="w-4 h-4" /> Novo Lead
+          </Button>
+        )}
       </div>
 
-      {!isAdmin && (
-        <div className="bg-accent/50 rounded-xl p-3 border border-border/30 flex items-start gap-2">
-          <Shield className="w-4 h-4 text-primary mt-0.5 shrink-0" />
-          <p className="text-xs text-muted-foreground">
-            Você pode criar, editar e excluir <strong>seus próprios leads</strong>. Para editar leads de outros consultores, envie uma solicitação ao supervisor.
-          </p>
-        </div>
-      )}
-
-      {/* Board */}
-      <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 min-h-[calc(100vh-16rem)] kanban-scroll">
+      <div className="flex gap-4 overflow-x-auto pb-6 pt-2 hide-scrollbar snap-x">
         {stages.map(stage => (
-          <KanbanColumn
-            key={stage.id}
-            stage={stage}
-            leads={leadsByStage.map[stage.id] || []}
-            isAdmin={isAdmin}
-            onEdit={openEdit}
-            onDelete={requestDelete}
-            onDragStart={handleDragStart}
-            onDrop={stageId => handleDrop(stageId)}
-            onAddLead={stageId => openAdd(stageId)}
-            onAssume={handleAssumeLead}
-            getLeaderName={getLeaderName}
-            currentUserId={user?.id}
-          />
+          <div key={stage.id} className="snap-start shrink-0">
+            <KanbanColumn
+              stage={stage}
+              leads={leadsByStage.map[stage.id] || []}
+              isAdmin={isAdmin}
+              onEdit={openEdit}
+              onDelete={requestDelete}
+              onDragStart={handleDragStart}
+              onDrop={handleDrop}
+              onAddLead={openAdd}
+              onAssume={handleAssumeLead}
+              getLeaderName={getLeaderName}
+              currentUserId={user?.id}
+              canEditOwn={canEditOwn}
+              canCreate={canCreate}
+            />
+          </div>
         ))}
       </div>
 
@@ -1026,6 +1043,6 @@ export function KanbanBoard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </div >
   );
 }

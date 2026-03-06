@@ -17,29 +17,26 @@ import { useMyPermissions, hasPermission, PATH_TO_RESOURCE } from '@/hooks/useSe
 import { usePendingApprovals, useMyPendingActions } from '@/hooks/usePendingCounts';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 
-type NavRole = 'all' | 'admin' | 'supervisor_up';
-
 interface NavItem {
   to: string;
   icon: any;
   label: string;
-  access: NavRole;
   profileToggle?: 'progresso_desabilitado' | 'atividades_desabilitadas' | 'acoes_desabilitadas';
 }
 
 const navItems: NavItem[] = [
-  { to: '/', icon: LayoutDashboard, label: 'Meu Progresso', access: 'all', profileToggle: 'progresso_desabilitado' },
-  { to: '/comercial', icon: Briefcase, label: 'Registro de Atividades', access: 'all', profileToggle: 'atividades_desabilitadas' },
-  { to: '/minhas-acoes', icon: ClipboardList, label: 'Minhas Ações', access: 'all', profileToggle: 'acoes_desabilitadas' },
-  { to: '/crm', icon: Kanban, label: 'CRM', access: 'all' },
-  { to: '/notificacoes', icon: Bell, label: 'Notificações', access: 'all' },
-  { to: '/aprovacoes', icon: CheckSquare, label: 'Aprovações', access: 'supervisor_up' },
-  { to: '/gestao', icon: BarChart3, label: 'Dashboard', access: 'supervisor_up' },
-  { to: '/inventario', icon: Archive, label: 'Inventário', access: 'supervisor_up' },
-  { to: '/equipe', icon: Users, label: 'Equipe', access: 'all' },
-  { to: '/admin/usuarios', icon: UserCog, label: 'Usuários', access: 'admin' },
-  { to: '/admin/logs', icon: Activity, label: 'Logs de Auditoria', access: 'supervisor_up' },
-  { to: '/admin/configuracoes', icon: Settings, label: 'Configurações', access: 'admin' },
+  { to: '/', icon: LayoutDashboard, label: 'Meu Progresso', profileToggle: 'progresso_desabilitado' },
+  { to: '/comercial', icon: Briefcase, label: 'Registro de Atividades', profileToggle: 'atividades_desabilitadas' },
+  { to: '/minhas-acoes', icon: ClipboardList, label: 'Minhas Ações', profileToggle: 'acoes_desabilitadas' },
+  { to: '/crm', icon: Kanban, label: 'CRM' },
+  { to: '/notificacoes', icon: Bell, label: 'Notificações' },
+  { to: '/aprovacoes', icon: CheckSquare, label: 'Aprovações' },
+  { to: '/gestao', icon: BarChart3, label: 'Dashboard' },
+  { to: '/inventario', icon: Archive, label: 'Inventário' },
+  { to: '/equipe', icon: Users, label: 'Equipe' },
+  { to: '/admin/usuarios', icon: UserCog, label: 'Usuários' },
+  { to: '/admin/logs', icon: Activity, label: 'Logs de Auditoria' },
+  { to: '/admin/configuracoes', icon: Settings, label: 'Configurações' },
 ];
 
 // NAV_TAB_KEYS replaced by PATH_TO_RESOURCE from useSecurityProfiles
@@ -70,24 +67,15 @@ export function AppSidebar() {
   const percentMeta = 0;
   const patente = getPatente(percentMeta);
   const frase = getFraseMotivacional(percentMeta);
-  const isAdmin = role === 'administrador';
-  const isSupervisorUp = role === 'supervisor' || role === 'gerente' || role === 'administrador';
-  const isGerenteOrDirector = role === 'gerente' || role === 'administrador';
   const borderClass = patente?.borderClass ?? 'border-sidebar-border';
 
   const canAccess = (item: NavItem) => {
-    // If user has a security profile assigned, use it for all permission checks
-    if (myPermissions) {
-      const resource = PATH_TO_RESOURCE[item.to];
-      if (resource) {
-        return hasPermission(myPermissions, resource, 'view');
-      }
-      return true;
+    // Rely completely on security profile matrix
+    const resource = PATH_TO_RESOURCE[item.to];
+    if (resource) {
+      return hasPermission(myPermissions, resource, 'view');
     }
-    // Fallback: old role-based checks (no security profile assigned)
-    if (item.access === 'admin' && !isAdmin) return false;
-    if (item.access === 'supervisor_up' && !isSupervisorUp) return false;
-    return true;
+    return false;
   };
 
   const filteredItems = useMemo(() => {
@@ -97,7 +85,7 @@ export function AppSidebar() {
       return sorted.filter(item => item.label.toLowerCase().includes(search.toLowerCase()));
     }
     return sorted;
-  }, [search, role, profile, isAdmin, isSupervisorUp, myPermissions, sortItems]);
+  }, [search, profile, myPermissions, sortItems]);
 
   const handleDragStart = (path: string) => {
     setDragItem(path);

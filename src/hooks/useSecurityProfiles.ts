@@ -226,7 +226,7 @@ export function hasPermission(
     resource: string,
     action: string = 'view'
 ): boolean {
-    if (!permissions) return true; // backward compat
+    if (!permissions || permissions.length === 0) return false;
     // Check parent first (e.g. comercial for comercial.atividades)
     const parts = resource.split('.');
     if (parts.length > 1) {

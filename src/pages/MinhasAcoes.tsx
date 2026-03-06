@@ -19,6 +19,7 @@ import {
   CheckCircle2, Clock, XCircle, Undo2, AlertCircle, Send, GitCompareArrows
 } from 'lucide-react';
 import { maskCurrency, unmaskCurrency, formatCurrencyDisplay } from '@/lib/masks';
+import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 
 const statusConfig: Record<string, { label: string; icon: React.ElementType; className: string }> = {
   pendente: { label: 'Pendente', icon: Clock, className: 'bg-warning/10 text-warning border-warning/20' },
@@ -36,6 +37,17 @@ const MinhasAcoes = () => {
   const { data: atividades = [], isLoading: loadingAtiv } = useMyAtividades();
   const { data: vendas = [], isLoading: loadingVendas } = useMyVendas();
   const submitCR = useSubmitCorrectionRequest();
+
+  const { data: myPermissions } = useMyPermissions();
+  const canEditPendentes = hasPermission(myPermissions, 'minhas_acoes.pendentes', 'edit');
+  const canEditAprovados = hasPermission(myPermissions, 'minhas_acoes.aprovados', 'edit');
+  const canEditDevolvidos = hasPermission(myPermissions, 'minhas_acoes.devolvidos', 'edit');
+  const hasEditPerm = (status: string) => {
+    if (['pendente', 'analise'].includes(status)) return canEditPendentes;
+    if (status === 'aprovado') return canEditAprovados;
+    if (status === 'devolvido') return canEditDevolvidos;
+    return false;
+  };
 
   // Fetch user's own correction requests
   const { data: myCorrectionRequests = [] } = useQuery({
@@ -332,7 +344,7 @@ const MinhasAcoes = () => {
             </div>
           </div>
           <div className="flex gap-1.5 shrink-0">
-            {isDevolvido && (
+            {isDevolvido && hasEditPerm(ativStatus) && (
               <>
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditAtiv(a)}>
                   <Pencil className="w-3.5 h-3.5" />
@@ -342,7 +354,7 @@ const MinhasAcoes = () => {
                 </Button>
               </>
             )}
-            {showRequestBtn && (
+            {showRequestBtn && hasEditPerm(ativStatus) && (
               <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => openEditAtiv(a)}>
                 <Send className="w-3 h-3" /> Solicitar Alteração
               </Button>
@@ -393,7 +405,7 @@ const MinhasAcoes = () => {
                 </Button>
               </>
             )}
-            {showRequestBtn && (
+            {showRequestBtn && hasEditPerm(v.status) && (
               <Button variant="outline" size="sm" className="gap-1 text-xs" onClick={() => openEditVenda(v)}>
                 <Send className="w-3 h-3" /> Solicitar Alteração
               </Button>

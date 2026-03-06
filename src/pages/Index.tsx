@@ -17,8 +17,6 @@ const Index = () => {
   const { data: atividades, isLoading: loadingAtiv } = useMyAtividades();
   const { data: vendas, isLoading: loadingVendas } = useMyVendas();
 
-  const isAdmin = role === 'administrador';
-
   const stats = useMemo(() => {
     if (!atividades) return { ligacoes: 0, mensagens: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0, follow_up: 0 };
     return atividades.reduce((acc, a) => ({
