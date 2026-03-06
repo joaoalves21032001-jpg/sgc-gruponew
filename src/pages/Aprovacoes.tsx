@@ -943,7 +943,7 @@ const Aprovacoes = () => {
           <TabsTrigger value="cotacoes" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
             <MessageSquareQuote className="w-4 h-4" /> Cotações ({filteredCotacoes.length})
           </TabsTrigger>
-          {isAdmin && (
+          {isSuperAdmin && (
             <TabsTrigger value="acesso" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
               <UserPlus className="w-4 h-4" /> Acesso ({filteredAccess.length})
             </TabsTrigger>
@@ -1181,7 +1181,7 @@ const Aprovacoes = () => {
         </TabsContent>
 
         {/* ── Acesso Tab (Supervisor+) ── */}
-        {isAdmin && (
+        {isSuperAdmin && (
           <TabsContent value="acesso">
             <div className="grid gap-3">
               {loadingAccess ? (
