@@ -66,6 +66,7 @@ const statusColors: Record<string, string> = {
   analise: 'bg-primary/10 text-primary border-primary/20',
   pendente: 'bg-warning/10 text-warning border-warning/20',
   aprovado: 'bg-success/10 text-success border-success/20',
+  resolvido: 'bg-success/10 text-success border-success/20',
   recusado: 'bg-destructive/10 text-destructive border-destructive/20',
   devolvido: 'bg-primary/10 text-primary border-primary/20',
   rejeitado: 'bg-destructive/10 text-destructive border-destructive/20',
@@ -73,8 +74,8 @@ const statusColors: Record<string, string> = {
 
 const statusLabel: Record<string, string> = {
   analise: 'Em Análise', pendente: 'Pendente', aprovado: 'Aprovado',
-  recusado: 'Recusado', devolvido: 'Devolvido', rejeitado: 'Rejeitado',
-  solicitado: 'Solicitado',
+  resolvido: 'Aprovado', recusado: 'Recusado', devolvido: 'Devolvido',
+  rejeitado: 'Rejeitado', solicitado: 'Solicitado',
 };
 
 /* ─── Hooks ─── */
