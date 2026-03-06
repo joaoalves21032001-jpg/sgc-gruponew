@@ -8,6 +8,7 @@ import { useModalidades, useCompanhias, useProdutos } from '@/hooks/useInventari
 import { useUserRole, useProfile, useTeamProfiles } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLogAction } from '@/hooks/useAuditLog';
+import { useSubmitCorrectionRequest } from '@/hooks/useCorrectionRequests';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -207,6 +208,7 @@ export function KanbanBoard() {
   const deleteMut = useDeleteLead();
   const moveMut = useMoveLeadToStage();
   const logAction = useLogAction();
+  const submitCR = useSubmitCorrectionRequest();
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [assignedTo, setAssignedTo] = useState<string>('');
 
@@ -539,14 +541,22 @@ export function KanbanBoard() {
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) throw new Error('Não autenticado');
-      const { error } = await supabase.from('correction_requests').insert({
-        user_id: currentUser.id, tipo: 'lead',
-        registro_id: approvalDialog.lead.id, motivo: `[${approvalDialog.type === 'edit' ? 'Edição' : 'Exclusão'}] ${approvalJustificativa.trim()}`,
-      } as any);
-      if (error) throw error;
-      toast.success('Solicitação enviada ao supervisor!');
+
+      const payload = await submitCR.mutateAsync({
+        registroId: approvalDialog.lead.id,
+        tipo: 'lead',
+        statusAtual: (approvalDialog.lead as any).status || 'pendente',
+        justificativa: `[${approvalDialog.type === 'edit' ? 'Edição' : 'Exclusão'}] ${approvalJustificativa.trim()}`,
+        alteracoesPropostas: [], // Lead permission request has no specific field diff
+      });
+
+      if (!payload.autoApproved) {
+        toast.success('Solicitação enviada ao supervisor!');
+      }
       setApprovalDialog(null);
-    } catch (e: any) { toast.error(e.message); }
+    } catch (e: any) {
+      // Error handled by hook
+    }
     finally { setSendingApproval(false); }
   };
 

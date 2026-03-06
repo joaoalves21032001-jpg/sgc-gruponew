@@ -30,9 +30,9 @@ import {
     useProfileUsers,
     useMyPermissions,
     hasPermission,
-    RESOURCES,
-    ACTIONS,
-    type ResourceDef,
+    MODULES_DEF,
+    type ActionDef,
+    type ResourceGroupDef,
 } from '@/hooks/useSecurityProfiles';
 import {
     useNotificationRules,
@@ -193,31 +193,12 @@ const Configuracoes = () => {
         if (!selectedProfileId) return;
         const existing = profilePerms.find(p => p.resource === resource && p.action === action);
         const newAllowed = !(existing?.allowed ?? false);
-
-        // If toggling a parent resource, also toggle all children
-        const resDef = RESOURCES.find(r => r.key === resource);
-        if (resDef?.children && action === 'view') {
-            // Toggle parent + all children
-            togglePerm.mutate({ profileId: selectedProfileId, resource, action, allowed: newAllowed });
-            for (const child of resDef.children) {
-                togglePerm.mutate({ profileId: selectedProfileId, resource: child.key, action, allowed: newAllowed });
-            }
-        } else {
-            togglePerm.mutate({ profileId: selectedProfileId, resource, action, allowed: newAllowed });
-        }
+        togglePerm.mutate({ profileId: selectedProfileId, resource, action, allowed: newAllowed });
     };
 
     const isPermAllowed = (resource: string, action: string): boolean => {
         const perm = profilePerms.find(p => p.resource === resource && p.action === action);
         return perm?.allowed ?? false;
-    };
-
-    const toggleExpanded = (key: string) => {
-        setExpandedResources(prev => {
-            const next = new Set(prev);
-            if (next.has(key)) next.delete(key); else next.add(key);
-            return next;
-        });
     };
 
     const handleAssignUser = (userId: string) => {
@@ -258,40 +239,6 @@ const Configuracoes = () => {
     }
 
     const unassignedUsers = profiles.filter(p => !p.disabled && !profileUsers.some(u => (u as any).id === p.id));
-
-    // Render permission row (parent or child)
-    const renderPermRow = (res: { key: string; label: string }, isChild: boolean = false) => {
-        return (
-            <tr key={res.key} className={`border-b border-border/10 ${isChild ? 'bg-muted/10' : 'bg-muted/20'}`}>
-                <td className={`py-2.5 px-3 text-sm text-foreground ${isChild ? 'pl-10 text-[13px]' : 'font-semibold'}`}>
-                    {isChild && <span className="text-muted-foreground/40 mr-1.5">└</span>}
-                    {res.label}
-                </td>
-                {ACTIONS.map(act => {
-                    const allowed = isPermAllowed(res.key, act.key);
-                    // For children, if parent view is off, disable
-                    const parentKey = res.key.split('.')[0];
-                    const parentOff = isChild && !isPermAllowed(parentKey, 'view');
-                    return (
-                        <td key={act.key} className="text-center py-2.5 px-3">
-                            <button
-                                onClick={() => !parentOff && handleTogglePerm(res.key, act.key)}
-                                disabled={parentOff}
-                                className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${parentOff
-                                    ? 'bg-muted/20 border-border/10 text-muted-foreground/20 cursor-not-allowed'
-                                    : allowed
-                                        ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
-                                        : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
-                                    }`}
-                            >
-                                {allowed && !parentOff ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                            </button>
-                        </td>
-                    );
-                })}
-            </tr>
-        );
-    };
 
     return (
         <div className="space-y-6 animate-fade-in-up">
@@ -435,61 +382,51 @@ const Configuracoes = () => {
                                     Defina quais guias e subguias este perfil pode visualizar e editar. Clique na seta para expandir subguias.
                                 </p>
 
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-sm border-collapse">
-                                        <thead>
-                                            <tr className="border-b border-border/30">
-                                                <th className="text-left py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[250px]">Recurso</th>
-                                                {ACTIONS.map(a => (
-                                                    <th key={a.key} className="text-center py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[100px]">{a.label}</th>
-                                                ))}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {RESOURCES.map((res) => {
-                                                const hasChildren = !!(res.children && res.children.length > 0);
-                                                const isExpanded = expandedResources.has(res.key);
-                                                return (
-                                                    <>
-                                                        <tr key={res.key} className="border-b border-border/10 bg-muted/20 hover:bg-muted/30 transition-colors">
-                                                            <td className="py-2.5 px-3 text-sm font-semibold text-foreground">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    {hasChildren ? (
-                                                                        <button
-                                                                            onClick={() => toggleExpanded(res.key)}
-                                                                            className="p-0.5 rounded hover:bg-muted/50 transition-colors"
-                                                                        >
-                                                                            <ChevronDown className={`w-4 h-4 text-muted-foreground transition-transform ${isExpanded ? '' : '-rotate-90'}`} />
-                                                                        </button>
-                                                                    ) : (
-                                                                        <span className="w-5" />
-                                                                    )}
-                                                                    {res.label}
-                                                                </div>
-                                                            </td>
-                                                            {ACTIONS.map(act => {
-                                                                const allowed = isPermAllowed(res.key, act.key);
-                                                                return (
-                                                                    <td key={act.key} className="text-center py-2.5 px-3">
-                                                                        <button
-                                                                            onClick={() => handleTogglePerm(res.key, act.key)}
-                                                                            className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${allowed
-                                                                                ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
-                                                                                : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
-                                                                                }`}
-                                                                        >
-                                                                            {allowed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
-                                                                        </button>
-                                                                    </td>
-                                                                );
-                                                            })}
+                                <div className="space-y-6">
+                                    {MODULES_DEF.map((group) => (
+                                        <div key={group.groupLabel} className="space-y-2">
+                                            <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
+                                                {group.groupLabel}
+                                            </h5>
+                                            <div className="overflow-x-auto rounded-lg border border-border/30">
+                                                <table className="w-full text-sm border-collapse bg-card">
+                                                    <thead>
+                                                        <tr className="border-b border-border/30 bg-muted/20">
+                                                            <th className="text-left py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[250px]">Recurso</th>
+                                                            {group.resources[0].actions.map(a => (
+                                                                <th key={a.key} className="text-center py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[100px]">{a.label}</th>
+                                                            ))}
                                                         </tr>
-                                                        {hasChildren && isExpanded && res.children!.map(child => renderPermRow(child, true))}
-                                                    </>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
+                                                    </thead>
+                                                    <tbody>
+                                                        {group.resources.map((res) => (
+                                                            <tr key={res.key} className="border-b border-border/10 hover:bg-muted/10 transition-colors">
+                                                                <td className="py-2.5 px-3 text-sm font-semibold text-foreground">
+                                                                    {res.label}
+                                                                </td>
+                                                                {res.actions.map(act => {
+                                                                    const allowed = isPermAllowed(res.key, act.key);
+                                                                    return (
+                                                                        <td key={act.key} className="text-center py-2.5 px-3">
+                                                                            <button
+                                                                                onClick={() => handleTogglePerm(res.key, act.key)}
+                                                                                className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${allowed
+                                                                                    ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
+                                                                                    : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
+                                                                                    }`}
+                                                                            >
+                                                                                {allowed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                                                                            </button>
+                                                                        </td>
+                                                                    );
+                                                                })}
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
 

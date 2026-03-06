@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
+import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
@@ -249,6 +249,11 @@ function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, se
 const Aprovacoes = () => {
   const { data: role } = useUserRole();
   const { data: profiles = [] } = useTeamProfiles();
+  const { user } = useAuth(); // Import user for hierarchy matching
+
+  // Helper flags
+  const isSuperAdmin = role === 'administrador'; // Or check a specific admin flag
+
   const { data: vendas = [], isLoading: loadingVendas } = useTeamVendas();
   const { data: atividades = [], isLoading: loadingAtiv } = useTeamAtividades();
   const { data: accessRequests = [], isLoading: loadingAccess } = useAccessRequests();
@@ -305,7 +310,7 @@ const Aprovacoes = () => {
   const [rejectCRReason, setRejectCRReason] = useState('');
   const [savingCR, setSavingCR] = useState(false);
 
-  // MFA Reset Requests — fully defensive: if hook fails at any level, default to empty
+  // MFA Reset Requests — fully defensive
   const mfaQuery = useMfaResetRequests();
   const mfaResetReqs = mfaQuery?.data ?? [];
   const loadingMfaReset = mfaQuery?.isLoading ?? false;
@@ -313,10 +318,16 @@ const Aprovacoes = () => {
   const [rejectMfaReason, setRejectMfaReason] = useState('');
   const [savingMfaReset, setSavingMfaReset] = useState(false);
 
-  const isAdmin = role === 'administrador';
+  // Check base permission (has ANY permission in aprovacoes.*)
+  const canViewAnyAprovacao =
+    hasPermission(myPermissions, 'aprovacoes.atividades', 'analyze') ||
+    hasPermission(myPermissions, 'aprovacoes.vendas', 'analyze') ||
+    hasPermission(myPermissions, 'aprovacoes.cotacoes', 'analyze') ||
+    hasPermission(myPermissions, 'aprovacoes.alteracoes', 'analyze') ||
+    hasPermission(myPermissions, 'aprovacoes.mfa', 'approve') ||
+    isSuperAdmin;
 
-  // Use security profile permissions as the source of truth for access control
-  if (!hasPermission(myPermissions, 'aprovacoes', 'view')) {
+  if (!canViewAnyAprovacao) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center space-y-2">
@@ -327,6 +338,20 @@ const Aprovacoes = () => {
       </div>
     );
   }
+
+  // Hierarchy Validation Helper
+  const isDirectSuperior = (requesterId: string) => {
+    if (isSuperAdmin) return true; // Admins see everything
+    if (!user) return false;
+    if (requesterId === user.id) return false; // Cannot approve own requests
+
+    const p = profiles.find(x => x.id === requesterId);
+    if (!p) {
+      return false;
+    }
+    // Is current user the direct supervisor OR direct manager of the requester?
+    return p.supervisor_id === user.id || p.gerente_id === user.id;
+  };
 
   const getConsultorName = (userId: string) => {
     const p = profiles.find(c => c.id === userId);
@@ -340,6 +365,7 @@ const Aprovacoes = () => {
   );
 
   const filteredVendas = vendas.filter(v => {
+    if (!isDirectSuperior(v.user_id)) return false; // Hierarchy Check
     if (pendingCRRegistroIds.has(v.id)) return false; // exclude records with pending CR
     const matchesSearch = !search || v.nome_titular.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = filterStatus === 'todos' || v.status === filterStatus;
@@ -349,6 +375,7 @@ const Aprovacoes = () => {
   });
 
   const filteredAtividades = atividades.filter(a => {
+    if (!isDirectSuperior(a.user_id)) return false; // Hierarchy Check
     if (pendingCRRegistroIds.has(a.id)) return false; // exclude records with pending CR
     const name = getConsultorName(a.user_id);
     const matchesSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || a.data.includes(search);
@@ -360,6 +387,10 @@ const Aprovacoes = () => {
   });
 
   const filteredAccess = accessRequests.filter(r => {
+    if (!isSuperAdmin) {
+      // For access requests, they might not have a profile, but they map their intended supervisor/gerente in the request
+      if (r.supervisor_id !== user?.id && r.gerente_id !== user?.id) return false;
+    }
     const matchesSearch = !search || r.nome.toLowerCase().includes(search.toLowerCase()) || r.email.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = filterStatus === 'todos' || r.status === filterStatus;
     const matchesDate = !filterDate || r.created_at.startsWith(filterDate);
@@ -367,6 +398,7 @@ const Aprovacoes = () => {
   });
 
   const filteredCotacoes = cotacoes.filter(c => {
+    // Exception: Cotações depend purely on matrix permission ('aprovacoes.cotacoes'), no hierarchy required!
     const matchesSearch = !search || c.nome.toLowerCase().includes(search.toLowerCase()) || (c.contato && c.contato.includes(search));
     const matchesStatus = filterStatus === 'todos' || c.status === filterStatus;
     const matchesDate = !filterDate || c.created_at.startsWith(filterDate);
@@ -847,6 +879,7 @@ const Aprovacoes = () => {
   // Filtered correction requests
   const filteredCR = useMemo(() => {
     return correctionRequests.filter(cr => {
+      if (!isDirectSuperior(cr.user_id)) return false; // Hierarchy check
       if (filterStatus !== 'todos' && cr.status !== filterStatus) return false;
       if (filterConsultor !== 'todos' && cr.user_id !== filterConsultor) return false;
       if (search) {
@@ -856,6 +889,8 @@ const Aprovacoes = () => {
       return true;
     });
   }, [correctionRequests, filterStatus, filterConsultor, search, getConsultorName]);
+
+  const filteredMfa = mfaResetReqs.filter(r => isDirectSuperior(r.user_id));
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -916,7 +951,7 @@ const Aprovacoes = () => {
             <GitCompareArrows className="w-4 h-4" /> Alterações ({filteredCR.length})
           </TabsTrigger>
           <TabsTrigger value="mfa" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
-            <KeyRound className="w-4 h-4" /> MFA ({mfaResetReqs.filter(r => r.status === 'pendente').length})
+            <KeyRound className="w-4 h-4" /> MFA ({filteredMfa.filter(r => r.status === 'pendente').length})
           </TabsTrigger>
         </TabsList>
 
@@ -1294,13 +1329,13 @@ const Aprovacoes = () => {
           <div className="grid gap-3">
             {loadingMfaReset ? (
               <div className="text-center py-12 text-muted-foreground">Carregando...</div>
-            ) : mfaResetReqs.length === 0 ? (
+            ) : filteredMfa.length === 0 ? (
               <div className="text-center py-12 text-muted-foreground">
                 <KeyRound className="w-10 h-10 mx-auto mb-2 opacity-30" />
                 Nenhuma solicitação de reset MFA.
               </div>
             ) : (
-              mfaResetReqs.map((req) => {
+              filteredMfa.map((req) => {
                 const sc = req.status === 'pendente' ? statusColors.pendente : req.status === 'aprovado' ? statusColors.aprovado : statusColors.devolvido;
                 return (
                   <div key={req.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">

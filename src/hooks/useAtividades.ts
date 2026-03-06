@@ -75,7 +75,7 @@ export function useCreateAtividade() {
       // Check if user is gerente or above for auto-approval
       const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).maybeSingle();
       const userRole = roleData?.role;
-      const isAutoApprove = userRole === 'gerente';
+      const isAutoApprove = ['gerente', 'diretor', 'administrador'].includes(userRole || '');
 
       const payload = {
         ...atividade,

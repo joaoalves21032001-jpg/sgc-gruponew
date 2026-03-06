@@ -28,58 +28,101 @@ export interface ResourceDef {
     children?: { key: string; label: string }[];
 }
 
-export const RESOURCES: ResourceDef[] = [
-    { key: 'progresso', label: 'Meu Progresso' },
-    {
-        key: 'comercial', label: 'Registro de Atividades',
-        children: [
-            { key: 'comercial.atividades', label: 'Atividades' },
-            { key: 'comercial.nova_venda', label: 'Nova Venda' },
-        ],
-    },
-    {
-        key: 'minhas_acoes', label: 'Minhas Ações',
-        children: [
-            { key: 'minhas_acoes.pendentes', label: 'Pendentes' },
-            { key: 'minhas_acoes.aprovados', label: 'Aprovados' },
-            { key: 'minhas_acoes.devolvidos', label: 'Devolvidos' },
-            { key: 'minhas_acoes.solicitados', label: 'Solicitados' },
-        ],
-    },
-    { key: 'crm', label: 'CRM' },
-    { key: 'notificacoes', label: 'Notificações' },
-    {
-        key: 'aprovacoes', label: 'Aprovações',
-        children: [
-            { key: 'aprovacoes.atividades', label: 'Atividades' },
-            { key: 'aprovacoes.vendas', label: 'Vendas' },
-            { key: 'aprovacoes.cotacoes', label: 'Cotações' },
-            { key: 'aprovacoes.acesso', label: 'Acesso' },
-            { key: 'aprovacoes.alteracoes', label: 'Alterações' },
-            { key: 'aprovacoes.mfa', label: 'MFA' },
-        ],
-    },
-    { key: 'dashboard', label: 'Dashboard' },
-    {
-        key: 'inventario', label: 'Inventário',
-        children: [
-            { key: 'inventario.companhias', label: 'Companhias' },
-            { key: 'inventario.produtos', label: 'Produtos' },
-            { key: 'inventario.modalidades', label: 'Modalidades' },
-            { key: 'inventario.leads', label: 'Leads' },
-        ],
-    },
-    { key: 'equipe', label: 'Equipe' },
-    { key: 'usuarios', label: 'Usuários' },
-    { key: 'logs_auditoria', label: 'Logs de Auditoria' },
-    { key: 'configuracoes', label: 'Configurações' },
+export interface ActionDef {
+    key: string;
+    label: string;
+}
+
+export interface ResourceGroupDef {
+    groupLabel: string;
+    resources: {
+        key: string;
+        label: string;
+        actions: ActionDef[];
+    }[];
+}
+
+const COMMON_ACTIONS: ActionDef[] = [
+    { key: 'view', label: 'Visualizador' },
+    { key: 'edit', label: 'Editor' }
 ];
 
-export const ACTIONS = [
-    { key: 'view', label: 'Visualizar' },
+const CRM_ACTIONS: ActionDef[] = [
+    { key: 'view', label: 'Visualizador' },
+    { key: 'edit', label: 'Editor' },
+    { key: 'create', label: 'Criador' },
+    { key: 'edit_leads', label: 'Editor de Leads' }
+];
+
+const APROVA_ACTIONS_STD: ActionDef[] = [
+    { key: 'analyze', label: 'Analisar' },
+    { key: 'approve', label: 'Aprovar' },
+    { key: 'return', label: 'Devolver' },
     { key: 'edit', label: 'Editar' },
-    { key: 'delete', label: 'Excluir' },
-] as const;
+    { key: 'delete', label: 'Excluir' }
+];
+
+const APROVA_ACTIONS_REJECT: ActionDef[] = [
+    { key: 'analyze', label: 'Analisar' },
+    { key: 'approve', label: 'Aprovar' },
+    { key: 'reject', label: 'Rejeitar' },
+    { key: 'edit', label: 'Editar' },
+    { key: 'delete', label: 'Excluir' }
+];
+
+const APROVA_ACTIONS_MFA: ActionDef[] = [
+    { key: 'approve', label: 'Aprovar' },
+    { key: 'reject', label: 'Rejeitar' },
+    { key: 'return', label: 'Devolver' },
+    { key: 'edit', label: 'Editar' },
+    { key: 'delete', label: 'Excluir' }
+];
+
+export const MODULES_DEF: ResourceGroupDef[] = [
+    {
+        groupLabel: 'Módulos de Gestão, Sistema e Dashboard',
+        resources: [
+            { key: 'progresso', label: 'Meu Progresso', actions: COMMON_ACTIONS },
+            { key: 'dashboard', label: 'Dashboard', actions: COMMON_ACTIONS },
+            { key: 'notificacoes', label: 'Notificações', actions: COMMON_ACTIONS },
+            { key: 'usuarios', label: 'Usuários', actions: COMMON_ACTIONS },
+            { key: 'equipe', label: 'Equipe', actions: COMMON_ACTIONS },
+            { key: 'logs_auditoria', label: 'Logs de Auditoria', actions: COMMON_ACTIONS },
+            { key: 'configuracoes', label: 'Configurações do Sistema', actions: COMMON_ACTIONS },
+        ]
+    },
+    {
+        groupLabel: 'Módulos de Operação e CRM',
+        resources: [
+            { key: 'comercial.atividades', label: 'Registro de Atividades > Subguia Atividades', actions: COMMON_ACTIONS },
+            { key: 'comercial.vendas', label: 'Registro de Atividades > Subguia Vendas', actions: COMMON_ACTIONS },
+            { key: 'minhas_acoes.pendentes', label: 'Minhas Ações > Subguia Pendentes', actions: COMMON_ACTIONS },
+            { key: 'minhas_acoes.aprovados', label: 'Minhas Ações > Subguia Aprovados', actions: COMMON_ACTIONS },
+            { key: 'minhas_acoes.devolvidos', label: 'Minhas Ações > Subguia Devolvidos', actions: COMMON_ACTIONS },
+            { key: 'minhas_acoes.alteracoes', label: 'Minhas Ações > Subguia Alterações', actions: COMMON_ACTIONS },
+            { key: 'crm', label: 'CRM (Geral)', actions: CRM_ACTIONS },
+            { key: 'inventario.leads', label: 'Inventário > Subguia Leads', actions: CRM_ACTIONS },
+        ]
+    },
+    {
+        groupLabel: 'Módulos de Inventário (Outros)',
+        resources: [
+            { key: 'inventario.companhias', label: 'Inventário > Subguia Companhias', actions: COMMON_ACTIONS },
+            { key: 'inventario.produtos', label: 'Inventário > Subguia Produtos', actions: COMMON_ACTIONS },
+            { key: 'inventario.modalidades', label: 'Inventário > Subguia Modalidades', actions: COMMON_ACTIONS },
+        ]
+    },
+    {
+        groupLabel: 'Módulo de Aprovações (Colunas de Ação)',
+        resources: [
+            { key: 'aprovacoes.atividades', label: 'Aprovações > Subguia Atividades', actions: APROVA_ACTIONS_STD },
+            { key: 'aprovacoes.vendas', label: 'Aprovações > Subguia Vendas', actions: APROVA_ACTIONS_STD },
+            { key: 'aprovacoes.cotacoes', label: 'Aprovações > Subguia Cotações', actions: APROVA_ACTIONS_REJECT },
+            { key: 'aprovacoes.alteracoes', label: 'Aprovações > Subguia Alterações', actions: APROVA_ACTIONS_REJECT },
+            { key: 'aprovacoes.mfa', label: 'Aprovações > Subguia MFA', actions: APROVA_ACTIONS_MFA },
+        ]
+    }
+];
 
 // Map sidebar paths → resource keys
 export const PATH_TO_RESOURCE: Record<string, string> = {
@@ -97,13 +140,11 @@ export const PATH_TO_RESOURCE: Record<string, string> = {
     '/admin/configuracoes': 'configuracoes',
 };
 
-// Flatten all resource keys for iteration
 export function getAllResourceKeys(): string[] {
     const keys: string[] = [];
-    for (const r of RESOURCES) {
-        keys.push(r.key);
-        if (r.children) {
-            for (const c of r.children) keys.push(c.key);
+    for (const group of MODULES_DEF) {
+        for (const res of group.resources) {
+            keys.push(res.key);
         }
     }
     return keys;

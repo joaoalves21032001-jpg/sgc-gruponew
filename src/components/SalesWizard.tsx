@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useProfile, useSupervisorProfile } from '@/hooks/useProfile';
 import { useCreateVenda, uploadVendaDocumento } from '@/hooks/useVendas';
+import { useSubmitCorrectionRequest } from '@/hooks/useCorrectionRequests';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { supabase } from '@/integrations/supabase/client';
@@ -188,6 +189,7 @@ export default function SalesWizard() {
   const { data: profile } = useProfile();
   const { data: supervisor } = useSupervisorProfile(profile?.supervisor_id);
   const createVenda = useCreateVenda();
+  const submitCR = useSubmitCorrectionRequest();
   const logAction = useLogAction();
   const location = useLocation();
   const navigate = useNavigate();
@@ -714,8 +716,10 @@ export default function SalesWizard() {
     setVendaSaving(true);
     try {
       if (!user) throw new Error('Não autenticado');
-      const structuredPayload = {
-        registroId: editVendaId,
+
+      const payload = await submitCR.mutateAsync({
+        registroId: editVendaId!,
+        tipo: 'venda',
         statusAtual: (originalVendaData as any)?._status || 'pendente',
         justificativa: changeJustificativa.trim(),
         alteracoesPropostas: vendaChangeFields.map(a => ({
@@ -723,16 +727,9 @@ export default function SalesWizard() {
           valorAntigo: a.valorAntigo,
           valorNovo: a.valorNovo,
         })),
-      };
-      const { error } = await supabase.from('correction_requests').insert({
-        user_id: user.id,
-        tipo: 'venda',
-        registro_id: editVendaId!,
-        motivo: JSON.stringify(structuredPayload),
-      } as any);
-      if (error) throw error;
-      toast.success('Solicitação de alteração enviada ao supervisor!');
-      if (user) {
+      });
+
+      if (!payload.autoApproved && user) {
         notifyDirectLeadership(
           user.id,
           'Solicitação de Alteração de Venda',
@@ -744,7 +741,7 @@ export default function SalesWizard() {
       setShowChangeConfirm(false);
       navigate('/minhas-acoes');
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao enviar solicitação.');
+      // hook handles toast error
     } finally {
       setVendaSaving(false);
     }

@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { useProfile, useSupervisorProfile, useGerenteProfile, useUserRole, useTeamProfiles } from '@/hooks/useProfile';
 import { useCreateAtividade, useMyAtividades } from '@/hooks/useAtividades';
 import { useCreateVenda, useMyVendas, uploadVendaDocumento } from '@/hooks/useVendas';
+import { useSubmitCorrectionRequest } from '@/hooks/useCorrectionRequests';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { maskPhone } from '@/lib/masks';
@@ -106,6 +107,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const { data: myPermissions } = useMyPermissions();
   const canEdit = hasPermission(myPermissions, 'comercial.atividades', 'edit');
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
+  const submitCR = useSubmitCorrectionRequest();
   const [showConfirm, setShowConfirm] = useState(false);
   const [showChangeConfirm, setShowChangeConfirm] = useState(false);
   const [changeJustificativa, setChangeJustificativa] = useState('');
@@ -199,8 +201,10 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
     setSaving(true);
     try {
       if (!user) throw new Error('Não autenticado');
-      const structuredPayload = {
+
+      const payload = await submitCR.mutateAsync({
         registroId: editAtividade.id,
+        tipo: 'atividade',
         statusAtual: (editAtividade as any).status || 'pendente',
         justificativa: changeJustificativa.trim(),
         alteracoesPropostas: changeRequestFields.map(a => ({
@@ -208,16 +212,9 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
           valorAntigo: a.valorAntigo,
           valorNovo: a.valorNovo,
         })),
-      };
-      const { error } = await supabase.from('correction_requests').insert({
-        user_id: user.id,
-        tipo: 'atividade',
-        registro_id: editAtividade.id,
-        motivo: JSON.stringify(structuredPayload),
-      } as any);
-      if (error) throw error;
-      toast.success('Solicitação de alteração enviada ao supervisor!');
-      if (user) {
+      });
+
+      if (!payload.autoApproved && user) {
         notifyDirectLeadership(
           user.id,
           'Solicitação de Alteração',

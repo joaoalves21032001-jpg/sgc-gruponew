@@ -74,7 +74,7 @@ export function useCreateVenda() {
       // Supervisors submit for gerente approval; gerente+ auto-approved
       const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).maybeSingle();
       const userRole = roleData?.role;
-      const isAutoApprove = userRole === 'gerente';
+      const isAutoApprove = ['gerente', 'diretor', 'administrador'].includes(userRole || '');
 
       const { data, error } = await supabase
         .from('vendas')

@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMyAtividades } from '@/hooks/useAtividades';
 import { useMyVendas, type Venda } from '@/hooks/useVendas';
+import { useSubmitCorrectionRequest } from '@/hooks/useCorrectionRequests';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +35,7 @@ const MinhasAcoes = () => {
   const queryClient = useQueryClient();
   const { data: atividades = [], isLoading: loadingAtiv } = useMyAtividades();
   const { data: vendas = [], isLoading: loadingVendas } = useMyVendas();
+  const submitCR = useSubmitCorrectionRequest();
 
   // Fetch user's own correction requests
   const { data: myCorrectionRequests = [] } = useQuery({
@@ -231,9 +233,10 @@ const MinhasAcoes = () => {
     setSendingRequest(true);
     try {
       if (!user) throw new Error('Não autenticado');
-      // Build structured payload
-      const structuredPayload = {
+
+      await submitCR.mutateAsync({
         registroId: requestDialog.id,
+        tipo: requestDialog.type === 'atividade' ? 'atividade' : 'venda',
         statusAtual: 'solicitado',
         justificativa: requestJustificativa.trim(),
         alteracoesPropostas: alteracoesPropostas.map(a => ({
@@ -241,18 +244,10 @@ const MinhasAcoes = () => {
           valorAntigo: a.valorAntigo,
           valorNovo: a.valorNovo,
         })),
-      };
-      const { error } = await supabase.from('correction_requests').insert({
-        user_id: user.id,
-        tipo: requestDialog.type === 'atividade' ? 'atividade' : 'venda',
-        registro_id: requestDialog.id,
-        motivo: JSON.stringify(structuredPayload),
-      } as any);
-      if (error) throw error;
-      toast.success('Solicitação de alteração enviada ao supervisor!');
+      });
       setRequestDialog(null);
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao enviar solicitação.');
+      // toast is handled in the hook
     } finally {
       setSendingRequest(false);
     }
