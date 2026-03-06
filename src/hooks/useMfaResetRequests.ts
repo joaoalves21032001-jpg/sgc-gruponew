@@ -62,10 +62,16 @@ export async function approveMfaReset(requestId: string, adminId: string) {
         .single();
     if (fetchErr) throw fetchErr;
 
-    // Call Edge Function to reset MFA factors
-    await resetMfaFactors((req as any).user_id);
+    // Try to call Edge Function to reset MFA factors (may not be deployed yet)
+    let edgeFunctionWorked = false;
+    try {
+        await resetMfaFactors((req as any).user_id);
+        edgeFunctionWorked = true;
+    } catch (e) {
+        console.warn('Edge Function reset-mfa not available, marking as approved only:', e);
+    }
 
-    // Update request status
+    // Update request status regardless
     const { error } = await supabase
         .from('mfa_reset_requests' as any)
         .update({
@@ -75,6 +81,9 @@ export async function approveMfaReset(requestId: string, adminId: string) {
         } as any)
         .eq('id', requestId);
     if (error) throw error;
+
+    // Return whether the actual MFA deletion happened
+    return { edgeFunctionWorked };
 }
 
 /** Reject an MFA reset request */

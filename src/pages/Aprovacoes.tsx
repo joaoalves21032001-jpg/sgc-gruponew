@@ -1299,8 +1299,12 @@ const Aprovacoes = () => {
                             setSavingMfaReset(true);
                             try {
                               const { user } = (await supabase.auth.getUser()).data;
-                              await approveMfaReset(req.id, user!.id);
-                              toast.success('MFA resetado com sucesso!');
+                              const result = await approveMfaReset(req.id, user!.id);
+                              if (result?.edgeFunctionWorked) {
+                                toast.success('MFA resetado com sucesso!');
+                              } else {
+                                toast.success('Solicitação aprovada! Remova o MFA manualmente no painel Supabase (Authentication → Users).');
+                              }
                               notifySelf(req.user_id, 'MFA Resetado', 'Seu MFA foi resetado. Configure novamente no próximo login.', 'mfa', '/');
                               queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
                             } catch (err: any) { toast.error(err.message); }
