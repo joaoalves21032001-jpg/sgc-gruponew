@@ -1,3 +1,4 @@
+import { useState, useEffect, useMemo } from 'react';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
