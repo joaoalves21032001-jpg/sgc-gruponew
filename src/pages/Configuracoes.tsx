@@ -615,6 +615,13 @@ const Configuracoes = () => {
                             Configure quais eventos geram notificações e para quem. Ative/desative regras e altere o público-alvo conforme necessário.
                         </p>
 
+                        {!hasPermission(myPagePermissions, 'configuracoes', 'edit') && (
+                            <div className="p-3 bg-warning/8 border border-warning/20 rounded-lg flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
+                                <p className="text-xs text-muted-foreground">Você possui permissão apenas para <strong>visualizar</strong>. Edição desabilitada pelo seu perfil de segurança.</p>
+                            </div>
+                        )}
+
                         {nrLoading ? (
                             <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
                         ) : notifRules.length === 0 ? (
@@ -641,6 +648,7 @@ const Configuracoes = () => {
                                         {EVENTS.map(evt => {
                                             const rule = notifRules.find((r: NotificationRule) => r.event_key === evt.key);
                                             if (!rule) return null;
+                                            const canEditRules = hasPermission(myPagePermissions, 'configuracoes', 'edit');
                                             return (
                                                 <tr key={rule.id} className="border-b border-border/10 hover:bg-muted/10 transition-colors">
                                                     <td className="py-2.5 px-3 text-sm font-medium text-foreground">{evt.label}</td>
@@ -648,6 +656,7 @@ const Configuracoes = () => {
                                                         <Select
                                                             value={rule.audience}
                                                             onValueChange={v => updateAudience.mutate({ id: rule.id, audience: v })}
+                                                            disabled={!canEditRules}
                                                         >
                                                             <SelectTrigger className="h-8 text-xs w-full">
                                                                 <SelectValue />
@@ -663,6 +672,7 @@ const Configuracoes = () => {
                                                         <Switch
                                                             checked={rule.enabled}
                                                             onCheckedChange={checked => toggleRule.mutate({ id: rule.id, enabled: checked })}
+                                                            disabled={!canEditRules}
                                                         />
                                                     </td>
                                                 </tr>
