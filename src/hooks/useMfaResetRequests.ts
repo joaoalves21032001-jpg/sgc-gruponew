@@ -30,6 +30,8 @@ export function useMfaResetRequests() {
             }
         },
         retry: false,
+        throwOnError: false,
+        staleTime: 60_000,
     });
 }
 

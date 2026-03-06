@@ -116,6 +116,7 @@ function useCorrectionRequests() {
       }
     },
     retry: false,
+    throwOnError: false,
   });
 }
 
@@ -293,8 +294,10 @@ const Aprovacoes = () => {
   const [rejectCRReason, setRejectCRReason] = useState('');
   const [savingCR, setSavingCR] = useState(false);
 
-  // MFA Reset Requests
-  const { data: mfaResetReqs = [], isLoading: loadingMfaReset } = useMfaResetRequests();
+  // MFA Reset Requests — fully defensive: if hook fails at any level, default to empty
+  const mfaQuery = useMfaResetRequests();
+  const mfaResetReqs = mfaQuery?.data ?? [];
+  const loadingMfaReset = mfaQuery?.isLoading ?? false;
   const [rejectMfaReq, setRejectMfaReq] = useState<MfaResetRequest | null>(null);
   const [rejectMfaReason, setRejectMfaReason] = useState('');
   const [savingMfaReset, setSavingMfaReset] = useState(false);
