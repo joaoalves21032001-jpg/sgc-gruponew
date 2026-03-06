@@ -31,8 +31,9 @@ import { maskCPF, maskRG, maskPhone } from '@/lib/masks';
 import {
   UserPlus, Users, Mail, Phone, CreditCard, FileText,
   MapPin, AlertTriangle, Shield, Building, Camera, Search, Info, Trash2,
-  Ban, CheckCircle2, Plus
+  Ban, CheckCircle2, Plus, KeyRound
 } from 'lucide-react';
+import { resetMfaFactors } from '@/hooks/useMfaResetRequests';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Profile } from '@/hooks/useProfile';
 
@@ -111,6 +112,8 @@ const AdminUsuarios = () => {
   const [deleting, setDeleting] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'disabled'>('active');
+  const [mfaResetConfirm, setMfaResetConfirm] = useState<Profile | null>(null);
+  const [resettingMfa, setResettingMfa] = useState(false);
   const queryClient = useQueryClient();
 
   if (!hasPermission(myPermissions, 'usuarios', 'view')) {
@@ -403,6 +406,15 @@ const AdminUsuarios = () => {
                   <Button
                     variant="outline"
                     size="icon"
+                    className="h-8 w-8 text-primary hover:bg-primary/10"
+                    onClick={(e) => { e.stopPropagation(); setMfaResetConfirm(p); }}
+                    title="Resetar MFA"
+                  >
+                    <KeyRound className="w-3.5 h-3.5" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
                     className={`h-8 w-8 ${isDisabled ? 'text-success hover:bg-success/10' : 'text-warning hover:bg-warning/10'}`}
                     onClick={(e) => { e.stopPropagation(); setDisableConfirm(p); }}
                     title={isDisabled ? 'Reativar' : 'Desabilitar'}
@@ -662,6 +674,40 @@ const AdminUsuarios = () => {
               }}
             >
               {deleting ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Trash2 className="w-4 h-4 mr-1" /> Excluir</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* MFA Reset Confirmation Dialog */}
+      <Dialog open={!!mfaResetConfirm} onOpenChange={(v) => { if (!v) setMfaResetConfirm(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Resetar MFA</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja resetar a autenticação de dois fatores de <strong>{mfaResetConfirm?.nome_completo}</strong>? O usuário deverá configurar o MFA novamente no próximo login.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setMfaResetConfirm(null)}>Cancelar</Button>
+            <Button
+              disabled={resettingMfa}
+              onClick={async () => {
+                if (!mfaResetConfirm) return;
+                setResettingMfa(true);
+                try {
+                  await resetMfaFactors(mfaResetConfirm.id);
+                  await logAction('resetar_mfa', 'profile', mfaResetConfirm.id, { nome: mfaResetConfirm.nome_completo });
+                  toast.success(`MFA de ${mfaResetConfirm.apelido || mfaResetConfirm.nome_completo} foi resetado!`);
+                  setMfaResetConfirm(null);
+                } catch (err: any) {
+                  toast.error(err.message || 'Erro ao resetar MFA.');
+                } finally {
+                  setResettingMfa(false);
+                }
+              }}
+            >
+              {resettingMfa ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><KeyRound className="w-4 h-4 mr-1" /> Resetar</>}
             </Button>
           </DialogFooter>
         </DialogContent>

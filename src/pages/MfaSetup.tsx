@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { requestMfaReset } from '@/hooks/useMfaResetRequests';
+import { notifyAdmins } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -18,6 +21,11 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [trustDevice, setTrustDevice] = useState(true);
+  const [showLostAuth, setShowLostAuth] = useState(false);
+  const [lostReason, setLostReason] = useState('');
+  const [submittingReset, setSubmittingReset] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     checkMfaStatus();
@@ -203,6 +211,70 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
                 </>
               )}
             </Button>
+
+            {/* Lost authenticator flow */}
+            {!showLostAuth && !resetSent && (
+              <button
+                type="button"
+                onClick={() => setShowLostAuth(true)}
+                className="w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors underline underline-offset-2 pt-2"
+              >
+                Perdi meu autenticador
+              </button>
+            )}
+
+            {showLostAuth && !resetSent && (
+              <div className="space-y-3 pt-2 border-t border-border/20 mt-2">
+                <p className="text-xs text-muted-foreground">Descreva o motivo para solicitar o reset do seu MFA. Um aprovador irá analisar e autorizar.</p>
+                <textarea
+                  value={lostReason}
+                  onChange={(e) => setLostReason(e.target.value)}
+                  placeholder="Ex: Troquei de celular e perdi acesso ao authenticator..."
+                  rows={3}
+                  className="w-full rounded-lg border border-border/60 bg-muted/50 px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 h-10"
+                    onClick={() => { setShowLostAuth(false); setLostReason(''); }}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    className="flex-1 h-10 font-semibold"
+                    disabled={submittingReset || !lostReason.trim()}
+                    onClick={async () => {
+                      if (!user) return;
+                      setSubmittingReset(true);
+                      try {
+                        await requestMfaReset(user.id, lostReason.trim());
+                        notifyAdmins('Solicitação de Reset MFA', `Usuário solicitou reset do MFA. Motivo: ${lostReason.trim()}`, 'mfa', '/aprovacoes');
+                        setResetSent(true);
+                        setShowLostAuth(false);
+                        toast.success('Solicitação enviada!');
+                      } catch (err: any) {
+                        toast.error(err.message || 'Erro ao enviar solicitação.');
+                      } finally {
+                        setSubmittingReset(false);
+                      }
+                    }}
+                  >
+                    {submittingReset ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Enviar Solicitação'}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {resetSent && (
+              <div className="p-3 bg-success/10 rounded-lg border border-success/20 text-center">
+                <CheckCircle2 className="w-5 h-5 text-success mx-auto mb-1" />
+                <p className="text-xs font-semibold text-success">Solicitação enviada ao aprovador</p>
+                <p className="text-[10px] text-muted-foreground mt-1">Você receberá uma notificação quando o reset for aprovado.</p>
+              </div>
+            )}
           </form>
         )}
       </div>
