@@ -49,7 +49,7 @@ function NoAccessScreen() {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, mfaVerified, needsMfa, setMfaVerified, hasProfile } = useAuth();
+  const { user, loading, mfaVerified, needsMfa, mfaChecked, setMfaVerified, hasProfile } = useAuth();
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
@@ -77,6 +77,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
           <div className="absolute inset-0 h-10 w-10 rounded-full border-3 border-transparent animate-spin border-b-secondary" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
         </div>
         <p className="text-xs text-muted-foreground animate-pulse">Verificando acesso...</p>
+      </div>
+    );
+  }
+
+  // Wait for MFA check to complete before rendering anything
+  if (!mfaChecked) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+        <div className="relative">
+          <div className="h-10 w-10 rounded-full border-3 border-muted animate-spin border-t-primary" />
+          <div className="absolute inset-0 h-10 w-10 rounded-full border-3 border-transparent animate-spin border-b-secondary" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
+        </div>
+        <p className="text-xs text-muted-foreground animate-pulse">Verificando segurança...</p>
       </div>
     );
   }

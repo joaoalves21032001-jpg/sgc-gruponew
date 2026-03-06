@@ -18,13 +18,18 @@ export function useMfaResetRequests() {
     return useQuery({
         queryKey: ['mfa-reset-requests'],
         queryFn: async () => {
-            const { data, error } = await supabase
-                .from('mfa_reset_requests' as any)
-                .select('*')
-                .order('created_at', { ascending: false });
-            if (error) throw error;
-            return (data ?? []) as unknown as MfaResetRequest[];
+            try {
+                const { data, error } = await supabase
+                    .from('mfa_reset_requests' as any)
+                    .select('*')
+                    .order('created_at', { ascending: false });
+                if (error) return [];
+                return (data ?? []) as unknown as MfaResetRequest[];
+            } catch {
+                return [] as MfaResetRequest[];
+            }
         },
+        retry: false,
     });
 }
 

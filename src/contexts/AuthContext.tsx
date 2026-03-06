@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   mfaVerified: boolean;
   needsMfa: boolean;
+  mfaChecked: boolean;
   hasProfile: boolean | null;
   cargo: string | null;
   perfil: string | null;
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   mfaVerified: false,
   needsMfa: false,
+  mfaChecked: false,
   hasProfile: null,
   cargo: null,
   perfil: null,
@@ -36,6 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [mfaVerified, setMfaVerified] = useState(false);
   const [needsMfa, setNeedsMfa] = useState(false);
+  const [mfaChecked, setMfaChecked] = useState(false);
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
   const [cargo, setCargo] = useState<string | null>(null);
   const [perfil, setPerfil] = useState<string | null>(null);
@@ -164,8 +167,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setNeedsMfa(true);
         setMfaVerified(false);
       }
+      setMfaChecked(true);
     } catch {
       setNeedsMfa(true);
+      setMfaChecked(true);
     }
   };
 
@@ -177,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, mfaVerified, needsMfa, hasProfile, cargo, perfil, setMfaVerified, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, mfaVerified, needsMfa, mfaChecked, hasProfile, cargo, perfil, setMfaVerified, signOut }}>
       {children}
     </AuthContext.Provider>
   );
