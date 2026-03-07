@@ -45,6 +45,7 @@ import {
     type NotificationRule,
 } from '@/hooks/useNotificationRules';
 import { MultiSelect } from '@/components/ui/multi-select';
+import { useAuditLogs, useCreateAuditLog, useUpdateAuditLog, useDeleteAuditLog, type AuditLog } from '@/hooks/useAuditLog';
 
 const Configuracoes = () => {
     const { data: role } = useUserRole();
@@ -85,6 +86,20 @@ const Configuracoes = () => {
 
     const [editingRule, setEditingRule] = useState<{ id: string; event_label: string } | null>(null);
     const [confirmDeleteRuleId, setConfirmDeleteRuleId] = useState<string | null>(null);
+
+    // Audit Logs CRUD
+    const { data: auditLogs = [], isLoading: alLoading } = useAuditLogs({ action: 'todos', entityType: 'todos' });
+    const createLog = useCreateAuditLog();
+    const updateLog = useUpdateAuditLog();
+    const deleteLog = useDeleteAuditLog();
+
+    const [newLogOpen, setNewLogOpen] = useState(false);
+    const [newLogAction, setNewLogAction] = useState('');
+    const [newLogEntity, setNewLogEntity] = useState('');
+    const [newLogDetails, setNewLogDetails] = useState('');
+
+    const [editingLog, setEditingLog] = useState<{ id: string; action: string; entity: string; details: string } | null>(null);
+    const [confirmDeleteLogId, setConfirmDeleteLogId] = useState<string | null>(null);
 
     // Dialogs
     const [newProfileOpen, setNewProfileOpen] = useState(false);
@@ -193,6 +208,69 @@ const Configuracoes = () => {
             logAction('excluir_regra_notificacao', 'notification_rules', confirmDeleteRuleId);
             toast.success('Regra excluída!');
             setConfirmDeleteRuleId(null);
+        } catch (err: any) { toast.error(err.message); }
+    };
+
+    const handleCreateLog = async () => {
+        if (!newLogAction.trim()) { toast.error('A ação é obrigatória.'); return; }
+
+        try {
+            let detailsObj = null;
+            if (newLogDetails.trim()) {
+                try {
+                    detailsObj = JSON.parse(newLogDetails.trim());
+                } catch {
+                    detailsObj = { descricao: newLogDetails.trim() };
+                }
+            }
+
+            await createLog.mutateAsync({
+                action: newLogAction.trim(),
+                entity_type: newLogEntity.trim() || null,
+                details: detailsObj,
+                entity_id: null
+            });
+            toast.success('Log de auditoria registrado!');
+            setNewLogOpen(false);
+            setNewLogAction('');
+            setNewLogEntity('');
+            setNewLogDetails('');
+        } catch (err: any) {
+            toast.error(err.message || 'Erro ao criar log.');
+        }
+    };
+
+    const handleUpdateLog = async () => {
+        if (!editingLog) return;
+        if (!editingLog.action.trim()) { toast.error('A ação é obrigatória.'); return; }
+
+        try {
+            let detailsObj = null;
+            if (editingLog.details.trim()) {
+                try {
+                    detailsObj = JSON.parse(editingLog.details.trim());
+                } catch {
+                    detailsObj = { descricao: editingLog.details.trim() }; // fallback string
+                }
+            }
+
+            await updateLog.mutateAsync({
+                id: editingLog.id,
+                action: editingLog.action.trim(),
+                entity_type: editingLog.entity.trim() || null,
+                details: detailsObj
+            });
+            toast.success('Log atualizado!');
+            setEditingLog(null);
+        } catch (err: any) { toast.error(err.message); }
+    };
+
+    const handleDeleteLog = async () => {
+        if (!confirmDeleteLogId) return;
+        try {
+            await deleteLog.mutateAsync(confirmDeleteLogId);
+            toast.success('Log excluído!');
+            setConfirmDeleteLogId(null);
         } catch (err: any) { toast.error(err.message); }
     };
 
@@ -324,6 +402,9 @@ const Configuracoes = () => {
                     </TabsTrigger>
                     <TabsTrigger value="notifications" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
                         <Bell className="w-4 h-4" /> Notificações
+                    </TabsTrigger>
+                    <TabsTrigger value="logs" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
+                        <Activity className="w-4 h-4" /> Logs de Auditoria
                     </TabsTrigger>
                     <TabsTrigger value="system" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
                         <Settings className="w-4 h-4" /> Sistema
@@ -703,6 +784,94 @@ const Configuracoes = () => {
                         )}
                     </div>
                 </TabsContent>
+
+                {/* ═══════════ TAB: LOGS DE AUDITORIA (CRUD) ═══════════ */}
+                <TabsContent value="logs" className="space-y-4">
+                    <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-4">
+                        <div className="flex items-center gap-2">
+                            <Activity className="w-5 h-5 text-primary" />
+                            <h2 className="text-base font-bold font-display text-foreground">Gerenciamento Manual de Logs</h2>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Crie, edite ou exclua logs manualmente caso haja alguma inconsistência. A exclusão de logs de auditoria deve ser usada com extrema cautela.
+                        </p>
+
+                        {!hasPermission(myPagePermissions, 'logs_auditoria', 'edit') && (
+                            <div className="p-3 bg-warning/8 border border-warning/20 rounded-lg flex items-center gap-2">
+                                <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
+                                <p className="text-xs text-muted-foreground">Você possui permissão apenas para <strong>visualizar</strong>. Ações de edição desabilitadas pelo seu perfil.</p>
+                            </div>
+                        )}
+
+                        {alLoading ? (
+                            <div className="flex items-center justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>
+                        ) : (
+                            <div className="rounded-lg border border-border/30 overflow-hidden">
+                                <div className="p-3 bg-muted/20 border-b flex justify-between items-center">
+                                    <h3 className="text-sm font-semibold">Últimos Logs Registrados (Amostra p/ Gerenciamento)</h3>
+                                    {hasPermission(myPagePermissions, 'logs_auditoria', 'edit') && (
+                                        <Button size="sm" className="h-8 gap-1.5" onClick={() => setNewLogOpen(true)}>
+                                            <Plus className="w-3.5 h-3.5" /> Adicionar Log Manual
+                                        </Button>
+                                    )}
+                                </div>
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="bg-muted/30 border-b border-border/20">
+                                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ação</th>
+                                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Autor</th>
+                                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Detalhes (JSON/Texto)</th>
+                                            <th className="text-left py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-32">Data</th>
+                                            <th className="text-center py-2.5 px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider w-24">Modificar</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {auditLogs.slice(0, 50).map((log: AuditLog) => {
+                                            const canEditLogs = hasPermission(myPagePermissions, 'logs_auditoria', 'edit');
+                                            return (
+                                                <tr key={log.id} className="border-b border-border/10 hover:bg-muted/10 transition-colors">
+                                                    <td className="py-2.5 px-3">
+                                                        <p className="text-sm font-medium text-foreground">{log.action}</p>
+                                                        {log.entity_type && <p className="text-[10px] text-muted-foreground font-mono">{log.entity_type}</p>}
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-xs text-muted-foreground">
+                                                        {log.user_name || 'Sistema'}
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-xs font-mono text-muted-foreground truncate max-w-[200px]" title={JSON.stringify(log.details)}>
+                                                        {log.details ? JSON.stringify(log.details) : '-'}
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-[11px] text-muted-foreground">
+                                                        {new Date(log.created_at).toLocaleDateString('pt-BR')} {new Date(log.created_at).toLocaleTimeString('pt-BR')}
+                                                    </td>
+                                                    <td className="py-2.5 px-3 text-center align-middle">
+                                                        {canEditLogs && (
+                                                            <div className="flex justify-center gap-1">
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingLog({
+                                                                    id: log.id,
+                                                                    action: log.action,
+                                                                    entity: log.entity_type || '',
+                                                                    details: log.details ? JSON.stringify(log.details) : ''
+                                                                })}>
+                                                                    <Pencil className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/60 hover:text-destructive" onClick={() => setConfirmDeleteLogId(log.id)}>
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </Button>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {auditLogs.length === 0 && (
+                                            <tr><td colSpan={5} className="text-center py-6 text-muted-foreground">Nenhum log encontrado.</td></tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </TabsContent>
             </Tabs>
 
             {/* ═══════════ DIALOGS ═══════════ */}
@@ -828,7 +997,21 @@ const Configuracoes = () => {
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs font-semibold text-muted-foreground">Chave do Evento *</Label>
-                            <Input value={newRuleEvent} onChange={e => setNewRuleEvent(e.target.value)} placeholder="Ex: comercial_atividade_cadastrada" className="h-9 text-sm font-mono" />
+                            <Select value={newRuleEvent} onValueChange={setNewRuleEvent}>
+                                <SelectTrigger className="h-9 text-sm font-mono">
+                                    <SelectValue placeholder="Selecione o evento" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {EVENTS.map(ev => (
+                                        <SelectItem key={ev.key} value={ev.key}>
+                                            <div className="flex flex-col">
+                                                <span>{ev.label}</span>
+                                                <span className="text-[10px] text-muted-foreground">{ev.key}</span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             <p className="text-[10px] text-muted-foreground">Esta é a chave utilizada nativamente pelo sistema para despachar.</p>
                         </div>
                         <div className="space-y-1.5">
@@ -847,6 +1030,83 @@ const Configuracoes = () => {
                         <Button onClick={handleCreateRule} disabled={createRule.isPending} className="gap-1.5">
                             {createRule.isPending ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
                             Criar Regra
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={newLogOpen} onOpenChange={setNewLogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="font-display text-lg">Adicionar Log Manual</DialogTitle>
+                        <DialogDescription>Registra uma atividade de auditoria manualmente na conta atual.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-muted-foreground">Ação *</Label>
+                            <Input value={newLogAction} onChange={e => setNewLogAction(e.target.value)} placeholder="Ex: correcao_banco_dados" className="h-9 font-mono text-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-muted-foreground">Entidade Alvo (opcional)</Label>
+                            <Input value={newLogEntity} onChange={e => setNewLogEntity(e.target.value)} placeholder="Ex: leads, vendas, usuarios" className="h-9 font-mono text-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-muted-foreground">Detalhes (JSON válido ou Texto)</Label>
+                            <Textarea value={newLogDetails} onChange={e => setNewLogDetails(e.target.value)} placeholder='{"mudanca": "corrigidos_ativos"}' className="font-mono text-xs h-24" />
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setNewLogOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleCreateLog} disabled={createLog.isPending} className="gap-1.5">
+                            {createLog.isPending ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+                            Salvar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!editingLog} onOpenChange={() => setEditingLog(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="font-display text-lg">Editar Log Manual</DialogTitle>
+                        <DialogDescription>Modifique a ação ou descrição para registrar retroativamente.</DialogDescription>
+                    </DialogHeader>
+                    {editingLog && (
+                        <div className="space-y-3 py-2">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold text-muted-foreground">Ação *</Label>
+                                <Input value={editingLog.action} onChange={e => setEditingLog({ ...editingLog, action: e.target.value })} className="h-9 font-mono text-sm" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold text-muted-foreground">Entidade Alvo</Label>
+                                <Input value={editingLog.entity} onChange={e => setEditingLog({ ...editingLog, entity: e.target.value })} className="h-9 font-mono text-sm" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold text-muted-foreground">Detalhes (JSON)</Label>
+                                <Textarea value={editingLog.details} onChange={e => setEditingLog({ ...editingLog, details: e.target.value })} className="font-mono text-xs h-24" />
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setEditingLog(null)}>Cancelar</Button>
+                        <Button onClick={handleUpdateLog} disabled={updateLog.isPending} className="gap-1.5">
+                            {updateLog.isPending ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+                            Salvar Modificações
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!confirmDeleteLogId} onOpenChange={() => setConfirmDeleteLogId(null)}>
+                <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="font-display text-lg text-destructive">Excluir Log</DialogTitle>
+                        <DialogDescription>A exclusão compromete a cadeia de retenção de auditoria. Tem certeza que deseja sumir com este registro permanentemente?</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setConfirmDeleteLogId(null)}>Cancelar</Button>
+                        <Button variant="destructive" onClick={handleDeleteLog} disabled={deleteLog.isPending} className="gap-1.5">
+                            <Trash2 className="w-4 h-4" /> Confirmar Exclusão
                         </Button>
                     </DialogFooter>
                 </DialogContent>

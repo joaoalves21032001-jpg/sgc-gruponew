@@ -29,7 +29,7 @@ import { useLogAction } from '@/hooks/useAuditLog';
 import { supabase } from '@/integrations/supabase/client';
 import { useCompanhias, useProdutos, useModalidades, useLeads } from '@/hooks/useInventario';
 import { maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
-import { notifyDirectLeadership } from '@/hooks/useNotifications';
+import { dispatchNotification } from '@/hooks/useNotificationRules';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 
 /* ─── Shared ─── */
@@ -733,7 +733,8 @@ export default function SalesWizard() {
       });
 
       if (!payload.autoApproved && user) {
-        notifyDirectLeadership(
+        dispatchNotification(
+          'venda_alteracao',
           user.id,
           'Solicitação de Alteração de Venda',
           `${profile?.nome_completo || 'Consultor'} solicitou alteração na venda de ${titulares[0]?.nome || ''}`,
@@ -849,7 +850,8 @@ export default function SalesWizard() {
 
       // Notify hierarchy
       if (user) {
-        notifyDirectLeadership(
+        dispatchNotification(
+          'venda_criada',
           user.id,
           editVendaId ? 'Venda Alterada' : 'Nova Venda Registrada',
           `${profile?.nome_completo || 'Consultor'} ${editVendaId ? 'alterou' : 'registrou'} uma venda (${modalidade}) - R$ ${valorContrato}`,

@@ -25,7 +25,7 @@ import { useCompanhias, useProdutos, useModalidades } from '@/hooks/useInventari
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { maskPhone } from '@/lib/masks';
-import { notifySelf, notifyGlobalLeaders, notifyDirectLeadership } from '@/hooks/useNotifications';
+import { dispatchNotification } from '@/hooks/useNotificationRules';
 import { useMfaResetRequests, approveMfaReset, rejectMfaReset, type MfaResetRequest } from '@/hooks/useMfaResetRequests';
 
 /* ─── Cotacao type ─── */
@@ -462,9 +462,9 @@ const Aprovacoes = () => {
       toast.success(`Cotação aprovada! Lead "${cotacao.nome}" criado${cotacao.consultor_recomendado_id ? ' e vinculado ao consultor recomendado' : ' como lead livre'}.`);
       // Notify the recommended consultant, or all leaders if no consultant assigned
       if (cotacao.consultor_recomendado_id) {
-        notifySelf(cotacao.consultor_recomendado_id, 'Novo Lead Atribuído', `A cotação de "${cotacao.nome}" foi aprovada e um lead foi criado para você.`, 'cotacao', '/crm');
+        dispatchNotification('cotacao_aprovada', cotacao.consultor_recomendado_id, 'Novo Lead Atribuído', `A cotação de "${cotacao.nome}" foi aprovada e um lead foi criado para você.`, 'cotacao', '/crm');
       } else {
-        notifyGlobalLeaders('', 'Cotação Aprovada — Lead Livre', `A cotação de "${cotacao.nome}" foi aprovada como lead livre.`, 'cotacao', '/crm');
+        dispatchNotification('cotacao_aprovada', '', 'Cotação Aprovada — Lead Livre', `A cotação de "${cotacao.nome}" foi aprovada como lead livre.`, 'cotacao', '/crm');
       }
       queryClient.invalidateQueries({ queryKey: ['cotacoes'] });
       queryClient.invalidateQueries({ queryKey: ['leads'] });
@@ -489,7 +489,7 @@ const Aprovacoes = () => {
       toast.success('Cotação recusada.');
       // Notify recommended consultant if exists
       if (rejectCotacao.consultor_recomendado_id) {
-        notifySelf(rejectCotacao.consultor_recomendado_id, 'Cotação Recusada', `A cotação de "${rejectCotacao.nome}" foi recusada: ${rejectCotacaoReason.trim()}`, 'cotacao', '/aprovacoes');
+        dispatchNotification('cotacao_reprovada', rejectCotacao.consultor_recomendado_id, 'Cotação Recusada', `A cotação de "${rejectCotacao.nome}" foi recusada: ${rejectCotacaoReason.trim()}`, 'cotacao', '/aprovacoes');
       }
       queryClient.invalidateQueries({ queryKey: ['cotacoes'] });
       setRejectCotacao(null); setRejectCotacaoReason('');
@@ -607,9 +607,9 @@ const Aprovacoes = () => {
       logAction(action === 'aprovado' ? 'aprovar_venda' : 'devolver_venda', 'venda', venda.id, { nome_titular: venda.nome_titular });
       // Notify the consultant
       if (action === 'devolvido') {
-        notifySelf(venda.user_id, 'Venda Devolvida', `Sua venda de "${venda.nome_titular}" foi devolvida: ${justificativa.trim()}`, 'venda', '/minhas-acoes');
+        dispatchNotification('venda_devolvida', venda.user_id, 'Venda Devolvida', `Sua venda de "${venda.nome_titular}" foi devolvida: ${justificativa.trim()}`, 'venda', '/minhas-acoes');
       } else {
-        notifySelf(venda.user_id, 'Venda Aprovada', `Sua venda de "${venda.nome_titular}" foi aprovada!`, 'venda', '/minhas-acoes');
+        dispatchNotification('venda_aprovada', venda.user_id, 'Venda Aprovada', `Sua venda de "${venda.nome_titular}" foi aprovada!`, 'venda', '/minhas-acoes');
       }
       setSelectedVenda(null);
       setObs(''); setJustificativa('');
@@ -634,9 +634,9 @@ const Aprovacoes = () => {
       logAction(action === 'aprovado' ? 'aprovar_atividade' : 'devolver_atividade', 'atividade', ativ.id, { user_id: ativ.user_id, data: ativ.data });
       // Notify the consultant
       if (action === 'devolvido') {
-        notifySelf(ativ.user_id, 'Atividade Devolvida', `Sua atividade de ${ativ.data} foi devolvida: ${ativJustificativa.trim()}`, 'atividade', '/minhas-acoes');
+        dispatchNotification('atividade_devolvida', ativ.user_id, 'Atividade Devolvida', `Sua atividade de ${ativ.data} foi devolvida: ${ativJustificativa.trim()}`, 'atividade', '/minhas-acoes');
       } else {
-        notifySelf(ativ.user_id, 'Atividade Aprovada', `Sua atividade de ${ativ.data} foi aprovada!`, 'atividade', '/minhas-acoes');
+        dispatchNotification('atividade_aprovada', ativ.user_id, 'Atividade Aprovada', `Sua atividade de ${ativ.data} foi aprovada!`, 'atividade', '/minhas-acoes');
       }
       queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
       queryClient.invalidateQueries({ queryKey: ['atividades'] });
@@ -780,9 +780,9 @@ const Aprovacoes = () => {
 
       toast.success(`Acesso aprovado e usuário criado para ${req.nome}! (Código: ${nextCode})`);
       logAction('aprovar_acesso', 'access_request', req.id, { nome: req.nome, email: req.email, codigo: nextCode });
-      // Notify the new user that their access was approved
+      // Notify the new user
       if (userId) {
-        notifySelf(userId, 'Acesso Aprovado', `Bem-vindo(a) ${req.nome}! Seu acesso ao sistema foi aprovado. Seu código é ${nextCode}.`, 'acesso', '/meu-progresso');
+        dispatchNotification('acesso_aprovado', userId, 'Acesso Aprovado', `Bem-vindo(a) ${req.nome}! Seu acesso ao sistema foi aprovado. Seu código é ${nextCode}.`, 'acesso', '/meu-progresso');
       }
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
       queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
@@ -804,8 +804,8 @@ const Aprovacoes = () => {
         .eq('id', rejectAccess.id);
       if (error) throw error;
       logAction('rejeitar_acesso', 'access_request', rejectAccess.id, { nome: rejectAccess.nome, email: rejectAccess.email });
-      // Notify leadership about the rejection for awareness
-      notifyGlobalLeaders('', 'Solicitação de Acesso Recusada', `A solicitação de acesso de "${rejectAccess.nome}" (${rejectAccess.email}) foi recusada.`, 'acesso', '/aprovacoes');
+      // Notify leadership about
+      dispatchNotification('acesso_rejeitado', '', 'Solicitação de Acesso Recusada', `A solicitação de acesso de "${rejectAccess.nome}" (${rejectAccess.email}) foi recusada.`, 'acesso', '/aprovacoes');
       toast.success('Solicitação recusada.');
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
       setRejectAccess(null); setRejectReason('');
@@ -850,7 +850,7 @@ const Aprovacoes = () => {
       if (error) throw error;
       toast.success('Alteração aprovada e aplicada! O registro voltou para a fila.');
       // Notify the consultant that their change request was approved
-      notifySelf(cr.user_id, 'Alteração Aprovada', `Sua solicitação de alteração de ${cr.tipo} foi aprovada e aplicada.`, cr.tipo, '/minhas-acoes');
+      dispatchNotification('alteracao_aprovada', cr.user_id, 'Alteração Aprovada', `Sua solicitação de alteração de ${cr.tipo} foi aprovada e aplicada.`, cr.tipo, '/minhas-acoes');
       queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
       queryClient.invalidateQueries({ queryKey: [cr.tipo === 'atividade' ? 'atividades' : 'vendas'] });
       queryClient.invalidateQueries({ queryKey: [cr.tipo === 'atividade' ? 'team-atividades' : 'team-vendas'] });
@@ -868,8 +868,8 @@ const Aprovacoes = () => {
       } as any).eq('id', rejectCR.id);
       if (error) throw error;
       toast.success('Solicitação recusada.');
-      // Notify the consultant that their change request was rejected
-      notifySelf(rejectCR.user_id, 'Alteração Recusada', `Sua solicitação de alteração de ${rejectCR.tipo} foi recusada: ${rejectCRReason.trim()}`, rejectCR.tipo, '/minhas-acoes');
+      // Notify the
+      dispatchNotification('alteracao_recusada', rejectCR.user_id, 'Alteração Recusada', `Sua solicitação de alteração de ${rejectCR.tipo} foi recusada: ${rejectCRReason.trim()}`, rejectCR.tipo, '/minhas-acoes');
       queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
       setRejectCR(null);
       setRejectCRReason('');
@@ -1377,7 +1377,7 @@ const Aprovacoes = () => {
                                 const { user } = (await supabase.auth.getUser()).data;
                                 await approveMfaReset(req.id, user!.id);
                                 toast.success('MFA resetado com sucesso! O usuário verá o QR Code no próximo login.');
-                                notifySelf(req.user_id, 'MFA Resetado', 'Seu MFA foi resetado. Configure novamente no próximo login.', 'mfa', '/');
+                                dispatchNotification('mfa_resetado', req.user_id, 'MFA Resetado', 'Seu MFA foi resetado. Configure novamente no próximo login.', 'mfa', '/');
                                 queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
                               } catch (err: any) { toast.error(err.message); }
                               finally { setSavingMfaReset(false); }
@@ -1901,7 +1901,7 @@ const Aprovacoes = () => {
                   const { user } = (await supabase.auth.getUser()).data;
                   await rejectMfaReset(rejectMfaReq.id, user!.id, rejectMfaReason.trim());
                   toast.success('Solicitação de reset MFA recusada.');
-                  notifySelf(rejectMfaReq.user_id, 'Reset MFA Recusado', `Sua solicitação de reset MFA foi recusada: ${rejectMfaReason.trim()}`, 'mfa', '/');
+                  dispatchNotification('mfa_reset_recusado', rejectMfaReq.user_id, 'Reset MFA Recusado', `Sua solicitação de reset MFA foi recusada: ${rejectMfaReason.trim()}`, 'mfa', '/');
                   queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
                   setRejectMfaReq(null);
                   setRejectMfaReason('');

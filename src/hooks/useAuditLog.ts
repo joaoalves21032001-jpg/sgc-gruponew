@@ -73,3 +73,62 @@ export function useLogAction() {
     }
   };
 }
+
+export function useCreateAuditLog() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (logInfo: Omit<AuditLog, 'id' | 'created_at' | 'user_id'> & { user_id?: string }) => {
+      if (!user) throw new Error('Not authenticated');
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .insert({
+          ...logInfo,
+          user_id: logInfo.user_id || user.id,
+        } as any)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
+  });
+}
+
+export function useUpdateAuditLog() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<AuditLog> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .update(updates as any)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
+  });
+}
+
+export function useDeleteAuditLog() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('audit_logs')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+    },
+  });
+}

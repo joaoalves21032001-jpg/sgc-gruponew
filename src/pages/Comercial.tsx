@@ -30,7 +30,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { maskPhone } from '@/lib/masks';
 import { supabase } from '@/integrations/supabase/client';
-import { notifyDirectLeadership } from '@/hooks/useNotifications';
+import { dispatchNotification } from '@/hooks/useNotificationRules';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 
 /* ─── Shared Components ─── */
@@ -215,7 +215,8 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
       });
 
       if (!payload.autoApproved && user) {
-        notifyDirectLeadership(
+        dispatchNotification(
+          'atividade_alteracao',
           user.id,
           'Solicitação de Alteração',
           `${profile?.nome_completo || 'Consultor'} solicitou alteração na atividade de ${editAtividade.data?.split('-').reverse().join('/')}`,
@@ -249,7 +250,8 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
       toast.success('Atividades registradas com sucesso!');
       // Notify hierarchy
       if (user) {
-        notifyDirectLeadership(
+        dispatchNotification(
+          'atividade_registrada',
           user.id,
           'Nova Atividade Registrada',
           `${profile?.nome_completo || 'Consultor'} registrou atividades em ${format(dataLancamento, 'dd/MM/yyyy')}`,
