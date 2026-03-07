@@ -13,7 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { HelpGuide } from './HelpGuide';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import { useSidebarOrder } from '@/hooks/useSidebarOrder';
-import { useMyPermissions, hasPermission, PATH_TO_RESOURCE } from '@/hooks/useSecurityProfiles';
+import { useMyPermissions, hasPermission, PATH_TO_RESOURCE, useSecurityProfiles } from '@/hooks/useSecurityProfiles';
 import { usePendingApprovals, useMyPendingActions } from '@/hooks/usePendingCounts';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 
@@ -58,6 +58,8 @@ export function AppSidebar() {
   const [dragItem, setDragItem] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
 
+  const { data: securityProfiles } = useSecurityProfiles();
+
   // Propagate sidebar collapsed state to <html> for CSS-driven layout adaptation
   useEffect(() => {
     document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
@@ -69,9 +71,16 @@ export function AppSidebar() {
   const frase = getFraseMotivacional(percentMeta);
   const borderClass = patente?.borderClass ?? 'border-sidebar-border';
 
+  const isSuperadminProfile = useMemo(() => {
+    if (!profile || !securityProfiles) return false;
+    const spId = (profile as any).security_profile_id;
+    const sp = securityProfiles.find(s => s.id === spId);
+    return sp?.name?.toLowerCase().includes('superadmin') || false;
+  }, [profile, securityProfiles]);
+
   const canAccess = (item: NavItem) => {
     // Rely completely on security profile matrix
-    if (item.to === '/admin/configuracoes' && role === 'administrador') return true;
+    if (item.to === '/admin/configuracoes' && (role === 'administrador' || isSuperadminProfile)) return true;
     const resource = PATH_TO_RESOURCE[item.to];
     if (resource) {
       return hasPermission(myPermissions, resource, 'view');

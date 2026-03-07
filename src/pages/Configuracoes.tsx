@@ -353,7 +353,10 @@ const Configuracoes = () => {
     const activeProfiles = profiles.filter(p => !p.disabled).length;
     const disabledProfiles = profiles.filter(p => p.disabled).length;
 
-    if (role !== 'administrador' && !hasPermission(myPagePermissions, 'configuracoes', 'view')) {
+    const userProfileSecurityId = (profile as any)?.security_profile_id;
+    const isCurrentUserSuperadmin = securityProfiles.find(sp => sp.id === userProfileSecurityId)?.name.toLowerCase().includes('superadmin');
+
+    if (role !== 'administrador' && !hasPermission(myPagePermissions, 'configuracoes', 'view') && !isCurrentUserSuperadmin) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="text-center space-y-2">
@@ -554,15 +557,30 @@ const Configuracoes = () => {
                                                                                 </td>
                                                                             );
                                                                         }
-                                                                        const allowed = isPermAllowed(res.key, act.key);
+                                                                        let allowed = isPermAllowed(res.key, act.key);
+                                                                        const isSuperAdminProfile = selectedProfile?.name.toLowerCase().includes('superadmin');
+                                                                        const isConfiguracoesRes = res.key === 'configuracoes';
+
+                                                                        if (isSuperAdminProfile && isConfiguracoesRes) {
+                                                                            allowed = true; // Força como permitido visualmente
+                                                                        }
+
+                                                                        const disableToggle = isSuperAdminProfile && isConfiguracoesRes;
+
                                                                         return (
                                                                             <td key={act.key} className="text-center py-2.5 px-3">
                                                                                 <button
-                                                                                    onClick={() => handleTogglePerm(res.key, act.key)}
+                                                                                    onClick={() => {
+                                                                                        if (disableToggle) {
+                                                                                            toast.info("A guia de configurações é inalterável para o perfil Superadmin.");
+                                                                                            return;
+                                                                                        }
+                                                                                        handleTogglePerm(res.key, act.key);
+                                                                                    }}
                                                                                     className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${allowed
                                                                                         ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
                                                                                         : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
-                                                                                        }`}
+                                                                                        } ${disableToggle ? 'opacity-50 cursor-not-allowed' : ''}`}
                                                                                 >
                                                                                     {allowed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
                                                                                 </button>
