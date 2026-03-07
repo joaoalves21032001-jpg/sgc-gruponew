@@ -889,7 +889,9 @@ const Aprovacoes = () => {
     return true;
   });
 
-  const filteredMfa = mfaResetReqs.filter(r => isDirectSuperior(r.user_id));
+  // MFA needs to be visible to those who have permission to see it,
+  // the top-level canViewAnyAprovacao already gates the page, but specifically:
+  const filteredMfa = mfaResetReqs;
 
   return (
     <div className="space-y-6 animate-fade-in-up">
