@@ -601,8 +601,8 @@ const Aprovacoes = () => {
       return;
     }
     try {
-      const finalObs = action === 'devolvido' ? justificativa.trim() : obs;
-      await updateStatus.mutateAsync({ id: venda.id, status: action, observacoes: finalObs });
+      const isDevolvido = action === 'devolvido';
+      await updateStatus.mutateAsync({ id: venda.id, status: action, observacoes: obs, motivo_recusa: isDevolvido ? justificativa.trim() : null });
       toast.success(`Venda ${action === 'aprovado' ? 'aprovada' : 'devolvida'} com sucesso!`);
       logAction(action === 'aprovado' ? 'aprovar_venda' : 'devolver_venda', 'venda', venda.id, { nome_titular: venda.nome_titular });
       // Notify the consultant
@@ -626,8 +626,9 @@ const Aprovacoes = () => {
     }
     setSavingAtiv(true);
     try {
+      const isDevolvido = action === 'devolvido';
       const { error } = await supabase.from('atividades')
-        .update({ status: action } as any)
+        .update({ status: action, motivo_recusa: isDevolvido ? ativJustificativa.trim() : null } as any)
         .eq('id', ativ.id);
       if (error) throw error;
       toast.success(`Atividade ${action === 'aprovado' ? 'aprovada' : 'devolvida'} com sucesso!`);
@@ -1399,7 +1400,7 @@ const Aprovacoes = () => {
                         <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
                           if (!confirm('Excluir esta solicitação?')) return;
                           try {
-                            const { error } = await supabase.from('mfa_reset_requests').delete().eq('id', req.id);
+                            const { error } = await supabase.from('mfa_reset_requests' as any).delete().eq('id', req.id);
                             if (error) throw error;
                             toast.success('Solicitação excluída!');
                             queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });

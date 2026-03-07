@@ -12,6 +12,7 @@ export interface Atividade {
   cotacoes_fechadas: number;
   cotacoes_nao_respondidas?: number;
   follow_up: number;
+  motivo_recusa?: string | null;
   created_at: string;
   updated_at: string;
 }

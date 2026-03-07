@@ -342,6 +342,11 @@ const MinhasAcoes = () => {
               <span>Cot. N.Resp: <strong className="text-foreground">{(a as any).cotacoes_nao_respondidas || Math.max(0, ((a as any).cotacoes_enviadas ?? 0) - ((a as any).cotacoes_fechadas ?? 0))}</strong></span>
               <span>Follow-up: <strong className="text-foreground">{a.follow_up}</strong></span>
             </div>
+            {a.motivo_recusa && (
+              <p className="text-xs text-destructive mt-2 font-medium bg-destructive/5 p-2 rounded-md border border-destructive/20">
+                Motivo da devolução: {a.motivo_recusa}
+              </p>
+            )}
           </div>
           <div className="flex gap-1.5 shrink-0">
             {isDevolvido && hasEditPerm(ativStatus) && (
@@ -393,6 +398,11 @@ const MinhasAcoes = () => {
               <span>{new Date(v.created_at).toLocaleDateString('pt-BR')}</span>
             </div>
             {v.observacoes && <p className="text-xs text-muted-foreground mt-1 italic">{v.observacoes}</p>}
+            {v.motivo_recusa && (
+              <p className="text-xs text-destructive mt-2 font-medium bg-destructive/5 p-2 rounded-md border border-destructive/20">
+                Motivo da devolução: {v.motivo_recusa}
+              </p>
+            )}
           </div>
           <div className="flex gap-1.5 shrink-0">
             {isDevolvido && (

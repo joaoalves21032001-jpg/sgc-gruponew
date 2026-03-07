@@ -11,6 +11,7 @@ export interface Venda {
   vidas: number;
   valor: number | null;
   observacoes: string | null;
+  motivo_recusa?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -99,10 +100,10 @@ export function useUpdateVendaStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ id, status, observacoes }: { id: string; status: string; observacoes?: string }) => {
+    mutationFn: async ({ id, status, observacoes, motivo_recusa }: { id: string; status: string; observacoes?: string; motivo_recusa?: string | null }) => {
       const { data, error } = await supabase
         .from('vendas')
-        .update({ status, observacoes } as any)
+        .update({ status, observacoes, motivo_recusa } as any)
         .eq('id', id)
         .select()
         .single();
