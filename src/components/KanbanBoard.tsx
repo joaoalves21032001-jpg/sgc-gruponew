@@ -139,7 +139,7 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, onAssume, lead
 
 
 /* ─── Kanban Column ─── */
-function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, onDrop, onAddLead, onAssume, getLeaderName, currentUserId }: {
+function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, onDrop, onAddLead, onAssume, getLeaderName, currentUserId, canEditOwn, canCreate }: {
   stage: LeadStage; leads: Lead[]; isAdmin: boolean;
   onEdit: (l: Lead) => void; onDelete: (l: Lead) => void;
   onDragStart: (e: React.DragEvent, leadId: string) => void;
