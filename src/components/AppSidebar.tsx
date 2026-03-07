@@ -154,8 +154,8 @@ export function AppSidebar() {
           <NavLink
             to={item.to}
             className={`flex items-center gap-3 flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200 relative group/link ${isActive
-                ? 'bg-primary text-primary-foreground shadow-md font-semibold'
-                : 'text-sidebar-foreground/70 hover:bg-primary/8 hover:text-primary hover:translate-x-0.5'
+              ? 'bg-primary text-primary-foreground shadow-md font-semibold'
+              : 'text-sidebar-foreground/70 hover:bg-primary/8 hover:text-primary hover:translate-x-0.5'
               } ${collapsed ? 'justify-center' : ''}`}
           >
             {isActive && !collapsed && (
@@ -215,7 +215,7 @@ export function AppSidebar() {
       </div>
 
       {/* Profile Widget */}
-      <div className={`border-b border-sidebar-border/50 ${collapsed ? 'p-3' : 'p-5'}`}>
+      <div className={`border-b border-sidebar-border/50 ${collapsed ? 'p-3' : 'p-4'}`}>
         <div className="flex items-center gap-3">
           <div className={`shrink-0 w-10 h-10 rounded-full border-2 ${borderClass} bg-sidebar-accent/10 flex items-center justify-center overflow-hidden shadow-sm`}>
             {profile?.avatar_url ? (
@@ -225,14 +225,22 @@ export function AppSidebar() {
             )}
           </div>
           {!collapsed && (
-            <div className="min-w-0 animate-fade-in space-y-0.5">
+            <div className="min-w-0 flex-1 animate-fade-in space-y-0.5">
               <p className="text-sidebar-foreground text-[13px] font-semibold truncate leading-tight">{displayName}</p>
               <p className="text-sidebar-foreground/50 text-[11px] font-medium truncate leading-tight tracking-wide uppercase">{profile?.cargo || 'Consultor de Vendas'}</p>
             </div>
           )}
+          {/* Logout inline com avatar */}
+          <button
+            onClick={signOut}
+            title="Sair da conta"
+            className="shrink-0 flex items-center justify-center w-8 h-8 rounded-lg text-sidebar-foreground/40 hover:bg-destructive/10 hover:text-destructive transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
         </div>
         {!collapsed && patente && (
-          <div className="mt-4 bg-sidebar-accent/5 p-2 rounded-lg border border-sidebar-border/30 backdrop-blur-sm">
+          <div className="mt-3 bg-sidebar-accent/5 p-2 rounded-lg border border-sidebar-border/30 backdrop-blur-sm">
             <PatenteBadge percentMeta={percentMeta} size="sm" />
             <p className="text-sidebar-foreground/40 text-[10px] italic leading-tight mt-1.5 font-medium">{frase}</p>
           </div>
@@ -274,7 +282,7 @@ export function AppSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className={`mt-auto border-t border-sidebar-border/50 ${collapsed ? 'p-2' : 'p-4'} space-y-2`}>
+      <div className={`mt-auto border-t border-sidebar-border/50 ${collapsed ? 'p-2' : 'p-4'} space-y-1`}>
         <NavLink
           to="/perfil"
           className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 w-full ${isActive ? 'bg-sidebar-accent/10 text-sidebar-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground'
@@ -283,37 +291,15 @@ export function AppSidebar() {
           <UserCircle className="w-[18px] h-[18px] shrink-0" />
           {!collapsed && <span>Meu Perfil</span>}
         </NavLink>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setHelpOpen(true)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground w-full transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}>
-            <HelpCircle className="w-[18px] h-[18px] shrink-0" />
-            {!collapsed && <span>Ajuda</span>}
-          </button>
-          <HelpGuide open={helpOpen} onOpenChange={setHelpOpen} />
-
-          {!collapsed && (
-            <button
-              onClick={signOut}
-              className="flex items-center justify-between flex-1 px-3 py-2 rounded-lg text-[13px] font-medium text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive group transition-all"
-            >
-              <span className="group-hover:translate-x-0.5 transition-transform">Sair da conta</span>
-              <LogOut className="w-[18px] h-[18px]" />
-            </button>
-          )}
-
-          {collapsed && (
-            <button
-              onClick={signOut}
-              title="Sair da conta"
-              className="flex items-center justify-center p-2 mt-2 w-full rounded-lg text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive transition-colors"
-            >
-              <LogOut className="w-[18px] h-[18px]" />
-            </button>
-          )}
-        </div>
+        <button onClick={() => setHelpOpen(true)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground w-full transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}>
+          <HelpCircle className="w-[18px] h-[18px] shrink-0" />
+          {!collapsed && <span>Ajuda</span>}
+        </button>
+        <HelpGuide open={helpOpen} onOpenChange={setHelpOpen} />
 
         {/* Footer text */}
         {!collapsed && (
-          <div className="px-3">
+          <div className="px-3 pt-1">
             <p className="text-[10px] text-sidebar-foreground/30 font-medium">SGC v2.0</p>
           </div>
         )}

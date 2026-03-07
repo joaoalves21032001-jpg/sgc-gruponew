@@ -634,7 +634,7 @@ export function KanbanBoard() {
         )}
       </div>
 
-      <div className="flex gap-4 overflow-x-auto pb-6 pt-2 hide-scrollbar snap-x">
+      <div className="flex gap-4 overflow-x-auto pb-6 pt-2 px-1 hide-scrollbar snap-x">
         {stages.map(stage => (
           <div key={stage.id} className="snap-start shrink-0">
             <KanbanColumn

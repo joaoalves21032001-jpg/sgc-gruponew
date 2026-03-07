@@ -13,12 +13,18 @@ export function usePendingApprovals() {
         { count: ativCount },
         { count: vendaCount },
         { count: accessCount },
+        { count: cotacaoCount },
+        { count: alteracaoCount },
       ] = await Promise.all([
         supabase.from('atividades').select('*', { count: 'exact', head: true }).eq('status', 'pendente'),
         supabase.from('vendas').select('*', { count: 'exact', head: true }).in('status', ['analise', 'pendente']),
         supabase.from('access_requests').select('*', { count: 'exact', head: true }).eq('status', 'pendente'),
+        supabase.from('cotacoes').select('*', { count: 'exact', head: true }).eq('status', 'pendente'),
+        supabase.from('correction_requests').select('*', { count: 'exact', head: true }).eq('status', 'pendente'),
       ]);
-      return (ativCount || 0) + (vendaCount || 0) + (accessCount || 0);
+      // mfa_reset_requests may not be in generated types — query via any cast
+      const { count: mfaCount } = await (supabase as any).from('mfa_reset_requests').select('*', { count: 'exact', head: true }).eq('status', 'pendente');
+      return (ativCount || 0) + (vendaCount || 0) + (accessCount || 0) + (cotacaoCount || 0) + (alteracaoCount || 0) + (mfaCount || 0);
     },
     enabled: !!user,
     refetchInterval: 30000,
