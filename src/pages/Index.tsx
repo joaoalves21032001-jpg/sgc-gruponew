@@ -166,8 +166,10 @@ const Index = () => {
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-stagger">
         <StatCard title="Ligações" value={stats.ligacoes} icon={Phone} subtitle="Este mês"
+          variant="brand"
           trend={periodComparison?.ligacoes} sparkline={sparklines.ligacoes} />
         <StatCard title="Cotações Enviadas" value={stats.cotacoes_enviadas} icon={FileText} subtitle="Este mês"
+          variant="accent"
           trend={periodComparison?.cotEnv} sparkline={sparklines.cotEnv} />
         <StatCard title="Cotações Fechadas" value={stats.cotacoes_fechadas} icon={CheckCircle2} variant="success" subtitle={`${stats.follow_up} follow-ups`}
           trend={periodComparison?.cotFech} sparkline={sparklines.cotFech} />
@@ -176,14 +178,14 @@ const Index = () => {
           value={`R$ ${(faturamento / 1000).toFixed(1)}k`}
           subtitle={`Meta: R$ ${(metaFaturamento / 1000).toFixed(0)}k`}
           icon={DollarSign}
-          variant="brand"
+          variant="warning"
           trend={fatComparison ?? undefined}
           sparkline={fatSparkline}
         />
       </div>
 
       {/* Progress Bar */}
-      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+      <div className="rounded-2xl p-6 shadow-card" style={{ background: 'hsl(222 28% 13%)', border: '1px solid hsl(222 20% 22%)' }}>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center">
@@ -198,11 +200,22 @@ const Index = () => {
             </span>
           </div>
         </div>
-        <div className="w-full bg-muted rounded-full h-2.5 overflow-hidden">
+        <div className="w-full rounded-full h-3 overflow-hidden" style={{ background: 'hsl(222 25% 18%)' }}>
           <div
-            className={`h-2.5 rounded-full transition-all duration-1000 ease-out progress-animated ${percentMeta >= 100 ? 'bg-success' : percentMeta >= 80 ? 'bg-warning' : 'bg-destructive'
-              }`}
-            style={{ width: `${Math.min(percentMeta, 100)}%` }}
+            className="h-3 rounded-full transition-all duration-1000 ease-out progress-animated"
+            style={{
+              width: `${Math.min(percentMeta, 100)}%`,
+              background: percentMeta >= 100
+                ? 'linear-gradient(90deg, hsl(93 80% 40%), hsl(93 75% 55%))'
+                : percentMeta >= 80
+                  ? 'linear-gradient(90deg, hsl(38 95% 44%), hsl(38 90% 56%))'
+                  : 'linear-gradient(90deg, hsl(185 90% 38%), hsl(185 90% 52%))',
+              boxShadow: percentMeta >= 100
+                ? '0 0 12px hsl(93 80% 50% / 0.5)'
+                : percentMeta >= 80
+                  ? '0 0 12px hsl(38 95% 52% / 0.5)'
+                  : '0 0 12px hsl(185 90% 48% / 0.5)',
+            }}
           />
         </div>
         <div className="flex justify-between mt-2 text-xs text-muted-foreground">
@@ -214,7 +227,7 @@ const Index = () => {
       {/* Funnel + Donut row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Funnel Chart — Ligações → Cotações → Fechadas → Vendas */}
-        <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+        <div className="rounded-2xl p-6 shadow-card" style={{ background: 'hsl(222 28% 13%)', border: '1px solid hsl(222 20% 22%)' }}>
           <h3 className="text-sm font-semibold text-foreground mb-5 font-display flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center">
               <TrendingUp className="w-4 h-4 text-primary" />
@@ -224,10 +237,10 @@ const Index = () => {
           {(() => {
             const totalVendas = vendas?.filter(v => v.status === 'aprovado').length ?? 0;
             const funnel = [
-              { label: 'Ligações', value: stats.ligacoes, color: 'hsl(194, 53%, 26%)' },
-              { label: 'Cotações Env.', value: stats.cotacoes_enviadas, color: 'hsl(200, 60%, 40%)' },
-              { label: 'Cot. Fechadas', value: stats.cotacoes_fechadas, color: 'hsl(152, 60%, 40%)' },
-              { label: 'Vendas Aprov.', value: totalVendas, color: 'hsl(142, 70%, 35%)' },
+              { label: 'Ligações', value: stats.ligacoes, color: 'hsl(185, 90%, 48%)' },
+              { label: 'Cotações Env.', value: stats.cotacoes_enviadas, color: 'hsl(256, 80%, 65%)' },
+              { label: 'Cot. Fechadas', value: stats.cotacoes_fechadas, color: 'hsl(93, 80%, 52%)' },
+              { label: 'Vendas Aprov.', value: totalVendas, color: 'hsl(38, 95%, 52%)' },
             ];
             const maxVal = Math.max(...funnel.map(f => f.value), 1);
             return (
@@ -262,7 +275,7 @@ const Index = () => {
         </div>
 
         {/* Donut — Vendas por Modalidade */}
-        <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+        <div className="rounded-2xl p-6 shadow-card" style={{ background: 'hsl(222 28% 13%)', border: '1px solid hsl(222 20% 22%)' }}>
           <h3 className="text-sm font-semibold text-foreground mb-5 font-display flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center">
               <CheckCircle2 className="w-4 h-4 text-primary" />
@@ -271,11 +284,11 @@ const Index = () => {
           </h3>
           {(() => {
             const modalidadeColors: Record<string, string> = {
-              'PF': 'hsl(194, 53%, 26%)',
-              'Familiar': 'hsl(200, 60%, 40%)',
-              'PME Multi': 'hsl(152, 60%, 40%)',
-              'Empresarial': 'hsl(142, 70%, 35%)',
-              'Adesão': 'hsl(38, 90%, 55%)',
+              'PF': 'hsl(185, 90%, 48%)',
+              'Familiar': 'hsl(256, 80%, 65%)',
+              'PME Multi': 'hsl(93, 80%, 52%)',
+              'Empresarial': 'hsl(38, 95%, 52%)',
+              'Adesão': 'hsl(340, 80%, 60%)',
             };
             const grouped: Record<string, number> = {};
             (vendas ?? []).forEach(v => {
@@ -337,7 +350,7 @@ const Index = () => {
       {/* Chart + Mini Stats */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {activityData.length > 0 && (
-          <div className="lg:col-span-2 bg-card rounded-xl p-6 shadow-card border border-border/30">
+          <div className="lg:col-span-2 rounded-2xl p-6 shadow-card" style={{ background: 'hsl(222 28% 13%)', border: '1px solid hsl(222 20% 22%)' }}>
             <h3 className="text-sm font-semibold text-foreground mb-5 font-display flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center">
                 <TrendingUp className="w-4 h-4 text-primary" />
@@ -348,24 +361,25 @@ const Index = () => {
               <BarChart data={activityData} barGap={4}>
                 <defs>
                   <linearGradient id="gradLigacoes" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(194, 53%, 26%)" stopOpacity={0.85} />
-                    <stop offset="100%" stopColor="hsl(194, 53%, 26%)" stopOpacity={0.15} />
+                    <stop offset="0%" stopColor="hsl(185, 90%, 48%)" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="hsl(185, 90%, 48%)" stopOpacity={0.1} />
                   </linearGradient>
                   <linearGradient id="gradCotacoes" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(152, 60%, 40%)" stopOpacity={0.85} />
-                    <stop offset="100%" stopColor="hsl(152, 60%, 40%)" stopOpacity={0.15} />
+                    <stop offset="0%" stopColor="hsl(256, 80%, 65%)" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="hsl(256, 80%, 65%)" stopOpacity={0.1} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(220, 13%, 90%)" vertical={false} />
-                <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'hsl(220, 10%, 46%)' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: 'hsl(220, 10%, 46%)' }} axisLine={false} tickLine={false} />
+                <CartesianGrid strokeDasharray="2 4" stroke="hsl(222, 20%, 20%)" vertical={false} />
+                <XAxis dataKey="day" tick={{ fontSize: 11, fill: 'hsl(215, 25%, 52%)' }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11, fill: 'hsl(215, 25%, 52%)' }} axisLine={false} tickLine={false} />
                 <Tooltip
                   contentStyle={{
-                    background: 'hsl(0, 0%, 100%)',
-                    border: '1px solid hsl(220, 13%, 90%)',
-                    borderRadius: '8px',
+                    background: 'hsl(222, 32%, 11%)',
+                    border: '1px solid hsl(185, 90%, 48% / 0.2)',
+                    borderRadius: '12px',
                     fontSize: '12px',
-                    boxShadow: '0 4px 12px hsl(220, 25%, 10%, 0.08)',
+                    color: 'hsl(210, 60%, 97%)',
+                    boxShadow: '0 8px 32px hsl(222, 38%, 5%, 0.6)',
                   }}
                 />
                 <Bar dataKey="ligacoes" name="Ligações" fill="url(#gradLigacoes)" radius={[4, 4, 0, 0]} />
@@ -376,38 +390,22 @@ const Index = () => {
         )}
 
         <div className="space-y-4">
-          <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
-            <div className="flex items-center gap-2.5 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center">
-                <MessageSquare className="w-4 h-4 text-primary" />
+          {[
+            { icon: MessageSquare, label: 'Mensagens', value: stats.mensagens, sub: 'Enviadas este mês', color: 'hsl(185,90%,48%)', glow: 'hsl(185 90% 48% / 0.15)' },
+            { icon: RotateCcw, label: 'Follow-ups', value: stats.follow_up, sub: 'Realizados este mês', color: 'hsl(256,80%,65%)', glow: 'hsl(256 80% 65% / 0.15)' },
+            { icon: Target, label: 'Conversão', value: `${stats.cotacoes_enviadas > 0 ? Math.round((stats.cotacoes_fechadas / stats.cotacoes_enviadas) * 100) : 0}%`, sub: 'Fechadas / Enviadas', color: 'hsl(93,80%,52%)', glow: 'hsl(93 80% 52% / 0.15)' },
+          ].map(({ icon: Ic, label, value: v, sub, color, glow }) => (
+            <div key={label} className="rounded-2xl p-5 shadow-card hover-lift transition-all" style={{ background: 'hsl(222 28% 13%)', border: '1px solid hsl(222 20% 22%)', borderLeft: `4px solid ${color}` }}>
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: `${color}18` }}>
+                  <Ic className="w-4 h-4" style={{ color, filter: `drop-shadow(0 0 5px ${color})` }} />
+                </div>
+                <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: 'hsl(215 25% 52%)' }}>{label}</span>
               </div>
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Mensagens</span>
+              <p className="text-3xl font-bold font-display" style={{ color: 'hsl(210 60% 97%)' }}>{v}</p>
+              <p className="text-xs mt-1" style={{ color: 'hsl(215 25% 52%)' }}>{sub}</p>
             </div>
-            <p className="text-3xl font-bold font-display text-foreground">{stats.mensagens}</p>
-            <p className="text-xs text-muted-foreground mt-1">Enviadas este mês</p>
-          </div>
-          <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
-            <div className="flex items-center gap-2.5 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center">
-                <RotateCcw className="w-4 h-4 text-primary" />
-              </div>
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Follow-ups</span>
-            </div>
-            <p className="text-3xl font-bold font-display text-foreground">{stats.follow_up}</p>
-            <p className="text-xs text-muted-foreground mt-1">Realizados este mês</p>
-          </div>
-          <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
-            <div className="flex items-center gap-2.5 mb-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/8 flex items-center justify-center">
-                <Target className="w-4 h-4 text-primary" />
-              </div>
-              <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">Conversão</span>
-            </div>
-            <p className="text-3xl font-bold font-display text-foreground">
-              {stats.cotacoes_enviadas > 0 ? Math.round((stats.cotacoes_fechadas / stats.cotacoes_enviadas) * 100) : 0}%
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">Fechadas / Enviadas</p>
-          </div>
+          ))}
         </div>
       </div>
 
