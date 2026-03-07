@@ -275,10 +275,23 @@ export function KanbanBoard() {
 
   const visibleLeads = useMemo(() => {
     if (canViewAll) return leads;
-    if (canViewOwn) return leads.filter(l => l.livre || l.created_by === user?.id);
-    const teamIds = new Set(allProfiles.map(p => p.id));
-    if (user?.id) teamIds.add(user.id);
-    return leads.filter(l => l.livre || (l.created_by && teamIds.has(l.created_by)));
+
+    const mySubordinates = new Set<string>();
+    allProfiles.forEach(p => {
+      if (p.supervisor_id === user?.id || p.gerente_id === user?.id) {
+        mySubordinates.add(p.id);
+      }
+    });
+
+    if (canViewOwn) {
+      return leads.filter(l =>
+        l.livre ||
+        l.created_by === user?.id ||
+        (l.created_by && mySubordinates.has(l.created_by))
+      );
+    }
+
+    return leads.filter(l => l.livre);
   }, [leads, canViewAll, canViewOwn, allProfiles, user]);
 
   const leadsByStage = useMemo(() => {

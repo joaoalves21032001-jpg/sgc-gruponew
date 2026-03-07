@@ -1514,7 +1514,6 @@ const Aprovacoes = () => {
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">RG</span><p className="font-semibold mt-0.5">{viewAccess.rg || '—'}</p></div>
               <div className="col-span-2"><span className="text-[10px] text-muted-foreground uppercase font-semibold">Endereço</span><p className="font-semibold mt-0.5">{viewAccess.endereco || '—'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Cargo</span><p className="font-semibold mt-0.5">{viewAccess.cargo || '—'}</p></div>
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Nível de Acesso</span><p className="font-semibold mt-0.5">{viewAccess.nivel_acesso === 'administrador' ? 'Administrador' : 'Usuário'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Supervisor</span><p className="font-semibold mt-0.5">{viewAccess.supervisor_id ? (profiles.find(p => p.id === viewAccess.supervisor_id)?.nome_completo || viewAccess.supervisor_id.slice(0, 8)) : 'Nenhum'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Gerente</span><p className="font-semibold mt-0.5">{viewAccess.gerente_id ? (profiles.find(p => p.id === viewAccess.gerente_id)?.nome_completo || viewAccess.gerente_id.slice(0, 8)) : '—'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Data de Nascimento</span><p className="font-semibold mt-0.5">{viewAccess.data_nascimento ? new Date(viewAccess.data_nascimento + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</p></div>
@@ -1794,20 +1793,7 @@ const Aprovacoes = () => {
               <label className="text-xs font-semibold text-muted-foreground">Endereço</label>
               <Input value={editAccessForm.endereco || ''} onChange={e => setEditAccessForm(p => ({ ...p, endereco: e.target.value }))} className="h-10" />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">Nível de Acesso</label>
-                <Select value={editAccessForm.nivel_acesso || 'consultor'} onValueChange={v => setEditAccessForm(p => ({ ...p, nivel_acesso: v }))}>
-                  <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="consultor">Consultor</SelectItem>
-                    <SelectItem value="supervisor">Supervisor</SelectItem>
-                    <SelectItem value="gerente">Gerente</SelectItem>
-                    <SelectItem value="diretor">Diretor</SelectItem>
-                    <SelectItem value="administrador">Administrador</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="grid grid-cols-1 gap-3">
               <div>
                 <label className="text-xs font-semibold text-muted-foreground">Supervisor</label>
                 <Select value={editAccessForm.supervisor_id || '__none__'} onValueChange={v => setEditAccessForm(p => ({ ...p, supervisor_id: v === '__none__' ? '' : v }))}>

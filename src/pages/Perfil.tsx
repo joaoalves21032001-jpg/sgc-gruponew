@@ -249,9 +249,8 @@ const Perfil = () => {
             <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-4 flex items-center gap-2">
               <Briefcase className="w-3.5 h-3.5" /> Cargo & Acesso
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
+            <div className="grid grid-cols-1 sm:grid-cols-1 gap-x-8">
               <InfoRow icon={Building} label="Cargo" value={profile.cargo} />
-              <InfoRow icon={Shield} label="Nível de Acesso" value={nivelLabel} />
             </div>
           </div>
 

@@ -334,23 +334,13 @@ const Login = () => {
             {/* Cargo & Acesso */}
             <div>
               <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Cargo & Acesso</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cargo</label>
                   <Select value={requestForm.cargo} onValueChange={(v) => setField('cargo', v)}>
                     <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {CARGOS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nível de Acesso</label>
-                  <Select value={requestForm.nivel_acesso} onValueChange={(v) => setField('nivel_acesso', v)}>
-                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="consultor">Usuário</SelectItem>
-                      <SelectItem value="administrador">Administrador</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
