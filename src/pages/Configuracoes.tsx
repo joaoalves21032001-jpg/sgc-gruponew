@@ -351,7 +351,7 @@ const Configuracoes = () => {
     const activeProfiles = profiles.filter(p => !p.disabled).length;
     const disabledProfiles = profiles.filter(p => p.disabled).length;
 
-    if (!hasPermission(myPagePermissions, 'configuracoes', 'view')) {
+    if (role !== 'administrador' && !hasPermission(myPagePermissions, 'configuracoes', 'view')) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="text-center space-y-2">

@@ -71,6 +71,7 @@ export function AppSidebar() {
 
   const canAccess = (item: NavItem) => {
     // Rely completely on security profile matrix
+    if (item.to === '/admin/configuracoes' && role === 'administrador') return true;
     const resource = PATH_TO_RESOURCE[item.to];
     if (resource) {
       return hasPermission(myPermissions, resource, 'view');
