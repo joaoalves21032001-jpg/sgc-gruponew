@@ -878,18 +878,16 @@ const Aprovacoes = () => {
   };
 
   // Filtered correction requests
-  const filteredCR = useMemo(() => {
-    return correctionRequests.filter(cr => {
-      if (!isDirectSuperior(cr.user_id)) return false; // Hierarchy check
-      if (filterStatus !== 'todos' && cr.status !== filterStatus) return false;
-      if (filterConsultor !== 'todos' && cr.user_id !== filterConsultor) return false;
-      if (search) {
-        const consultorName = getConsultorName(cr.user_id).toLowerCase();
-        if (!consultorName.includes(search.toLowerCase())) return false;
-      }
-      return true;
-    });
-  }, [correctionRequests, filterStatus, filterConsultor, search, getConsultorName]);
+  const filteredCR = correctionRequests.filter(cr => {
+    if (!isDirectSuperior(cr.user_id)) return false; // Hierarchy check
+    if (filterStatus !== 'todos' && cr.status !== filterStatus) return false;
+    if (filterConsultor !== 'todos' && cr.user_id !== filterConsultor) return false;
+    if (search) {
+      const consultorName = getConsultorName(cr.user_id).toLowerCase();
+      if (!consultorName.includes(search.toLowerCase())) return false;
+    }
+    return true;
+  });
 
   const filteredMfa = mfaResetReqs.filter(r => isDirectSuperior(r.user_id));
 
