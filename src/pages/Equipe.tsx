@@ -1,3 +1,4 @@
+import { useState, useMemo } from 'react';
 import { useTeamProfiles, type Profile } from '@/hooks/useProfile';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 import { useCompanhias, type Companhia } from '@/hooks/useInventario';
