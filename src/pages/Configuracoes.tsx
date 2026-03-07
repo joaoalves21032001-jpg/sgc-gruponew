@@ -750,6 +750,7 @@ const Configuracoes = () => {
                                                             disabled={!canEditRules}
                                                             className="h-8 py-0.5 text-xs shadow-none border-border/50 bg-background hover:bg-muted/20"
                                                             maxCount={2}
+                                                            modalPopover={true}
                                                         />
                                                     </td>
                                                     <td className="py-2.5 px-3 text-center align-middle">

@@ -177,7 +177,17 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                         )}
                     </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start" onEscapeKeyDown={() => setIsPopoverOpen(false)}>
+                <PopoverContent
+                    className="w-auto p-0"
+                    align="start"
+                    onEscapeKeyDown={() => setIsPopoverOpen(false)}
+                    onInteractOutside={(e) => {
+                        // Don't close when clicking inside the popover
+                        e.preventDefault();
+                        setIsPopoverOpen(false);
+                    }}
+                    onCloseAutoFocus={(e) => e.preventDefault()}
+                >
                     <Command>
                         <CommandInput
                             placeholder="Pesquisar..."
@@ -189,6 +199,7 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                                 <CommandItem
                                     key="all"
                                     onSelect={toggleAll}
+                                    onClick={(e) => { e.stopPropagation(); toggleAll(); }}
                                     className="cursor-pointer"
                                 >
                                     <div
@@ -209,6 +220,7 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                                         <CommandItem
                                             key={option.value}
                                             onSelect={() => toggleOption(option.value)}
+                                            onClick={(e) => { e.stopPropagation(); toggleOption(option.value); }}
                                             className="cursor-pointer"
                                         >
                                             <div
@@ -233,6 +245,7 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                                         <>
                                             <CommandItem
                                                 onSelect={handleClear}
+                                                onClick={(e) => { e.stopPropagation(); handleClear(); }}
                                                 className="flex-1 justify-center cursor-pointer"
                                             >
                                                 Limpar
@@ -242,6 +255,7 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                                     )}
                                     <CommandItem
                                         onSelect={() => setIsPopoverOpen(false)}
+                                        onClick={(e) => { e.stopPropagation(); setIsPopoverOpen(false); }}
                                         className="flex-1 justify-center cursor-pointer max-w-full"
                                     >
                                         Fechar
