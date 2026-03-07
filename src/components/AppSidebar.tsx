@@ -228,6 +228,11 @@ export function AppSidebar() {
             <div className="min-w-0 flex-1 animate-fade-in space-y-0.5">
               <p className="text-sidebar-foreground text-[13px] font-semibold truncate leading-tight">{displayName}</p>
               <p className="text-sidebar-foreground/50 text-[11px] font-medium truncate leading-tight tracking-wide uppercase">{profile?.cargo || 'Consultor de Vendas'}</p>
+              {patente && (
+                <div className="mt-1">
+                  <PatenteBadge percentMeta={percentMeta} size="sm" />
+                </div>
+              )}
             </div>
           )}
           {/* Logout inline com avatar */}
@@ -239,11 +244,8 @@ export function AppSidebar() {
             <LogOut className="w-4 h-4" />
           </button>
         </div>
-        {!collapsed && patente && (
-          <div className="mt-3 bg-sidebar-accent/5 p-2 rounded-lg border border-sidebar-border/30 backdrop-blur-sm">
-            <PatenteBadge percentMeta={percentMeta} size="sm" />
-            <p className="text-sidebar-foreground/40 text-[10px] italic leading-tight mt-1.5 font-medium">{frase}</p>
-          </div>
+        {!collapsed && patente && frase && (
+          <p className="text-sidebar-foreground/40 text-[10px] italic leading-tight mt-2 font-medium px-0.5">{frase}</p>
         )}
       </div>
 
