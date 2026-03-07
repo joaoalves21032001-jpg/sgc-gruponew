@@ -551,14 +551,6 @@ const AdminUsuarios = () => {
                     </SelectContent>
                   </Select>
                 </FieldWithTooltip>
-                <FieldWithTooltip label="Nível de Acesso" tooltip="Usuário (básico) ou Administrador (total)." required>
-                  <Select value={form.role} onValueChange={(v) => setField('role', v)}>
-                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {ROLES.map(r => <SelectItem key={r.value} value={r.value}>{r.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </FieldWithTooltip>
                 <FieldWithTooltip label="Meta Faturamento (R$)" tooltip="Meta mensal de faturamento em reais.">
                   <Input type="number" value={form.meta_faturamento} onChange={(e) => setField('meta_faturamento', e.target.value)} className="h-10" />
                 </FieldWithTooltip>

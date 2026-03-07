@@ -211,6 +211,8 @@ export function KanbanBoard() {
   const { data: allProfiles = [] } = useTeamProfiles();
   const { data: myPermissions } = useMyPermissions();
   const isAdmin = hasPermission(myPermissions, 'crm', 'edit_leads');
+  const canViewAll = isAdmin || hasPermission(myPermissions, 'crm', 'view_all');
+  const canViewOwn = hasPermission(myPermissions, 'crm', 'view_own');
   const canEditOwn = hasPermission(myPermissions, 'crm', 'edit');
   const canCreate = hasPermission(myPermissions, 'crm', 'create');
   const { data: stages = [], isLoading: stagesLoading } = useLeadStages();
@@ -272,11 +274,12 @@ export function KanbanBoard() {
   };
 
   const visibleLeads = useMemo(() => {
-    if (isAdmin) return leads;
+    if (canViewAll) return leads;
+    if (canViewOwn) return leads.filter(l => l.livre || l.created_by === user?.id);
     const teamIds = new Set(allProfiles.map(p => p.id));
     if (user?.id) teamIds.add(user.id);
     return leads.filter(l => l.livre || (l.created_by && teamIds.has(l.created_by)));
-  }, [leads, isAdmin, allProfiles, user]);
+  }, [leads, canViewAll, canViewOwn, allProfiles, user]);
 
   const leadsByStage = useMemo(() => {
     const map: Record<string, Lead[]> = {};

@@ -49,6 +49,8 @@ const COMMON_ACTIONS: ActionDef[] = [
 
 const CRM_ACTIONS: ActionDef[] = [
     { key: 'view', label: 'Visualizador' },
+    { key: 'view_own', label: 'Ver somente meus Leads' },
+    { key: 'view_all', label: 'Ver todos os Leads' },
     { key: 'edit', label: 'Editor' },
     { key: 'create', label: 'Criador' },
     { key: 'edit_leads', label: 'Editor de Leads' }
