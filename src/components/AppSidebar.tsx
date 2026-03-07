@@ -153,22 +153,26 @@ export function AppSidebar() {
 
           <NavLink
             to={item.to}
-            className={`flex items-center gap-3 flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-200 ${isActive
-              ? 'bg-white/[0.14] text-white shadow-sm backdrop-blur-sm nav-active-indicator'
-              : 'text-white/50 hover:bg-white/[0.08] hover:text-white/80 hover:translate-x-0.5'
+            className={`flex items-center gap-3 flex-1 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-300 relative group/link ${isActive
+              ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-md font-semibold'
+              : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground hover:translate-x-0.5'
               } ${collapsed ? 'justify-center' : ''}`}
           >
-            <div className="relative shrink-0">
-              <item.icon className={`w-[18px] h-[18px] ${isActive ? 'text-white' : ''}`} />
+            {isActive && !collapsed && (
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-sidebar-primary-foreground rounded-r-full" />
+            )}
+
+            <div className="relative shrink-0 flex items-center justify-center">
+              <item.icon className={`w-[18px] h-[18px] transition-transform duration-300 group-hover/link:scale-110 ${isActive ? 'text-sidebar-primary-foreground' : 'text-sidebar-foreground/60 group-hover/link:text-sidebar-foreground'}`} />
               {badgeCount > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-[9px] font-bold text-white flex items-center justify-center badge-pending">
+                <span className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive shadow-sm text-[9px] font-bold text-destructive-foreground flex items-center justify-center badge-pending transform scale-90">
                   {badgeCount > 9 ? '9+' : badgeCount}
                 </span>
               )}
             </div>
             {!collapsed && <span className="flex-1">{item.label}</span>}
             {!collapsed && badgeCount > 0 && (
-              <span className="ml-auto px-1.5 py-0.5 rounded-full bg-destructive text-[10px] font-bold text-white">
+              <span className="ml-auto px-1.5 py-0.5 rounded-full bg-destructive shadow-sm text-[10px] font-bold text-destructive-foreground">
                 {badgeCount}
               </span>
             )}
@@ -178,13 +182,13 @@ export function AppSidebar() {
           {!collapsed && !search && (
             <button
               onClick={(e) => { e.stopPropagation(); togglePin(item.to); }}
-              className="shrink-0 w-6 h-6 flex items-center justify-center rounded opacity-0 group-hover/nav-item:opacity-100 transition-opacity hover:bg-white/10"
+              className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-md opacity-0 group-hover/nav-item:opacity-100 transition-all ${pinned ? 'opacity-100 bg-sidebar-accent/10' : 'hover:bg-sidebar-accent/20'}`}
               title={pinned ? 'Desafixar' : 'Fixar'}
             >
               {pinned ? (
-                <PinOff className="w-3 h-3 text-white/60" />
+                <PinOff className="w-3.5 h-3.5 text-sidebar-primary" />
               ) : (
-                <Pin className="w-3 h-3 text-white/25" />
+                <Pin className="w-3.5 h-3.5 text-sidebar-foreground/40 hover:text-sidebar-foreground" />
               )}
             </button>
           )}
@@ -195,53 +199,54 @@ export function AppSidebar() {
 
   return (
     <aside
-      className={`fixed left-0 top-0 h-screen flex flex-col z-50 transition-all duration-300 ease-out ${collapsed ? 'w-[72px]' : 'w-[260px]'
+      className={`fixed left-0 top-0 h-screen flex flex-col z-50 transition-all duration-300 ease-out border-r border-sidebar-border/50 shadow-2xl ${collapsed ? 'w-[72px]' : 'w-[260px]'
         }`}
       style={{
-        background: 'linear-gradient(180deg, hsl(194 55% 12%) 0%, hsl(194 53% 20%) 100%)',
+        background: 'linear-gradient(170deg, hsl(var(--sidebar-background)) 0%, hsl(var(--sidebar-background)/0.95) 100%)',
+        backdropFilter: 'blur(16px)',
       }}
     >
       {/* Logo */}
-      <div className={`flex items-center h-16 border-b border-white/[0.08] ${collapsed ? 'justify-center px-2' : 'px-5'}`}>
-        <img src={logoWhite} alt="Grupo New" className={`transition-all duration-300 ${collapsed ? 'h-7' : 'h-8'} opacity-90`} />
+      <div className={`flex items-center h-16 border-b border-sidebar-border/50 ${collapsed ? 'justify-center px-2' : 'px-5'}`}>
+        <img src={logoWhite} alt="Grupo New" className={`transition-all duration-300 ${collapsed ? 'h-7' : 'h-8'} opacity-90 brightness-[0.95]`} />
       </div>
 
       {/* Profile Widget */}
-      <div className={`border-b border-white/[0.08] ${collapsed ? 'p-3' : 'p-5'}`}>
+      <div className={`border-b border-sidebar-border/50 ${collapsed ? 'p-3' : 'p-5'}`}>
         <div className="flex items-center gap-3">
-          <div className={`shrink-0 w-10 h-10 rounded-full border-2 ${borderClass} bg-white/10 flex items-center justify-center overflow-hidden`}>
+          <div className={`shrink-0 w-10 h-10 rounded-full border-2 ${borderClass} bg-sidebar-accent/10 flex items-center justify-center overflow-hidden shadow-sm`}>
             {profile?.avatar_url ? (
               <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
             ) : (
-              <span className="text-white font-bold text-sm">{displayName.charAt(0).toUpperCase()}</span>
+              <span className="text-sidebar-foreground font-bold text-sm">{displayName.charAt(0).toUpperCase()}</span>
             )}
           </div>
           {!collapsed && (
-            <div className="min-w-0 animate-fade-in">
-              <p className="text-white text-sm font-medium truncate">{displayName}</p>
-              <p className="text-white/40 text-[11px] truncate">{profile?.cargo || 'Consultor de Vendas'}</p>
+            <div className="min-w-0 animate-fade-in space-y-0.5">
+              <p className="text-sidebar-foreground text-[13px] font-semibold truncate leading-tight">{displayName}</p>
+              <p className="text-sidebar-foreground/50 text-[11px] font-medium truncate leading-tight tracking-wide uppercase">{profile?.cargo || 'Consultor de Vendas'}</p>
             </div>
           )}
         </div>
         {!collapsed && patente && (
-          <div className="mt-3">
+          <div className="mt-4 bg-sidebar-accent/5 p-2 rounded-lg border border-sidebar-border/30 backdrop-blur-sm">
             <PatenteBadge percentMeta={percentMeta} size="sm" />
-            <p className="text-white/30 text-[10px] italic leading-tight mt-1.5">{frase}</p>
+            <p className="text-sidebar-foreground/40 text-[10px] italic leading-tight mt-1.5 font-medium">{frase}</p>
           </div>
         )}
       </div>
 
       {/* Search */}
       {!collapsed && (
-        <div className="px-3 pt-3">
-          <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30" />
+        <div className="px-3 pt-4 pb-2">
+          <div className="relative group/search">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-sidebar-foreground/40 group-focus-within/search:text-sidebar-primary transition-colors duration-200" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Buscar guia..."
-              className="w-full h-8 pl-8 pr-3 rounded-lg bg-white/[0.06] border border-white/[0.08] text-white/80 text-[12px] placeholder:text-white/25 focus:outline-none focus:bg-white/[0.1] transition-colors"
+              className="w-full h-9 pl-9 pr-3 rounded-lg bg-sidebar-accent/5 border border-sidebar-border/30 text-sidebar-foreground text-[13px] placeholder:text-sidebar-foreground/40 focus:outline-none focus:bg-sidebar-accent/10 focus:border-sidebar-primary/30 transition-all duration-300 shadow-sm"
             />
           </div>
         </div>
@@ -266,35 +271,57 @@ export function AppSidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-3 pb-4 space-y-1">
+      <div className={`mt-auto border-t border-sidebar-border/50 ${collapsed ? 'p-2' : 'p-4'} space-y-2`}>
         <NavLink
           to="/perfil"
-          className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 w-full ${isActive ? 'bg-white/[0.12] text-white' : 'text-white/50 hover:bg-white/[0.06] hover:text-white/80'
+          className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium transition-all duration-150 w-full ${isActive ? 'bg-sidebar-accent/10 text-sidebar-foreground' : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground'
             } ${collapsed ? 'justify-center' : ''}`}
         >
           <UserCircle className="w-[18px] h-[18px] shrink-0" />
           {!collapsed && <span>Meu Perfil</span>}
         </NavLink>
-        <button onClick={() => setHelpOpen(true)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-white/50 hover:bg-white/[0.06] hover:text-white/80 w-full transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}>
-          <HelpCircle className="w-[18px] h-[18px] shrink-0" />
-          {!collapsed && <span>Ajuda</span>}
-        </button>
-        <HelpGuide open={helpOpen} onOpenChange={setHelpOpen} />
-        <button
-          onClick={signOut}
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-white/50 hover:bg-destructive/20 hover:text-destructive w-full transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}
-        >
-          <LogOut className="w-[18px] h-[18px] shrink-0" />
-          {!collapsed && <span>Sair</span>}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setHelpOpen(true)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground w-full transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}>
+            <HelpCircle className="w-[18px] h-[18px] shrink-0" />
+            {!collapsed && <span>Ajuda</span>}
+          </button>
+          <HelpGuide open={helpOpen} onOpenChange={setHelpOpen} />
+
+          {!collapsed && (
+            <button
+              onClick={signOut}
+              className="flex items-center justify-between flex-1 px-3 py-2 rounded-lg text-[13px] font-medium text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive group transition-all"
+            >
+              <span className="group-hover:translate-x-0.5 transition-transform">Sair da conta</span>
+              <LogOut className="w-[18px] h-[18px]" />
+            </button>
+          )}
+
+          {collapsed && (
+            <button
+              onClick={signOut}
+              title="Sair da conta"
+              className="flex items-center justify-center p-2 mt-2 w-full rounded-lg text-sidebar-foreground/70 hover:bg-destructive/10 hover:text-destructive transition-colors"
+            >
+              <LogOut className="w-[18px] h-[18px]" />
+            </button>
+          )}
+        </div>
+
+        {/* Footer text */}
+        {!collapsed && (
+          <div className="px-3">
+            <p className="text-[10px] text-sidebar-foreground/30 font-medium">SGC v2.0</p>
+          </div>
+        )}
       </div>
 
-      {/* Collapse toggle */}
+      {/* Collapse Toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="absolute -right-3 top-[72px] w-6 h-6 rounded-full bg-card border border-border shadow-elevated flex items-center justify-center hover:scale-125 hover:shadow-brand transition-all duration-300"
+        className="absolute -right-3 top-20 bg-sidebar-background border border-sidebar-border/50 w-6 h-6 rounded-full flex items-center justify-center text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/10 shadow-sm transition-all z-10 hidden md:flex"
       >
-        {collapsed ? <ChevronRight className="w-3 h-3 text-foreground" /> : <ChevronLeft className="w-3 h-3 text-foreground" />}
+        {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>
     </aside>
   );

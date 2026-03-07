@@ -27,15 +27,15 @@ const Notificacoes = () => {
   const renderCard = (n: typeof notifications[0], showReadActions: boolean) => (
     <div
       key={n.id}
-      className={`bg-card rounded-xl border shadow-card p-4 transition-all hover:shadow-card-hover ${n.lida ? 'border-border/30 opacity-70' : 'border-primary/20 bg-primary/[0.02]'
+      className={`bg-card rounded-2xl border shadow-elevated hover-lift p-4 transition-all ${n.lida ? 'border-border/40 opacity-70 bg-card/60' : 'border-primary/20 bg-primary/[0.02]'
         }`}
     >
       <div className="flex items-start gap-3">
-        <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${n.lida ? 'bg-muted-foreground/30' : 'bg-primary'}`} />
+        <div className={`w-2 h-2 rounded-full mt-2 shrink-0 ${n.lida ? 'bg-muted-foreground/30' : 'bg-primary shadow-glow'}`} />
         <div className="flex-1 min-w-0 cursor-pointer" onClick={() => handleClick(n)}>
           <div className="flex items-center gap-2 flex-wrap">
             <p className="text-sm font-semibold text-foreground">{n.titulo}</p>
-            {!n.lida && <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20">Nova</Badge>}
+            {!n.lida && <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20 shadow-sm">Nova</Badge>}
           </div>
           {n.descricao && <p className="text-xs text-muted-foreground mt-0.5">{n.descricao}</p>}
           <div className="flex items-center gap-2 mt-1.5 text-[10px] text-muted-foreground">
@@ -46,21 +46,21 @@ const Notificacoes = () => {
         </div>
         <div className="flex items-center gap-1 shrink-0">
           {n.link && (
-            <button onClick={() => { if (n.link) navigate(n.link); }} className="p-1.5 rounded-md hover:bg-muted transition-colors" title="Abrir link">
+            <button onClick={() => { if (n.link) navigate(n.link); }} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Abrir link">
               <ExternalLink className="w-3.5 h-3.5 text-muted-foreground" />
             </button>
           )}
           {showReadActions ? (
-            <button onClick={() => markUnread.mutate(n.id)} className="p-1.5 rounded-md hover:bg-muted transition-colors" title="Marcar como não lida">
+            <button onClick={() => markUnread.mutate(n.id)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Marcar como não lida">
               <Mail className="w-3.5 h-3.5 text-muted-foreground" />
             </button>
           ) : (
-            <button onClick={() => markRead.mutate(n.id)} className="p-1.5 rounded-md hover:bg-muted transition-colors" title="Marcar como lida">
+            <button onClick={() => markRead.mutate(n.id)} className="p-1.5 rounded-lg hover:bg-muted transition-colors" title="Marcar como lida">
               <MailOpen className="w-3.5 h-3.5 text-muted-foreground" />
             </button>
           )}
-          <button onClick={() => deleteNotif.mutate(n.id)} className="p-1.5 rounded-md hover:bg-destructive/10 transition-colors" title="Excluir">
-            <Trash2 className="w-3.5 h-3.5 text-destructive/70" />
+          <button onClick={() => deleteNotif.mutate(n.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 transition-colors" title="Excluir">
+            <Trash2 className="w-3.5 h-3.5 text-destructive/70 hover:text-destructive transition-colors" />
           </button>
         </div>
       </div>

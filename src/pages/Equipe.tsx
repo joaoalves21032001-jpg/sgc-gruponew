@@ -178,7 +178,7 @@ const OrgCard = ({ profile, canEdit, salesData, companyTitles, patenteData, prem
   return (
     <button
       onClick={() => onSelect(profile)}
-      className="group flex flex-col items-center text-center bg-card rounded-xl border border-border/30 shadow-card hover:shadow-card-hover hover:border-primary/30 transition-all duration-200 p-4 min-w-[200px] max-w-[220px] cursor-pointer relative"
+      className="group flex flex-col items-center text-center bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift transition-all p-4 min-w-[200px] max-w-[220px] cursor-pointer relative"
     >
       {/* Patente badge top-right */}
       {patente && (
@@ -467,7 +467,7 @@ const Equipe = () => {
   const { data: vendas = [] } = useQuery({
     queryKey: ['all-sales-equipe'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('vendas').select('user_id, created_at, dados_completos, companhia_nome').eq('status', 'aprovado');
+      const { data, error } = await supabase.from('vendas').select('user_id, created_at, dados_completos').eq('status', 'aprovado');
       if (error) throw error;
       return data || [];
     }
@@ -585,7 +585,7 @@ const Equipe = () => {
 
       {/* Stats bar */}
       <div className="flex gap-3 flex-wrap">
-        <div className="px-3 py-2 bg-card rounded-lg border border-border/30 shadow-sm">
+        <div className="px-3 py-2 bg-card rounded-2xl border border-border/40 shadow-elevated">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Total</p>
           <p className="text-lg font-bold text-foreground">{activeProfiles.length}</p>
         </div>
@@ -593,7 +593,7 @@ const Equipe = () => {
           const count = activeProfiles.filter(p => p.cargo.toLowerCase().includes(cargo.toLowerCase())).length;
           if (count === 0) return null;
           return (
-            <div key={cargo} className="px-3 py-2 bg-card rounded-lg border border-border/30 shadow-sm">
+            <div key={cargo} className="px-3 py-2 bg-card rounded-2xl border border-border/40 shadow-elevated">
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">{cargo}es</p>
               <p className="text-lg font-bold text-foreground">{count}</p>
             </div>

@@ -374,7 +374,7 @@ const Gestao = () => {
 
       {/* Secondary metrics */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
+        <div className="bg-card rounded-2xl p-5 shadow-elevated hover-lift border border-border/40">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Meta da Equipe</span>
             <Target className="w-4 h-4 text-primary" />
@@ -384,7 +384,7 @@ const Gestao = () => {
             <div className={`h-1.5 rounded-full transition-all ${percentMetaEquipe >= 100 ? 'bg-success' : 'bg-warning'}`} style={{ width: `${Math.min(percentMetaEquipe, 100)}%` }} />
           </div>
         </div>
-        <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
+        <div className="bg-card rounded-2xl p-5 shadow-elevated hover-lift border border-border/40">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Conversão</span>
             <BarChart3 className="w-4 h-4 text-primary" />
@@ -392,7 +392,7 @@ const Gestao = () => {
           <p className="text-2xl font-bold font-display text-foreground">{taxaConversaoEquipe}%</p>
           <p className="text-xs text-muted-foreground mt-1">{totalCotFechadas}/{totalCotEnviadas}</p>
         </div>
-        <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
+        <div className="bg-card rounded-2xl p-5 shadow-elevated hover-lift border border-border/40">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Ligações</span>
             <Phone className="w-4 h-4 text-primary" />
@@ -400,7 +400,7 @@ const Gestao = () => {
           <p className="text-2xl font-bold font-display text-foreground">{totalLigacoes}</p>
           <p className="text-xs text-muted-foreground mt-1">Média: {consultores.length > 0 ? Math.round(totalLigacoes / consultores.length) : 0}/consultor</p>
         </div>
-        <div className="bg-card rounded-xl p-5 shadow-card border border-border/30">
+        <div className="bg-card rounded-2xl p-5 shadow-elevated hover-lift border border-border/40">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">Em Análise</span>
             <FileText className="w-4 h-4 text-primary" />
@@ -784,7 +784,7 @@ const Gestao = () => {
                   <div
                     key={v.id}
                     onClick={() => setSelectedVenda(v)}
-                    className="bg-card rounded-lg p-4 shadow-card hover:shadow-card-hover transition-all cursor-pointer border border-border/30"
+                    className="bg-card rounded-xl p-4 shadow-elevated hover-lift transition-all cursor-pointer border border-border/40"
                   >
                     <p className="text-sm font-semibold text-foreground">{v.nome_titular}</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">{getConsultorName(v.user_id)} • {v.modalidade}</p>

@@ -4,7 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 
 interface CorrectionRequestPayload {
-    tipo: 'atividade' | 'venda';
+    tipo: 'atividade' | 'venda' | 'lead';
     registroId: string;
     statusAtual: string;
     justificativa: string;
@@ -55,7 +55,7 @@ export function useSubmitCorrectionRequest() {
                 // The original approval logic resets status to 'pendente' or 'analise', but for a manager we can keep it 'aprovado'.
                 updateObj.status = 'aprovado';
 
-                const table = payload.tipo === 'atividade' ? 'atividades' : 'vendas';
+                const table = payload.tipo === 'atividade' ? 'atividades' : payload.tipo === 'venda' ? 'vendas' : 'leads';
 
                 if (Object.keys(updateObj).length > 0) {
                     const { error: updateError } = await supabase.from(table).update(updateObj as any).eq('id', payload.registroId);

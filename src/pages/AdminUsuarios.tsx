@@ -378,7 +378,7 @@ const AdminUsuarios = () => {
             return (
               <div
                 key={p.id}
-                className={`bg-card rounded-xl border shadow-card p-4 flex items-center gap-4 hover:shadow-card-hover transition-all ${isDisabled ? 'border-destructive/20 opacity-60' : 'border-border/30'}`}
+                className={`bg-card rounded-2xl border shadow-elevated p-4 flex items-center gap-4 hover-lift transition-all ${isDisabled ? 'border-destructive/20 opacity-60' : 'border-border/40'}`}
               >
                 <div onClick={() => handleEdit(p)} className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer">
                   <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden shrink-0">

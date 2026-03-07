@@ -112,7 +112,7 @@ function CompanhiasTab() {
         {isLoading ? <p className="text-center py-12 text-muted-foreground">Carregando...</p> :
           filtered.length === 0 ? <p className="text-center py-12 text-muted-foreground">Nenhuma companhia encontrada.</p> :
             filtered.map(c => (
-              <div key={c.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 flex items-center justify-between gap-3">
+              <div key={c.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Avatar className="w-10 h-10 border border-border/30">
                     <AvatarImage src={(c as any).logo_url || undefined} />
@@ -232,7 +232,7 @@ function ProdutosTab() {
         {isLoading ? <p className="text-center py-12 text-muted-foreground">Carregando...</p> :
           filtered.length === 0 ? <p className="text-center py-12 text-muted-foreground">Nenhum produto encontrado.</p> :
             filtered.map(p => (
-              <div key={p.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 flex items-center justify-between gap-3">
+              <div key={p.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-sm font-semibold text-foreground">{p.nome}</p>
                   <p className="text-xs text-muted-foreground">{getCompanhiaNome(p.companhia_id)}</p>
@@ -335,7 +335,7 @@ function ModalidadesTab() {
         {isLoading ? <p className="text-center py-12 text-muted-foreground">Carregando...</p> :
           modalidades.length === 0 ? <p className="text-center py-12 text-muted-foreground">Nenhuma modalidade cadastrada.</p> :
             modalidades.map(m => (
-              <div key={m.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-2">
+              <div key={m.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-2">
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-foreground">{m.nome}</p>
                   {canEdit && (
@@ -393,7 +393,7 @@ const Inventario = () => {
       </div>
 
       <Tabs defaultValue="companhias" className="space-y-4">
-        <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg flex-wrap">
+        <TabsList className="bg-card border border-border/40 shadow-elevated p-1 h-auto rounded-xl flex-wrap">
           <TabsTrigger value="companhias" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
             <Building2 className="w-4 h-4" /> Companhias
           </TabsTrigger>

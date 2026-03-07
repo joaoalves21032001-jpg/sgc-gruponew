@@ -275,7 +275,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   return (
     <div className="space-y-6 pb-24">
       {/* ── Data ── */}
-      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+      <div className="bg-card rounded-2xl p-6 shadow-elevated hover-lift border border-border/40">
         <SectionHeader icon={CalendarIcon} title="Data de Lançamento" subtitle="Preenchida automaticamente com a data atual" />
         <Popover>
           <PopoverTrigger asChild>
@@ -302,7 +302,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
       </div>
 
       {/* ── Campos de Atividade ── */}
-      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+      <div className="bg-card rounded-2xl p-6 shadow-elevated hover-lift border border-border/40">
         <SectionHeader icon={ClipboardList} title="Atividades do Dia" subtitle="Todos os campos são obrigatórios, mesmo que o valor seja 0" />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {metrics.map((m) => (
@@ -340,7 +340,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
 
 
       {/* ── Líderes ── */}
-      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+      <div className="bg-card rounded-2xl p-6 shadow-elevated hover-lift border border-border/40">
         <SectionHeader icon={User} title="Líderes" subtitle="Notificação automática enviada ao supervisor e gerente" />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="p-4 bg-muted/40 rounded-lg border border-border/20 space-y-1.5">
@@ -479,7 +479,7 @@ const Comercial = () => {
       </div>
 
       <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg">
+        <TabsList className="bg-card border border-border/40 shadow-elevated p-1 h-auto rounded-xl">
           {canViewAtividades && (
             <TabsTrigger value="atividades" className="gap-1.5 py-2.5 px-5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-brand font-semibold text-sm rounded-md">
               <ClipboardList className="w-4 h-4" /> Atividades

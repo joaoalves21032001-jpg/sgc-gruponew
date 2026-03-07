@@ -320,7 +320,7 @@ const MinhasAcoes = () => {
     const showRequestBtn = canRequestChange(ativStatus);
     const hasPendingCR = myCorrectionRequests.some((cr: any) => cr.status === 'pendente' && cr.registro_id === a.id);
     return (
-      <div key={a.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4">
+      <div key={a.id} className="bg-card rounded-xl border border-border/30 shadow-elevated hover-lift p-4 flex flex-col justify-between">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -377,7 +377,7 @@ const MinhasAcoes = () => {
     const showRequestBtn = canRequestChange(v.status);
     const hasPendingCR = myCorrectionRequests.some((cr: any) => cr.status === 'pendente' && cr.registro_id === v.id);
     return (
-      <div key={v.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4">
+      <div key={v.id} className="bg-card rounded-xl border border-border/30 shadow-elevated hover-lift p-4 flex flex-col justify-between">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">

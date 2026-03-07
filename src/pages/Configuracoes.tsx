@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
+import { useUserRole, useTeamProfiles, useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useLogAction } from '@/hooks/useAuditLog';
 import { useQueryClient } from '@tanstack/react-query';
@@ -50,6 +50,7 @@ import { useAuditLogs, useCreateAuditLog, useUpdateAuditLog, useDeleteAuditLog, 
 const Configuracoes = () => {
     const { data: role } = useUserRole();
     const { data: profiles = [] } = useTeamProfiles();
+    const { data: profile } = useProfile();
     const logAction = useLogAction();
     const queryClient = useQueryClient();
     const { data: myPagePermissions } = useMyPermissions();
@@ -228,7 +229,8 @@ const Configuracoes = () => {
                 action: newLogAction.trim(),
                 entity_type: newLogEntity.trim() || null,
                 details: detailsObj,
-                entity_id: null
+                entity_id: null,
+                user_name: profile?.nome_completo || 'Sistema'
             });
             toast.success('Log de auditoria registrado!');
             setNewLogOpen(false);
@@ -373,22 +375,22 @@ const Configuracoes = () => {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="bg-card rounded-xl border border-border/30 shadow-card p-4 text-center">
+                <div className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 text-center">
                     <Users className="w-5 h-5 text-primary mx-auto mb-1" />
                     <p className="text-xl font-bold text-foreground">{activeProfiles}</p>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Usuários Ativos</p>
                 </div>
-                <div className="bg-card rounded-xl border border-border/30 shadow-card p-4 text-center">
+                <div className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 text-center">
                     <Eye className="w-5 h-5 text-warning mx-auto mb-1" />
                     <p className="text-xl font-bold text-foreground">{disabledProfiles}</p>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Desabilitados</p>
                 </div>
-                <div className="bg-card rounded-xl border border-border/30 shadow-card p-4 text-center">
+                <div className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 text-center">
                     <ShieldCheck className="w-5 h-5 text-success mx-auto mb-1" />
                     <p className="text-xl font-bold text-foreground">{securityProfiles.length}</p>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Perfis de Segurança</p>
                 </div>
-                <div className="bg-card rounded-xl border border-border/30 shadow-card p-4 text-center">
+                <div className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 text-center">
                     <Activity className="w-5 h-5 text-info mx-auto mb-1" />
                     <p className="text-xl font-bold text-foreground">{retentionMonths}m</p>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Retenção Logs</p>
@@ -396,7 +398,7 @@ const Configuracoes = () => {
             </div>
 
             <Tabs defaultValue="profiles" className="space-y-4">
-                <TabsList className="bg-card border border-border/30 shadow-card p-1 h-auto rounded-lg">
+                <TabsList className="bg-card border border-border/40 shadow-elevated p-1 h-auto rounded-xl">
                     <TabsTrigger value="profiles" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
                         <Shield className="w-4 h-4" /> Perfis de Segurança
                     </TabsTrigger>
@@ -426,7 +428,7 @@ const Configuracoes = () => {
                         </div>
                     )}
 
-                    <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-4">
+                    <div className="bg-card rounded-2xl border border-border/40 shadow-elevated p-6 space-y-4">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                                 <Shield className="w-5 h-5 text-primary" />
@@ -448,9 +450,9 @@ const Configuracoes = () => {
                                     <div
                                         key={sp.id}
                                         onClick={() => setSelectedProfileId(sp.id)}
-                                        className={`p-4 rounded-lg border cursor-pointer transition-all hover:shadow-md ${selectedProfileId === sp.id
-                                            ? 'border-primary bg-primary/[0.03] shadow-md ring-1 ring-primary/20'
-                                            : 'border-border/30 bg-muted/20 hover:border-primary/30'
+                                        className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-elevated hover-lift ${selectedProfileId === sp.id
+                                            ? 'border-primary bg-primary/[0.03] shadow-elevated ring-1 ring-primary/20'
+                                            : 'border-border/40 bg-muted/20 hover:border-primary/30'
                                             }`}
                                     >
                                         <div className="flex items-center justify-between mb-1">
@@ -473,7 +475,7 @@ const Configuracoes = () => {
 
                     {/* ── Selected profile detail ── */}
                     {selectedProfile && (
-                        <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-5 animate-fade-in-up">
+                        <div className="bg-card rounded-2xl border border-border/40 shadow-elevated p-6 space-y-5 animate-fade-in-up">
                             <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <Shield className="w-5 h-5 text-primary" />
@@ -616,7 +618,7 @@ const Configuracoes = () => {
 
                 {/* ═══════════ TAB: SISTEMA ═══════════ */}
                 <TabsContent value="system" className="space-y-4">
-                    <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-4">
+                    <div className="bg-card rounded-2xl border border-border/40 shadow-elevated p-6 space-y-4">
                         <div className="flex items-center gap-2">
                             <Database className="w-5 h-5 text-primary" />
                             <h2 className="text-base font-bold font-display text-foreground">Retenção de Logs</h2>
@@ -644,7 +646,7 @@ const Configuracoes = () => {
                         </div>
                     </div>
 
-                    <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-4">
+                    <div className="bg-card rounded-2xl border border-border/40 shadow-elevated p-6 space-y-4">
                         <div className="flex items-center gap-2">
                             <Bell className="w-5 h-5 text-primary" />
                             <h2 className="text-base font-bold font-display text-foreground">Notificações</h2>
@@ -691,7 +693,7 @@ const Configuracoes = () => {
 
                 {/* ═══════════ TAB: NOTIFICAÇÕES ═══════════ */}
                 <TabsContent value="notifications" className="space-y-4">
-                    <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-4">
+                    <div className="bg-card rounded-2xl border border-border/40 shadow-elevated p-6 space-y-4">
                         <div className="flex items-center gap-2">
                             <Bell className="w-5 h-5 text-primary" />
                             <h2 className="text-base font-bold font-display text-foreground">Regras de Notificação</h2>
@@ -787,7 +789,7 @@ const Configuracoes = () => {
 
                 {/* ═══════════ TAB: LOGS DE AUDITORIA (CRUD) ═══════════ */}
                 <TabsContent value="logs" className="space-y-4">
-                    <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-4">
+                    <div className="bg-card rounded-2xl border border-border/40 shadow-elevated p-6 space-y-4">
                         <div className="flex items-center gap-2">
                             <Activity className="w-5 h-5 text-primary" />
                             <h2 className="text-base font-bold font-display text-foreground">Gerenciamento Manual de Logs</h2>

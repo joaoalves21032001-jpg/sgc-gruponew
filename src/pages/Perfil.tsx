@@ -160,7 +160,7 @@ const Perfil = () => {
     <div className="max-w-3xl space-y-6 animate-fade-in-up">
       <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Meu Perfil</h1>
 
-      <div className="bg-card rounded-xl shadow-card border border-border/30 overflow-hidden">
+      <div className="bg-card rounded-2xl shadow-elevated border border-border/40 overflow-hidden">
         {/* Hero */}
         <div className="gradient-hero p-8 flex items-center gap-5">
           <div className={`w-[72px] h-[72px] rounded-full border-[3px] ${patente?.borderClass ?? 'border-white/20'} bg-white/10 flex items-center justify-center shrink-0 overflow-hidden relative group`}>

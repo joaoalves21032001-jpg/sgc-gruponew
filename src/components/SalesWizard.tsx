@@ -902,7 +902,7 @@ export default function SalesWizard() {
     <div className="space-y-6 pb-24 page-enter">
       <StepIndicator steps={STEPS} current={step} />
 
-      <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">
+      <div className="bg-card rounded-2xl p-6 shadow-elevated border border-border/40 pb-16">
         {/* ═══ STEP 0: FORMULÁRIO DE VENDA (includes Modalidade) ═══ */}
         {step === 0 && (
           <div className="space-y-6">

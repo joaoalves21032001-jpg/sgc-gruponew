@@ -10,21 +10,23 @@ export function AppLayout() {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <AppSidebar />
-      <main className="app-main flex-1 p-8 transition-all duration-300 ease-out">
-        <ErrorBoundary>
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={location.pathname}
-              initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
-              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-              exit={{ opacity: 0, y: -8, filter: 'blur(2px)' }}
-              transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-              className="min-h-[calc(100vh-10rem)]"
-            >
-              <Outlet />
-            </motion.div>
-          </AnimatePresence>
-        </ErrorBoundary>
+      <main className="app-main flex-1 p-4 md:p-6 lg:p-8 bg-muted/30 transition-all duration-300 ease-out">
+        <div className="bg-background rounded-2xl shadow-elevated border border-border/40 p-6 md:p-8 min-h-[calc(100vh-8rem)]">
+          <ErrorBoundary>
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={location.pathname}
+                initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -8, filter: 'blur(2px)' }}
+                transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                className="h-full"
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
+          </ErrorBoundary>
+        </div>
       </main>
       <footer className="app-footer border-t border-border/50 bg-card/50 backdrop-blur-sm transition-all duration-300 ease-out">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-8 py-4">

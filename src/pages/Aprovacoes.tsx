@@ -972,7 +972,7 @@ const Aprovacoes = () => {
                 const ativStatus = (a as any).status || 'pendente';
                 const sc = statusColors[ativStatus] || statusColors.pendente;
                 return (
-                  <div key={a.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">
+                  <div key={a.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1047,7 +1047,7 @@ const Aprovacoes = () => {
                 const sc = statusColors[v.status] || statusColors.analise;
                 const isPending = v.status === 'analise' || v.status === 'pendente';
                 return (
-                  <div key={v.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">
+                  <div key={v.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1126,7 +1126,7 @@ const Aprovacoes = () => {
                 const sc = statusColors[c.status] || statusColors.pendente;
                 const consultorName = c.consultor_recomendado_id ? (profiles.find(p => p.id === c.consultor_recomendado_id)?.nome_completo || '—') : null;
                 return (
-                  <div key={c.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">
+                  <div key={c.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1196,7 +1196,7 @@ const Aprovacoes = () => {
                 filteredAccess.map((req) => {
                   const sc = statusColors[req.status] || statusColors.pendente;
                   return (
-                    <div key={req.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">
+                    <div key={req.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -1268,7 +1268,7 @@ const Aprovacoes = () => {
                 try { parsed = JSON.parse(cr.motivo); } catch { }
                 const alteracoes = parsed.alteracoesPropostas || [];
                 return (
-                  <div key={cr.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">
+                  <div key={cr.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1340,7 +1340,7 @@ const Aprovacoes = () => {
               filteredMfa.map((req) => {
                 const sc = req.status === 'pendente' ? statusColors.pendente : req.status === 'aprovado' ? statusColors.aprovado : statusColors.devolvido;
                 return (
-                  <div key={req.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">
+                  <div key={req.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
