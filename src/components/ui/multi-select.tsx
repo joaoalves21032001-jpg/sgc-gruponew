@@ -199,7 +199,6 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                                 <CommandItem
                                     key="all"
                                     onSelect={toggleAll}
-                                    onClick={(e) => { e.stopPropagation(); toggleAll(); }}
                                     className="cursor-pointer"
                                 >
                                     <div
@@ -219,8 +218,8 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                                     return (
                                         <CommandItem
                                             key={option.value}
+                                            value={option.label}
                                             onSelect={() => toggleOption(option.value)}
-                                            onClick={(e) => { e.stopPropagation(); toggleOption(option.value); }}
                                             className="cursor-pointer"
                                         >
                                             <div
@@ -245,7 +244,6 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                                         <>
                                             <CommandItem
                                                 onSelect={handleClear}
-                                                onClick={(e) => { e.stopPropagation(); handleClear(); }}
                                                 className="flex-1 justify-center cursor-pointer"
                                             >
                                                 Limpar
@@ -255,7 +253,6 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                                     )}
                                     <CommandItem
                                         onSelect={() => setIsPopoverOpen(false)}
-                                        onClick={(e) => { e.stopPropagation(); setIsPopoverOpen(false); }}
                                         className="flex-1 justify-center cursor-pointer max-w-full"
                                     >
                                         Fechar
