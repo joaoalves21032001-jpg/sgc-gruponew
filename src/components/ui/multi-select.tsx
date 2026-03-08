@@ -199,7 +199,9 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                                 <CommandItem
                                     key="all"
                                     onSelect={toggleAll}
+                                    onPointerDown={(e) => { e.preventDefault(); toggleAll(); }}
                                     className="cursor-pointer"
+                                    value="all"
                                 >
                                     <div
                                         className={cn(
@@ -218,8 +220,9 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                                     return (
                                         <CommandItem
                                             key={option.value}
-                                            value={option.label}
+                                            value={option.value}
                                             onSelect={() => toggleOption(option.value)}
+                                            onPointerDown={(e) => { e.preventDefault(); toggleOption(option.value); }}
                                             className="cursor-pointer"
                                         >
                                             <div
