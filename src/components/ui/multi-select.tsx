@@ -67,14 +67,16 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
         ref
     ) => {
         const [selectedValues, setSelectedValues] = React.useState<string[]>(defaultValue);
+        const [lastDefaultValue, setLastDefaultValue] = React.useState<string[]>(defaultValue);
         const [isPopoverOpen, setIsPopoverOpen] = React.useState(false);
 
-        // Sync with external state changes
+        // Sync with external state changes only when the parent provides a new default value
         React.useEffect(() => {
-            if (JSON.stringify(defaultValue) !== JSON.stringify(selectedValues)) {
+            if (JSON.stringify(defaultValue) !== JSON.stringify(lastDefaultValue)) {
+                setLastDefaultValue(defaultValue);
                 setSelectedValues(defaultValue);
             }
-        }, [defaultValue]);
+        }, [defaultValue, lastDefaultValue]);
 
         const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
             if (event.key === "Enter") {
@@ -199,7 +201,6 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                                 <CommandItem
                                     key="all"
                                     onSelect={toggleAll}
-                                    onPointerDown={(e) => { e.preventDefault(); toggleAll(); }}
                                     className="cursor-pointer"
                                     value="all"
                                 >
@@ -222,7 +223,6 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
                                             key={option.value}
                                             value={option.value}
                                             onSelect={() => toggleOption(option.value)}
-                                            onPointerDown={(e) => { e.preventDefault(); toggleOption(option.value); }}
                                             className="cursor-pointer"
                                         >
                                             <div
