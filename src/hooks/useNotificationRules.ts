@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 /* ─────────────────────────────────────────────
  * Notification Rules — editable event → audience mapping
@@ -80,13 +81,28 @@ export function useUpdateRuleAudiences() {
     const qc = useQueryClient();
     return useMutation({
         mutationFn: async ({ id, audiences }: { id: string; audiences: string[] }) => {
-            const { error } = await supabase
+            console.log('Update payload:', { id, audiences });
+            const { data, error } = await supabase
                 .from('notification_rules' as any)
                 .update({ audiences })
-                .eq('id', id);
+                .eq('id', id)
+                .select();
             if (error) throw error;
+            if (!data || data.length === 0) {
+                console.error('Update completed but 0 rows affected for rule', id);
+                throw new Error('Permissão negada ou regra não encontrada. (0 linhas afetadas)');
+            }
+            return data;
         },
-        onSuccess: () => qc.invalidateQueries({ queryKey: ['notification-rules'] }),
+        onSuccess: (data) => {
+            console.log('Update success:', data);
+            toast.success('Públicos atualizados com sucesso.', { position: 'top-right' });
+            qc.invalidateQueries({ queryKey: ['notification-rules'] });
+        },
+        onError: (err: any) => {
+            console.error('Update error:', err);
+            toast.error('Erro ao atualizar: ' + (err.message || 'Desconhecido'), { position: 'top-right' });
+        }
     });
 }
 
