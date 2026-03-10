@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label';
 import { maskPhone } from '@/lib/masks';
 import { dispatchNotification } from '@/hooks/useNotificationRules';
 import { useMfaResetRequests, approveMfaReset, rejectMfaReset, type MfaResetRequest } from '@/hooks/useMfaResetRequests';
+import { usePasswordResetRequests, resolvePasswordResetRequest, type PasswordResetRequest } from '@/hooks/usePasswordResetRequests';
 
 /* ─── Cotacao type ─── */
 interface Cotacao {
@@ -319,6 +320,14 @@ const Aprovacoes = () => {
   const [rejectMfaReason, setRejectMfaReason] = useState('');
   const [savingMfaReset, setSavingMfaReset] = useState(false);
 
+  // Password Reset Requests
+  const pwdQuery = usePasswordResetRequests();
+  const pwdResetReqs = pwdQuery?.data ?? [];
+  const loadingPwdReset = pwdQuery?.isLoading ?? false;
+  const [rejectPwdReq, setRejectPwdReq] = useState<PasswordResetRequest | null>(null);
+  const [rejectPwdReason, setRejectPwdReason] = useState('');
+  const [savingPwdReset, setSavingPwdReset] = useState(false);
+
   // Check base permission (has ANY permission in aprovacoes.*)
   const canViewAnyAprovacao =
     hasPermission(myPermissions, 'aprovacoes.atividades', 'analyze') ||
@@ -326,6 +335,7 @@ const Aprovacoes = () => {
     hasPermission(myPermissions, 'aprovacoes.cotacoes', 'analyze') ||
     hasPermission(myPermissions, 'aprovacoes.alteracoes', 'analyze') ||
     hasPermission(myPermissions, 'aprovacoes.mfa', 'approve') ||
+    hasPermission(myPermissions, 'aprovacoes.senha', 'approve') ||
     isSuperAdmin;
 
   if (!canViewAnyAprovacao) {
@@ -890,9 +900,9 @@ const Aprovacoes = () => {
     return true;
   });
 
-  // MFA needs to be visible to those who have permission to see it,
-  // the top-level canViewAnyAprovacao already gates the page, but specifically:
+  // MFA and Passwords needs to be visible to those who have permission to see it
   const filteredMfa = mfaResetReqs;
+  const filteredPwd = pwdResetReqs;
 
   return (
     <div className="space-y-6 animate-fade-in-up">
@@ -954,6 +964,9 @@ const Aprovacoes = () => {
           </TabsTrigger>
           <TabsTrigger value="mfa" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
             <KeyRound className="w-4 h-4" /> MFA ({filteredMfa.filter(r => r.status === 'pendente').length})
+          </TabsTrigger>
+          <TabsTrigger value="senhas" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
+            <Shield className="w-4 h-4" /> Senhas ({filteredPwd.filter(r => r.status === 'pendente').length})
           </TabsTrigger>
         </TabsList>
 
@@ -1404,6 +1417,93 @@ const Aprovacoes = () => {
                             if (error) throw error;
                             toast.success('Solicitação excluída!');
                             queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
+                          } catch (err: any) { toast.error(err.message); }
+                        }}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </TabsContent>
+
+        {/* ── Senhas Tab Content ── */}
+        <TabsContent value="senhas">
+          <div className="grid gap-3">
+            {loadingPwdReset ? (
+              <div className="text-center py-12 text-muted-foreground">Carregando...</div>
+            ) : filteredPwd.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Shield className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                Nenhuma solicitação de alteração de senha.
+              </div>
+            ) : (
+              filteredPwd.map((req) => {
+                const sc = req.status === 'pendente' ? statusColors.pendente : req.status === 'aprovado' ? statusColors.aprovado : statusColors.devolvido;
+                const reqName = req.profiles?.nome_completo || getConsultorName(req.user_id);
+                return (
+                  <div key={req.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground">{reqName}</p>
+                          <Badge variant="outline" className={`text-[10px] ${sc}`}>{statusLabel[req.status] || req.status}</Badge>
+                          <Badge variant="outline" className="text-[10px] uppercase bg-muted/40">Reset Senha</Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{new Date(req.created_at).toLocaleString('pt-BR')}</p>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-lg">
+                      <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">Motivo</p>
+                      <p className="text-sm whitespace-pre-wrap">{req.motivo}</p>
+                    </div>
+                    <div className="p-3 bg-muted/30 rounded-lg mt-2 flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">Nova Senha Solicitada</p>
+                        <p className="text-sm text-foreground font-mono">•••••••• (Criptografada)</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-1.5 shrink-0 flex-wrap justify-end mt-2">
+                      <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => toast.info('Análise detalhada apenas via card principal.')}>
+                        <Eye className="w-4 h-4" /> Analisar
+                      </Button>
+                      
+                      {req.status === 'pendente' && (hasPermission(myPermissions, 'aprovacoes.senha', 'edit') || isSuperAdmin) && (
+                        <>
+                          <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30"
+                            disabled={savingPwdReset}
+                            onClick={async () => {
+                              setSavingPwdReset(true);
+                              try {
+                                await resolvePasswordResetRequest(req.id, 'approve');
+                                toast.success('Senha atualizada com sucesso!');
+                                dispatchNotification('senha_resetada', req.user_id, 'Senha Atualizada', 'Sua nova senha foi aprovada e já pode ser utilizada.', 'seguranca', '/');
+                                queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
+                              } catch (err: any) { toast.error(err.message); }
+                              finally { setSavingPwdReset(false); }
+                            }}
+                          >
+                           <CheckCircle2 className="w-4 h-4" /> Aprovar e Aplicar Senha
+                          </Button>
+                          <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30"
+                            onClick={() => { setRejectPwdReq(req); setRejectPwdReason(''); }}
+                          >
+                           <XCircle className="w-4 h-4" /> Recusar
+                          </Button>
+                        </>
+                      )}
+                      {(hasPermission(myPermissions, 'aprovacoes.senha', 'delete') || isSuperAdmin) && (
+                        <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
+                          if (!confirm('Excluir esta solicitação de senha?')) return;
+                          try {
+                            const { error } = await supabase.from('password_reset_requests').delete().eq('id', req.id);
+                            if (error) throw error;
+                            toast.success('Solicitação excluída!');
+                            queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
                           } catch (err: any) { toast.error(err.message); }
                         }}>
                           <Trash2 className="w-3.5 h-3.5" />

@@ -10,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { toast } from 'sonner';
 import { Shield, UserPlus, Info } from 'lucide-react';
 import { maskCPF, maskRG, maskPhone } from '@/lib/masks';
+import { AuthService } from '@/services/authService';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 import logo from '@/assets/logo-grupo-new.png';
 
@@ -38,6 +39,10 @@ const Login = () => {
   const [gerentes, setGerentes] = useState<LeaderOption[]>([]);
   const [selectedSupervisor, setSelectedSupervisor] = useState('');
   const [selectedGerente, setSelectedGerente] = useState('');
+  
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotForm, setForgotForm] = useState({ email: '', nova_senha: '', confirmacao_senha: '', motivo: '' });
+  const [submittingForgot, setSubmittingForgot] = useState(false);
 
   useEffect(() => {
     if (!showRequest) return;
@@ -63,23 +68,38 @@ const Login = () => {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      if (error) {
-        if (error.message.includes('Invalid login credentials')) {
-          toast.error('E-mail ou senha incorretos.');
-        } else {
-          toast.error('Erro ao fazer login. Tente novamente.');
-        }
-        console.error(error);
-      }
-    } catch (err) {
-      toast.error('Erro inesperado. Tente novamente.');
+      await AuthService.login(email, password);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro inesperado. Tente novamente.');
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!forgotForm.email.trim() || !forgotForm.nova_senha.trim() || !forgotForm.confirmacao_senha.trim() || !forgotForm.motivo.trim()) {
+      toast.error('Preencha todos os campos.');
+      return;
+    }
+    if (forgotForm.nova_senha !== forgotForm.confirmacao_senha) {
+      toast.error('As senhas não coincidem.');
+      return;
+    }
+    if (forgotForm.nova_senha.length < 6) {
+      toast.error('A nova senha deve ter no mínimo 6 caracteres.');
+      return;
+    }
+    setSubmittingForgot(true);
+    try {
+      await AuthService.requestPasswordReset(forgotForm.email, forgotForm.nova_senha, forgotForm.motivo);
+      toast.success('Solicitação de troca de senha enviada aos administradores.');
+      setShowForgotPassword(false);
+      setForgotForm({ email: '', nova_senha: '', confirmacao_senha: '', motivo: '' });
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao solicitar troca de senha.');
+    } finally {
+      setSubmittingForgot(false);
     }
   };
 
@@ -225,6 +245,13 @@ const Login = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium text-foreground">Senha</label>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
+                >
+                  Esqueci minha senha
+                </button>
               </div>
               <Input
                 type="password"
@@ -421,6 +448,45 @@ const Login = () => {
             <Button variant="outline" onClick={() => setShowRequest(false)}>Cancelar</Button>
             <Button onClick={handleAccessRequest} disabled={submitting} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
               {submitting ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Enviar Solicitação'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Forgot Password Dialog */}
+      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg flex items-center gap-2">
+              <Shield className="w-5 h-5 text-primary" />
+              Esqueci Minha Senha
+            </DialogTitle>
+            <DialogDescription>
+              Solicite uma nova senha. Os administradores irão avaliar e aprovar o resete para a senha que você definir abaixo.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail corporativo *</label>
+              <Input type="email" value={forgotForm.email} onChange={(e) => setForgotForm({ ...forgotForm, email: e.target.value })} placeholder="seu.email@gruponew.com.br" className="h-10" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nova Senha *</label>
+              <Input type="password" value={forgotForm.nova_senha} onChange={(e) => setForgotForm({ ...forgotForm, nova_senha: e.target.value })} placeholder="Digite a nova senha desejada" className="h-10" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirmar Nova Senha *</label>
+              <Input type="password" value={forgotForm.confirmacao_senha} onChange={(e) => setForgotForm({ ...forgotForm, confirmacao_senha: e.target.value })} placeholder="Confirme a nova senha" className="h-10" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Motivo da Solicitação *</label>
+              <Textarea value={forgotForm.motivo} onChange={(e) => setForgotForm({ ...forgotForm, motivo: e.target.value })} placeholder="Ex: Esqueci a senha atual" rows={2} />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowForgotPassword(false)}>Cancelar</Button>
+            <Button onClick={handleForgotPassword} disabled={submittingForgot} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+              {submittingForgot ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Solicitar Resete'}
             </Button>
           </DialogFooter>
         </DialogContent>

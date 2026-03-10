@@ -34,6 +34,7 @@ import {
   Ban, CheckCircle2, Plus, KeyRound
 } from 'lucide-react';
 import { resetMfaFactors } from '@/hooks/useMfaResetRequests';
+import { directPasswordReset } from '@/hooks/usePasswordResetRequests';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Profile } from '@/hooks/useProfile';
 
@@ -114,6 +115,9 @@ const AdminUsuarios = () => {
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'disabled'>('active');
   const [mfaResetConfirm, setMfaResetConfirm] = useState<Profile | null>(null);
   const [resettingMfa, setResettingMfa] = useState(false);
+  const [pwdResetConfirm, setPwdResetConfirm] = useState<Profile | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [resettingPwd, setResettingPwd] = useState(false);
   const queryClient = useQueryClient();
 
   if (!hasPermission(myPermissions, 'usuarios', 'view')) {
@@ -403,6 +407,15 @@ const AdminUsuarios = () => {
                   </div>
                 </div>
                 <div className="flex gap-1.5 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 text-primary hover:bg-primary/10"
+                    onClick={(e) => { e.stopPropagation(); setPwdResetConfirm(p); setNewPassword(''); }}
+                    title="Configurar Nova Senha"
+                  >
+                    <Shield className="w-3.5 h-3.5" />
+                  </Button>
                   <Button
                     variant="outline"
                     size="icon"
@@ -700,6 +713,52 @@ const AdminUsuarios = () => {
               }}
             >
               {resettingMfa ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><KeyRound className="w-4 h-4 mr-1" /> Resetar</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Password Reset Confirmation Dialog */}
+      <Dialog open={!!pwdResetConfirm} onOpenChange={(v) => { if (!v) setPwdResetConfirm(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Configurar Nova Senha</DialogTitle>
+            <DialogDescription>
+              Defina uma nova senha para <strong>{pwdResetConfirm?.nome_completo}</strong>. O usuário precisará utilizar esta senha no próximo login.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nova Senha</Label>
+              <Input
+                type="password"
+                placeholder="Mínimo 6 caracteres"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPwdResetConfirm(null)}>Cancelar</Button>
+            <Button
+              disabled={resettingPwd || newPassword.length < 6}
+              onClick={async () => {
+                if (!pwdResetConfirm) return;
+                setResettingPwd(true);
+                try {
+                  await directPasswordReset(pwdResetConfirm.id, newPassword);
+                  await logAction('resetar_senha', 'profile', pwdResetConfirm.id, { nome: pwdResetConfirm.nome_completo });
+                  toast.success(`Senha de ${pwdResetConfirm.apelido || pwdResetConfirm.nome_completo} alterada com sucesso!`);
+                  setPwdResetConfirm(null);
+                  setNewPassword('');
+                } catch (err: any) {
+                  toast.error(err.message || 'Erro ao redefinir a senha.');
+                } finally {
+                  setResettingPwd(false);
+                }
+              }}
+            >
+              {resettingPwd ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Shield className="w-4 h-4 mr-1" /> Salvar Senha</>}
             </Button>
           </DialogFooter>
         </DialogContent>
