@@ -82,6 +82,8 @@ interface FormData {
   atividades_desabilitadas: boolean;
   data_admissao: string;
   data_nascimento: string;
+  senha?: string;
+  confirmacao_senha?: string;
 }
 
 const emptyForm: FormData = {
@@ -92,6 +94,7 @@ const emptyForm: FormData = {
   supervisor_id: '', gerente_id: '',
   meta_faturamento: '', atividades_desabilitadas: false,
   data_admissao: '', data_nascimento: '',
+  senha: '', confirmacao_senha: ''
 };
 
 
@@ -224,6 +227,21 @@ const AdminUsuarios = () => {
       }
     }
 
+    if (!editingId) {
+      if (!form.senha || !form.confirmacao_senha) {
+         toast.error('Preencha a senha e confirmação para o novo usuário.');
+         return;
+      }
+      if (form.senha !== form.confirmacao_senha) {
+         toast.error('As senhas não coincidem.');
+         return;
+      }
+      if (form.senha.length < 6) {
+         toast.error('A senha deve ter no mínimo 6 caracteres.');
+         return;
+      }
+    }
+
     setSaving(true);
     try {
       let avatarUrl = avatarPreview;
@@ -278,6 +296,7 @@ const AdminUsuarios = () => {
             endereco: form.endereco,
             cargo: form.cargo,
             role: form.role,
+            password: form.senha,
             supervisor_id: form.supervisor_id && form.supervisor_id !== 'none' ? form.supervisor_id : null,
             gerente_id: form.gerente_id && form.gerente_id !== 'none' ? form.gerente_id : null,
             numero_emergencia_1: form.numero_emergencia_1,
@@ -595,6 +614,23 @@ const AdminUsuarios = () => {
                 </FieldWithTooltip>
               </div>
             </div>
+
+            {/* Senha (Apenas Novo Usuário) */}
+            {!editingId && (
+              <div>
+                <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3 flex items-center gap-2">
+                  <Shield className="w-3.5 h-3.5" /> Senha de Acesso
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FieldWithTooltip label="Senha" tooltip="Senha inicial do usuário." required>
+                    <Input type="password" value={form.senha || ''} onChange={(e) => setField('senha', e.target.value)} placeholder="Mínimo 6 caracteres" className="h-10" />
+                  </FieldWithTooltip>
+                  <FieldWithTooltip label="Confirme a Senha" tooltip="Repita a senha inicial." required>
+                    <Input type="password" value={form.confirmacao_senha || ''} onChange={(e) => setField('confirmacao_senha', e.target.value)} placeholder="Confirme a senha" className="h-10" />
+                  </FieldWithTooltip>
+                </div>
+              </div>
+            )}
 
 
 

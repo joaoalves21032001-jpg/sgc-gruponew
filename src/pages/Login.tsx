@@ -33,6 +33,7 @@ const Login = () => {
     nivel_acesso: 'consultor', numero_emergencia_1: '', numero_emergencia_2: '',
     nome_emergencia_1: '', nome_emergencia_2: '',
     data_admissao: '', data_nascimento: '',
+    senha: '', confirmacao_senha: ''
   });
   const [submitting, setSubmitting] = useState(false);
   const [supervisores, setSupervisores] = useState<LeaderOption[]>([]);
@@ -105,8 +106,17 @@ const Login = () => {
 
   const handleAccessRequest = async () => {
     if (!requestForm.nome.trim() || !requestForm.email.trim() || !requestForm.telefone.trim() ||
-      !requestForm.cpf.trim() || !requestForm.rg.trim() || !requestForm.endereco.trim()) {
-      toast.error('Preencha todos os campos obrigatórios.');
+      !requestForm.cpf.trim() || !requestForm.rg.trim() || !requestForm.endereco.trim() ||
+      !requestForm.senha.trim() || !requestForm.confirmacao_senha.trim()) {
+      toast.error('Preencha todos os campos obrigatórios (incluindo a senha).');
+      return;
+    }
+    if (requestForm.senha !== requestForm.confirmacao_senha) {
+      toast.error('As senhas não coincidem.');
+      return;
+    }
+    if (requestForm.senha.length < 6) {
+      toast.error('A senha deve ter no mínimo 6 caracteres.');
       return;
     }
     // Validate supervisor/gerente based on cargo
@@ -121,20 +131,23 @@ const Login = () => {
     }
     setSubmitting(true);
     try {
-      // Direct insert — eliminates edge function cold-start latency
-      const { error } = await supabase.from('access_requests').insert({
-        nome: requestForm.nome, email: requestForm.email, telefone: requestForm.telefone,
-        mensagem: requestForm.mensagem || null, cpf: requestForm.cpf, rg: requestForm.rg,
-        endereco: requestForm.endereco, cargo: requestForm.cargo,
-        nivel_acesso: requestForm.nivel_acesso,
-        numero_emergencia_1: requestForm.numero_emergencia_1 || null,
-        numero_emergencia_2: requestForm.numero_emergencia_2 || null,
-        supervisor_id: selectedSupervisor === 'nenhum' ? null : selectedSupervisor || null,
-        gerente_id: selectedGerente || null,
-        data_admissao: requestForm.data_admissao || null,
-        data_nascimento: requestForm.data_nascimento || null,
-      } as any);
+      const { data, error } = await supabase.functions.invoke('request-access', {
+        body: {
+          nome: requestForm.nome, email: requestForm.email, telefone: requestForm.telefone,
+          mensagem: requestForm.mensagem || null, cpf: requestForm.cpf, rg: requestForm.rg,
+          endereco: requestForm.endereco, cargo: requestForm.cargo,
+          nivel_acesso: requestForm.nivel_acesso,
+          numero_emergencia_1: requestForm.numero_emergencia_1 || null,
+          numero_emergencia_2: requestForm.numero_emergencia_2 || null,
+          supervisor_id: selectedSupervisor === 'nenhum' ? null : selectedSupervisor || null,
+          gerente_id: selectedGerente || null,
+          data_admissao: requestForm.data_admissao || null,
+          data_nascimento: requestForm.data_nascimento || null,
+          password: requestForm.senha
+        }
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
       toast.success('Solicitação enviada! O administrador será notificado.');
       setShowRequest(false);
       setRequestForm({
@@ -143,6 +156,7 @@ const Login = () => {
         nivel_acesso: 'consultor', numero_emergencia_1: '', numero_emergencia_2: '',
         nome_emergencia_1: '', nome_emergencia_2: '',
         data_admissao: '', data_nascimento: '',
+        senha: '', confirmacao_senha: ''
       });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao enviar solicitação.');
@@ -439,6 +453,22 @@ const Login = () => {
                 </div>
               </div>
             )}
+            
+            {/* Senha */}
+            <div>
+              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Senha de Acesso</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Senha *</label>
+                  <Input type="password" value={requestForm.senha} onChange={(e) => setField('senha', e.target.value)} placeholder="Mínimo 6 caracteres" className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirme a Senha *</label>
+                  <Input type="password" value={requestForm.confirmacao_senha} onChange={(e) => setField('confirmacao_senha', e.target.value)} placeholder="Confirme sua senha" className="h-10" />
+                </div>
+              </div>
+            </div>
+            
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mensagem (Opcional)</label>
               <Textarea value={requestForm.mensagem} onChange={(e) => setField('mensagem', e.target.value)} placeholder="Informações adicionais..." rows={2} />

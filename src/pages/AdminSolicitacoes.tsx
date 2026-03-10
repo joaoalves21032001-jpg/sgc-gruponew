@@ -72,15 +72,31 @@ const AdminSolicitacoes = () => {
   const handleApproveAccess = async (req: AccessRequest) => {
     setSaving(true);
     try {
-      const { data: existing } = await supabase.from('profiles').select('id').eq('email', req.email).maybeSingle();
-      if (existing) { toast.error(`Já existe usuário com e-mail ${req.email}.`); setSaving(false); return; }
-      if (req.cpf) {
-        const { data: cpfCheck } = await supabase.from('profiles').select('id').eq('cpf', req.cpf).maybeSingle();
-        if (cpfCheck) { toast.error(`Já existe usuário com CPF ${req.cpf}.`); setSaving(false); return; }
-      }
+      const { data: createResult, error: createError } = await supabase.functions.invoke('admin-create-user', {
+        body: {
+          email: req.email,
+          nome_completo: req.nome,
+          celular: req.telefone,
+          cpf: req.cpf,
+          rg: req.rg,
+          endereco: req.endereco,
+          cargo: req.cargo,
+          role: req.nivel_acesso,
+          numero_emergencia_1: req.numero_emergencia_1,
+          numero_emergencia_2: req.numero_emergencia_2,
+          encrypted_password: req.encrypted_password,
+        }
+      });
+
+      if (createError) throw new Error(createError.message);
+      if (createResult?.error) throw new Error(createResult.error);
+
+      const nextCode = createResult.codigo;
+
       const { error } = await supabase.from('access_requests').update({ status: 'aprovado' } as any).eq('id', req.id);
       if (error) throw error;
-      toast.success(`Acesso aprovado para ${req.nome}!`);
+      
+      toast.success(`Acesso aprovado e usuário criado para ${req.nome}! (Código: ${nextCode})`);
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao aprovar.');

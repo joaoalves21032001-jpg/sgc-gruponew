@@ -60,6 +60,7 @@ interface AccessRequest {
   endereco: string | null; cargo: string | null; nivel_acesso: string | null;
   numero_emergencia_1: string | null; numero_emergencia_2: string | null;
   motivo_recusa: string | null; status: string; created_at: string;
+  encrypted_password?: string;
   supervisor_id: string | null; gerente_id: string | null;
   data_admissao: string | null; data_nascimento: string | null;
 }
@@ -651,7 +652,6 @@ const Aprovacoes = () => {
       }
       queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
       queryClient.invalidateQueries({ queryKey: ['atividades'] });
-      setSelectedAtiv(null); setAtivJustificativa('');
     } catch (err: any) {
       toast.error(err.message || 'Erro ao atualizar.');
     } finally {
@@ -663,142 +663,47 @@ const Aprovacoes = () => {
   const handleApproveAccess = async (req: AccessRequest) => {
     setSavingAccess(true);
     try {
-      // 1. Check for existing ACTIVE user with same email
-      const { data: existing } = await supabase.from('profiles').select('id, disabled').eq('email', req.email).maybeSingle();
-      if (existing && !existing.disabled) {
-        toast.error(`Já existe usuário ativo com e-mail ${req.email}.`);
-        setSavingAccess(false);
-        return;
-      }
-      if (req.cpf) {
-        const { data: cpfCheck } = await supabase.from('profiles').select('id').eq('cpf', req.cpf).maybeSingle();
-        if (cpfCheck) { toast.error(`Já existe usuário com CPF ${req.cpf}.`); setSavingAccess(false); return; }
-      }
-
-      let userId: string;
-
-      if (existing && existing.disabled) {
-        // Reuse existing disabled profile
-        userId = existing.id;
-      } else {
-        // Create auth user via signUp (doesn't require admin privileges)
-        // Generate a secure random password — user will use "Forgot Password" to set their own
-        const tempPassword = crypto.randomUUID() + 'A1!';
-        const { data: signUpResult, error: signUpError } = await supabase.auth.signUp({
+      const { data: createResult, error: createError } = await supabase.functions.invoke('admin-create-user', {
+        body: {
           email: req.email,
-          password: tempPassword,
-          options: {
-            data: { full_name: req.nome },
-          },
-        });
-        if (signUpError) {
-          // If already exists in auth, try to find profile
-          if (signUpError.message?.includes('already') || signUpError.message?.includes('User already registered')) {
-            const { data: existProfile } = await supabase.from('profiles').select('id').eq('email', req.email).maybeSingle();
-            if (existProfile) {
-              userId = existProfile.id;
-            } else {
-              throw new Error(`Erro ao criar usuário: ${signUpError.message}`);
-            }
-          } else {
-            throw new Error(`Erro ao criar usuário: ${signUpError.message}`);
-          }
-        } else if (signUpResult?.user) {
-          userId = signUpResult.user.id;
-        } else {
-          throw new Error('Erro desconhecido ao criar usuário.');
+          nome_completo: req.nome,
+          celular: req.telefone,
+          cpf: req.cpf,
+          rg: req.rg,
+          endereco: req.endereco,
+          cargo: req.cargo,
+          role: req.nivel_acesso,
+          supervisor_id: req.supervisor_id,
+          gerente_id: req.gerente_id,
+          numero_emergencia_1: req.numero_emergencia_1,
+          numero_emergencia_2: req.numero_emergencia_2,
+          data_admissao: req.data_admissao,
+          data_nascimento: req.data_nascimento,
+          encrypted_password: req.encrypted_password,
         }
-      }
+      });
 
-      // 2. Wait a moment for the profile trigger to create the row (if new user)
-      if (!existing) {
-        await new Promise(r => setTimeout(r, 1500));
-      }
+      if (createError) throw new Error(createError.message);
+      if (createResult?.error) throw new Error(createResult.error);
 
-      // 3. Check if profile already has a codigo
-      const { data: currentProfile } = await supabase.from('profiles').select('codigo, disabled').eq('id', userId).maybeSingle();
+      const userId = createResult.user_id;
+      const nextCode = createResult.codigo;
 
-      let nextCode = currentProfile?.codigo || null;
-
-      // Only generate a new codigo if the profile doesn't have one yet
-      if (!nextCode) {
-        // Get all existing GN codes to find the max
-        const { data: allCodes } = await supabase
-          .from('profiles')
-          .select('codigo')
-          .not('codigo', 'is', null)
-          .like('codigo', 'GN%')
-          .order('codigo', { ascending: false })
-          .limit(10);
-
-        let maxNum = 0;
-        if (allCodes) {
-          for (const row of allCodes) {
-            const match = row.codigo?.match(/^GN(\d+)$/);
-            if (match) {
-              const num = parseInt(match[1], 10);
-              if (num > maxNum) maxNum = num;
-            }
-          }
-        }
-        nextCode = `GN${String(maxNum + 1).padStart(3, '0')}`;
-      }
-
-      // 4. Update profile with full data and ENABLE user
-      const profilePayload: any = {
-        nome_completo: req.nome,
-        apelido: req.nome.split(' ')[0],
-        celular: req.telefone || null,
-        cpf: req.cpf || null,
-        rg: req.rg || null,
-        endereco: req.endereco || null,
-        cargo: req.cargo || 'Consultor de Vendas',
-        codigo: nextCode,
-        supervisor_id: req.supervisor_id || null,
-        gerente_id: req.gerente_id || null,
-        numero_emergencia_1: req.numero_emergencia_1 || null,
-        numero_emergencia_2: req.numero_emergencia_2 || null,
-        data_admissao: req.data_admissao || null,
-        data_nascimento: req.data_nascimento || null,
-        disabled: false,
-      };
-
-      const { error: profileError } = await supabase.from('profiles').update(profilePayload).eq('id', userId);
-
-      if (profileError) {
-        // If codigo conflict, retry without setting codigo (keep existing)
-        if (profileError.message?.includes('profiles_codigo_key')) {
-          const { codigo, ...payloadWithoutCodigo } = profilePayload;
-          const { error: retryError } = await supabase.from('profiles').update(payloadWithoutCodigo as any).eq('id', userId);
-          if (retryError) throw new Error(`Erro ao atualizar perfil: ${retryError.message}`);
-          // Fetch the actual codigo for the success message
-          const { data: finalProfile } = await supabase.from('profiles').select('codigo').eq('id', userId).maybeSingle();
-          nextCode = finalProfile?.codigo || nextCode;
-        } else {
-          throw new Error(`Erro ao atualizar perfil: ${profileError.message}`);
-        }
-      }
-
-      // 4. Update role if not default 'consultor'
-      const role = req.nivel_acesso || 'consultor';
-      if (role !== 'consultor') {
-        await supabase.from('user_roles').update({ role } as any).eq('user_id', userId);
-      }
-
-      // 5. Mark access request as approved
+      // Mark access request as approved
       const { error } = await supabase.from('access_requests').update({ status: 'aprovado' } as any).eq('id', req.id);
       if (error) throw error;
 
       toast.success(`Acesso aprovado e usuário criado para ${req.nome}! (Código: ${nextCode})`);
-      logAction('aprovar_acesso', 'access_request', req.id, { nome: req.nome, email: req.email, codigo: nextCode });
+      await logAction('aprovar_acesso', 'access_request', req.id, { nome: req.nome, email: req.email, codigo: nextCode });
+      
       // Notify the new user
       if (userId) {
-        dispatchNotification('acesso_aprovado', userId, 'Acesso Aprovado', `Bem-vindo(a) ${req.nome}! Seu acesso ao sistema foi aprovado. Seu código é ${nextCode}.`, 'acesso', '/meu-progresso');
+        await dispatchNotification('acesso_aprovado', userId, 'Acesso Aprovado', `Bem-vindo(a) ${req.nome}! Seu acesso ao sistema foi aprovado. Seu código é ${nextCode}.`, 'acesso');
       }
+      
       queryClient.invalidateQueries({ queryKey: ['access-requests'] });
       queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
     } catch (err: any) {
-      console.error('Erro ao aprovar acesso:', err);
       toast.error(err.message || 'Erro ao aprovar acesso.');
     } finally {
       setSavingAccess(false);
@@ -1453,7 +1358,7 @@ const Aprovacoes = () => {
                           <Badge variant="outline" className={`text-[10px] ${sc}`}>{statusLabel[req.status] || req.status}</Badge>
                           <Badge variant="outline" className="text-[10px] uppercase bg-muted/40">Reset Senha</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1">{new Date(req.created_at).toLocaleString('pt-BR')}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{new Date(req.requested_at).toLocaleString('pt-BR')}</p>
                       </div>
                     </div>
                     <div className="p-3 bg-muted/30 rounded-lg">
@@ -1500,7 +1405,7 @@ const Aprovacoes = () => {
                         <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
                           if (!confirm('Excluir esta solicitação de senha?')) return;
                           try {
-                            const { error } = await supabase.from('password_reset_requests').delete().eq('id', req.id);
+                            const { error } = await supabase.from('password_reset_requests' as any).delete().eq('id', req.id);
                             if (error) throw error;
                             toast.success('Solicitação excluída!');
                             queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
