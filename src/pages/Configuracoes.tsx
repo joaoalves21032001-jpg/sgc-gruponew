@@ -108,6 +108,11 @@ const Configuracoes = () => {
     const [confirmDeleteEventId, setConfirmDeleteEventId] = useState<string | null>(null);
 
     // Dialogs
+    const [cleanupLogsOpen, setCleanupLogsOpen] = useState(false);
+    const [cleanupLogsPeriod, setCleanupLogsPeriod] = useState('all');
+    const [cleanupNotifsOpen, setCleanupNotifsOpen] = useState(false);
+    const [cleanupNotifsPeriod, setCleanupNotifsPeriod] = useState('all_read');
+
     const [newProfileOpen, setNewProfileOpen] = useState(false);
     const [newProfileName, setNewProfileName] = useState('');
     const [newProfileDesc, setNewProfileDesc] = useState('');
@@ -158,30 +163,66 @@ const Configuracoes = () => {
     };
 
     const handleCleanupLogs = async () => {
-        if (!confirm('Tem certeza que deseja limpar logs antigos?')) return;
         try {
-            const months = parseInt(retentionMonths);
-            if (months === 0) { toast.info('Retenção ilimitada.'); return; }
-            const cutoff = new Date();
-            cutoff.setMonth(cutoff.getMonth() - months);
+            let cutoff = new Date();
+            
+            if (cleanupLogsPeriod === '1_month') {
+                cutoff.setMonth(cutoff.getMonth() - 1);
+            } else if (cleanupLogsPeriod === '3_months') {
+                cutoff.setMonth(cutoff.getMonth() - 3);
+            } else if (cleanupLogsPeriod === '6_months') {
+                cutoff.setMonth(cutoff.getMonth() - 6);
+            } else if (cleanupLogsPeriod === '1_year') {
+                cutoff.setFullYear(cutoff.getFullYear() - 1);
+            } else if (cleanupLogsPeriod === 'all') {
+                // Delete everything
+                const { error } = await supabase.from('audit_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+                if (error) throw error;
+                
+                queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
+                logAction('limpar_logs_manual', 'audit_logs', undefined, { periodo: 'Todos' });
+                toast.success('Todos os logs foram removidos!');
+                setCleanupLogsOpen(false);
+                return;
+            }
+
             const { error } = await supabase.from('audit_logs').delete().lt('created_at', cutoff.toISOString());
             if (error) throw error;
+            
             queryClient.invalidateQueries({ queryKey: ['audit-logs'] });
-            logAction('limpar_logs', 'audit_logs', undefined, { meses: months });
-            toast.success('Logs antigos limpos!');
-        } catch (err: any) { toast.error(err.message); }
+            logAction('limpar_logs_manual', 'audit_logs', undefined, { periodo_corte: cleanupLogsPeriod });
+            toast.success('Logs removidos com sucesso!');
+            setCleanupLogsOpen(false);
+        } catch (err: any) { 
+            toast.error(err.message || 'Erro ao limpar logs.'); 
+        }
     };
 
     const handleCleanupNotifs = async () => {
         try {
-            const days = parseInt(notifRetentionDays);
-            const cutoff = new Date();
-            cutoff.setDate(cutoff.getDate() - days);
-            const { error } = await supabase.from('notifications').delete().eq('lida', true).lt('created_at', cutoff.toISOString());
+            let cutoff = new Date();
+            let query = supabase.from('notifications').delete().eq('lida', true);
+
+            if (cleanupNotifsPeriod === '7_days') {
+                cutoff.setDate(cutoff.getDate() - 7);
+                query = query.lt('created_at', cutoff.toISOString());
+            } else if (cleanupNotifsPeriod === '15_days') {
+                cutoff.setDate(cutoff.getDate() - 15);
+                query = query.lt('created_at', cutoff.toISOString());
+            } else if (cleanupNotifsPeriod === '30_days') {
+                cutoff.setDate(cutoff.getDate() - 30);
+                query = query.lt('created_at', cutoff.toISOString());
+            }
+
+            const { error } = await query;
             if (error) throw error;
+            
             queryClient.invalidateQueries({ queryKey: ['notifications'] });
-            toast.success('Notificações lidas removidas!');
-        } catch (err: any) { toast.error(err.message); }
+            toast.success('Notificações removidas com sucesso!');
+            setCleanupNotifsOpen(false);
+        } catch (err: any) { 
+            toast.error(err.message || 'Erro ao limpar notificações.'); 
+        }
     };
 
     const handleCreateRule = async () => {
@@ -631,8 +672,8 @@ const Configuracoes = () => {
                                 </Select>
                             </div>
                             <div className="space-y-1.5 flex items-end">
-                                <Button variant="destructive" size="sm" className="gap-1.5 font-semibold" onClick={handleCleanupLogs}>
-                                    <Trash2 className="w-3.5 h-3.5" /> Limpar Logs Antigos
+                                <Button variant="destructive" size="sm" className="gap-1.5 font-semibold" onClick={() => setCleanupLogsOpen(true)}>
+                                    <Trash2 className="w-3.5 h-3.5" /> Excluir Logs Agora
                                 </Button>
                             </div>
                         </div>
@@ -666,8 +707,8 @@ const Configuracoes = () => {
                                         </Select>
                                     </div>
                                     <div className="space-y-1.5 flex items-end">
-                                        <Button variant="outline" size="sm" className="gap-1.5 font-semibold" onClick={handleCleanupNotifs}>
-                                            <Trash2 className="w-3.5 h-3.5" /> Limpar Agora
+                                        <Button variant="outline" size="sm" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/20" onClick={() => setCleanupNotifsOpen(true)}>
+                                            <Trash2 className="w-3.5 h-3.5" /> Excluir Agora
                                         </Button>
                                     </div>
                                 </div>
@@ -880,6 +921,86 @@ const Configuracoes = () => {
                     </div>
                 </TabsContent>
             </Tabs>
+
+            {/* ═══════════ DIALOGS LIMPEZA MANUAL ═══════════ */}
+            <Dialog open={cleanupLogsOpen} onOpenChange={setCleanupLogsOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="font-display text-lg text-destructive flex items-center gap-2">
+                            <Trash2 className="w-5 h-5" /> Limpeza Manual de Logs
+                        </DialogTitle>
+                        <DialogDescription>
+                            Selecione o período de logs que deseja excluir permanentemente do banco de dados.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold text-foreground">Período para exclusão</Label>
+                            <Select value={cleanupLogsPeriod} onValueChange={setCleanupLogsPeriod}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione o período..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos os logs</SelectItem>
+                                    <SelectItem value="1_month">Mais antigos que 1 mês</SelectItem>
+                                    <SelectItem value="3_months">Mais antigos que 3 meses</SelectItem>
+                                    <SelectItem value="6_months">Mais antigos que 6 meses</SelectItem>
+                                    <SelectItem value="1_year">Mais antigos que 1 ano</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg flex items-start gap-2 text-warning">
+                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <p className="text-xs">Esta ação é <strong>irreversível</strong>. Os registros de auditoria excluídos não poderão ser recuperados.</p>
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setCleanupLogsOpen(false)}>Cancelar</Button>
+                        <Button variant="destructive" onClick={handleCleanupLogs} className="gap-1.5">
+                            <Trash2 className="w-4 h-4" /> Confirmar Exclusão
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={cleanupNotifsOpen} onOpenChange={setCleanupNotifsOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="font-display text-lg text-destructive flex items-center gap-2">
+                            <Trash2 className="w-5 h-5" /> Limpeza de Notificações
+                        </DialogTitle>
+                        <DialogDescription>
+                            Configure a exclusão manual de notificações já lidas pelos usuários.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label className="text-sm font-semibold text-foreground">Período para exclusão</Label>
+                            <Select value={cleanupNotifsPeriod} onValueChange={setCleanupNotifsPeriod}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecione o período..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all_read">Todas as lidas</SelectItem>
+                                    <SelectItem value="7_days">Mais antigas que 7 dias</SelectItem>
+                                    <SelectItem value="15_days">Mais antigas que 15 dias</SelectItem>
+                                    <SelectItem value="30_days">Mais antigas que 30 dias</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="p-3 bg-info/10 border border-info/20 rounded-lg flex items-start gap-2 text-info">
+                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <p className="text-xs">Apenas notificações marcadas como <strong>lidas</strong> pelos usuários serão removidas.</p>
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setCleanupNotifsOpen(false)}>Cancelar</Button>
+                        <Button variant="destructive" onClick={handleCleanupNotifs} className="gap-1.5">
+                            <Trash2 className="w-4 h-4" /> Confirmar Exclusão
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* ═══════════ DIALOGS ═══════════ */}
             <Dialog open={newProfileOpen} onOpenChange={setNewProfileOpen}>
