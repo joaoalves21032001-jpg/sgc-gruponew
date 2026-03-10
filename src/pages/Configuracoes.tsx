@@ -667,6 +667,9 @@ const Configuracoes = () => {
                                         <SelectItem value="6">6 meses</SelectItem>
                                         <SelectItem value="12">1 ano</SelectItem>
                                         <SelectItem value="24">2 anos</SelectItem>
+                                        <SelectItem value="36">3 anos</SelectItem>
+                                        <SelectItem value="48">4 anos</SelectItem>
+                                        <SelectItem value="60">5 anos</SelectItem>
                                         <SelectItem value="0">Ilimitado</SelectItem>
                                     </SelectContent>
                                 </Select>
@@ -703,6 +706,8 @@ const Configuracoes = () => {
                                                 <SelectItem value="30">30 dias</SelectItem>
                                                 <SelectItem value="60">60 dias</SelectItem>
                                                 <SelectItem value="90">90 dias</SelectItem>
+                                                <SelectItem value="180">6 meses</SelectItem>
+                                                <SelectItem value="365">1 ano</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
