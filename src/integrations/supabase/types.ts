@@ -22,6 +22,7 @@ export type Database = {
           data_admissao: string | null
           data_nascimento: string | null
           email: string
+          encrypted_password: string | null
           endereco: string | null
           gerente_id: string | null
           id: string
@@ -29,6 +30,8 @@ export type Database = {
           motivo_recusa: string | null
           nivel_acesso: string | null
           nome: string
+          nome_emergencia_1: string | null
+          nome_emergencia_2: string | null
           numero_emergencia_1: string | null
           numero_emergencia_2: string | null
           rg: string | null
@@ -43,6 +46,7 @@ export type Database = {
           data_admissao?: string | null
           data_nascimento?: string | null
           email: string
+          encrypted_password?: string | null
           endereco?: string | null
           gerente_id?: string | null
           id?: string
@@ -50,6 +54,8 @@ export type Database = {
           motivo_recusa?: string | null
           nivel_acesso?: string | null
           nome: string
+          nome_emergencia_1?: string | null
+          nome_emergencia_2?: string | null
           numero_emergencia_1?: string | null
           numero_emergencia_2?: string | null
           rg?: string | null
@@ -64,6 +70,7 @@ export type Database = {
           data_admissao?: string | null
           data_nascimento?: string | null
           email?: string
+          encrypted_password?: string | null
           endereco?: string | null
           gerente_id?: string | null
           id?: string
@@ -71,6 +78,8 @@ export type Database = {
           motivo_recusa?: string | null
           nivel_acesso?: string | null
           nome?: string
+          nome_emergencia_1?: string | null
+          nome_emergencia_2?: string | null
           numero_emergencia_1?: string | null
           numero_emergencia_2?: string | null
           rg?: string | null
@@ -84,6 +93,7 @@ export type Database = {
         Row: {
           cotacoes_enviadas: number
           cotacoes_fechadas: number
+          cotacoes_nao_respondidas: number | null
           created_at: string
           data: string
           follow_up: number
@@ -97,6 +107,7 @@ export type Database = {
         Insert: {
           cotacoes_enviadas?: number
           cotacoes_fechadas?: number
+          cotacoes_nao_respondidas?: number | null
           created_at?: string
           data?: string
           follow_up?: number
@@ -110,6 +121,7 @@ export type Database = {
         Update: {
           cotacoes_enviadas?: number
           cotacoes_fechadas?: number
+          cotacoes_nao_respondidas?: number | null
           created_at?: string
           data?: string
           follow_up?: number
@@ -119,6 +131,36 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      audit_log_config: {
+        Row: {
+          category: string
+          created_at: string | null
+          enabled: boolean
+          event_key: string
+          event_label: string
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          enabled?: boolean
+          event_key: string
+          event_label: string
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          enabled?: boolean
+          event_key?: string
+          event_label?: string
+          id?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -391,6 +433,39 @@ export type Database = {
           },
         ]
       }
+      mfa_reset_requests: {
+        Row: {
+          admin_id: string | null
+          admin_resposta: string | null
+          created_at: string | null
+          id: string
+          motivo: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_id?: string | null
+          admin_resposta?: string | null
+          created_at?: string | null
+          id?: string
+          motivo: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_id?: string | null
+          admin_resposta?: string | null
+          created_at?: string | null
+          id?: string
+          motivo?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       mfa_trusted_devices: {
         Row: {
           created_at: string
@@ -445,6 +520,36 @@ export type Database = {
         }
         Relationships: []
       }
+      notification_rules: {
+        Row: {
+          audience: string
+          audiences: string[] | null
+          created_at: string | null
+          enabled: boolean | null
+          event_key: string
+          event_label: string
+          id: string
+        }
+        Insert: {
+          audience: string
+          audiences?: string[] | null
+          created_at?: string | null
+          enabled?: boolean | null
+          event_key: string
+          event_label: string
+          id?: string
+        }
+        Update: {
+          audience?: string
+          audiences?: string[] | null
+          created_at?: string | null
+          enabled?: boolean | null
+          event_key?: string
+          event_label?: string
+          id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -474,6 +579,39 @@ export type Database = {
           link?: string | null
           tipo?: string
           titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      password_reset_requests: {
+        Row: {
+          encrypted_password: string
+          id: string
+          motivo: string
+          requested_at: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string | null
+          user_id: string
+        }
+        Insert: {
+          encrypted_password: string
+          id?: string
+          motivo: string
+          requested_at?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+          user_id: string
+        }
+        Update: {
+          encrypted_password?: string
+          id?: string
+          motivo?: string
+          requested_at?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
           user_id?: string
         }
         Relationships: []
@@ -557,10 +695,13 @@ export type Database = {
           id: string
           meta_faturamento: number | null
           nome_completo: string
+          nome_emergencia_1: string | null
+          nome_emergencia_2: string | null
           numero_emergencia_1: string | null
           numero_emergencia_2: string | null
           progresso_desabilitado: boolean
           rg: string | null
+          security_profile_id: string | null
           supervisor_id: string | null
           updated_at: string
         }
@@ -583,10 +724,13 @@ export type Database = {
           id: string
           meta_faturamento?: number | null
           nome_completo: string
+          nome_emergencia_1?: string | null
+          nome_emergencia_2?: string | null
           numero_emergencia_1?: string | null
           numero_emergencia_2?: string | null
           progresso_desabilitado?: boolean
           rg?: string | null
+          security_profile_id?: string | null
           supervisor_id?: string | null
           updated_at?: string
         }
@@ -609,10 +753,13 @@ export type Database = {
           id?: string
           meta_faturamento?: number | null
           nome_completo?: string
+          nome_emergencia_1?: string | null
+          nome_emergencia_2?: string | null
           numero_emergencia_1?: string | null
           numero_emergencia_2?: string | null
           progresso_desabilitado?: boolean
           rg?: string | null
+          security_profile_id?: string | null
           supervisor_id?: string | null
           updated_at?: string
         }
@@ -625,6 +772,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "profiles_security_profile_id_fkey"
+            columns: ["security_profile_id"]
+            isOneToOne: false
+            referencedRelation: "security_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "profiles_supervisor_id_fkey"
             columns: ["supervisor_id"]
             isOneToOne: false
@@ -632,6 +786,65 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      security_profile_permissions: {
+        Row: {
+          action: string
+          allowed: boolean | null
+          id: string
+          profile_id: string
+          resource: string
+        }
+        Insert: {
+          action?: string
+          allowed?: boolean | null
+          id?: string
+          profile_id: string
+          resource: string
+        }
+        Update: {
+          action?: string
+          allowed?: boolean | null
+          id?: string
+          profile_id?: string
+          resource?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_profile_permissions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "security_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      security_profiles: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_system: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       system_config: {
         Row: {
@@ -650,6 +863,24 @@ export type Database = {
           key?: string
           updated_at?: string
           updated_by?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
+      system_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
           value?: string
         }
         Relationships: []
@@ -797,6 +1028,10 @@ export type Database = {
       check_reusable_email: { Args: { _email: string }; Returns: boolean }
       cleanup_old_audit_logs: { Args: never; Returns: undefined }
       cleanup_read_notifications: { Args: never; Returns: undefined }
+      has_permission: {
+        Args: { p_action: string; p_resource: string; p_user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -811,6 +1046,7 @@ export type Database = {
       }
       is_gerente: { Args: never; Returns: boolean }
       is_supervisor: { Args: never; Returns: boolean }
+      reset_user_mfa: { Args: { target_user_id: string }; Returns: Json }
     }
     Enums: {
       app_role: "consultor" | "supervisor" | "gerente" | "administrador"
