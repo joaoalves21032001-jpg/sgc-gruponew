@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import CryptoJS from 'https://esm.sh/crypto-js@4.1.1';
+import { encode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,8 +24,8 @@ serve(async (req) => {
     let encrypted_password = null;
 
     if (password) {
-      const secretKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? 'backup-secret-key-123';
-      encrypted_password = CryptoJS.AES.encrypt(password, secretKey).toString();
+      const bytes = new TextEncoder().encode(password);
+      encrypted_password = encode(bytes);
     }
 
     const { error: insertError } = await supabaseAdmin.from('access_requests').insert({

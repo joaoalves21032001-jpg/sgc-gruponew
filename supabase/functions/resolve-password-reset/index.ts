@@ -1,6 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
-import CryptoJS from 'https://esm.sh/crypto-js@4.1.1';
+// Substituída dependencia por um encode base64 simples por confiabilidade em Deno
+import { decode } from "https://deno.land/std@0.168.0/encoding/base64.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -64,10 +65,9 @@ serve(async (req) => {
         .eq('id', request_id);
       if (rejectErr) throw rejectErr;
     } else if (action === 'approve') {
-      // Descriptografa a senha
-      const secretKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? 'backup-secret-key-123';
-      const bytes = CryptoJS.AES.decrypt(request.encrypted_password, secretKey);
-      const decryptedPassword = bytes.toString(CryptoJS.enc.Utf8);
+      // Descriptografa a senha usando Base64Decode
+      const bytes = decode(request.encrypted_password);
+      const decryptedPassword = new TextDecoder().decode(bytes);
 
       if (!decryptedPassword) {
         throw new Error('Falha ao descriptografar a senha armazenada.');
