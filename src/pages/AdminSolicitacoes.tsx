@@ -20,6 +20,7 @@ interface AccessRequest {
   endereco: string | null; cargo: string | null; nivel_acesso: string | null;
   numero_emergencia_1: string | null; numero_emergencia_2: string | null;
   motivo_recusa: string | null; status: string; created_at: string;
+  encrypted_password?: string;
 }
 
 function useAccessRequests() {
