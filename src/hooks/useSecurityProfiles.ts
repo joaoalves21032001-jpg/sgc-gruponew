@@ -57,6 +57,7 @@ const CRM_ACTIONS: ActionDef[] = [
 ];
 
 const APROVA_ACTIONS_STD: ActionDef[] = [
+    { key: 'view', label: 'Visualizador' },
     { key: 'analyze', label: 'Analisar' },
     { key: 'approve', label: 'Aprovar' },
     { key: 'return', label: 'Devolver' },
@@ -74,6 +75,7 @@ const USER_ACTIONS: ActionDef[] = [
 ];
 
 const APROVA_ACTIONS_REJECT: ActionDef[] = [
+    { key: 'view', label: 'Visualizador' },
     { key: 'analyze', label: 'Analisar' },
     { key: 'approve', label: 'Aprovar' },
     { key: 'reject', label: 'Rejeitar' },
@@ -82,6 +84,7 @@ const APROVA_ACTIONS_REJECT: ActionDef[] = [
 ];
 
 const APROVA_ACTIONS_MFA: ActionDef[] = [
+    { key: 'view', label: 'Visualizador' },
     { key: 'approve', label: 'Aprovar' },
     { key: 'reject', label: 'Rejeitar' },
     { key: 'return', label: 'Devolver' },

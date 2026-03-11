@@ -274,25 +274,22 @@ export function KanbanBoard() {
   };
 
   const visibleLeads = useMemo(() => {
-    if (canViewAll) return leads;
-
-    const mySubordinates = new Set<string>();
-    allProfiles.forEach(p => {
-      if (p.supervisor_id === user?.id || p.gerente_id === user?.id) {
-        mySubordinates.add(p.id);
-      }
-    });
+    if (canViewAll) {
+      // view_all: can see all leads; managers also see their subordinates' leads
+      return leads;
+    }
 
     if (canViewOwn) {
+      // view_own: ONLY the user's own leads (not subordinates')
       return leads.filter(l =>
         l.livre ||
-        l.created_by === user?.id ||
-        (l.created_by && mySubordinates.has(l.created_by))
+        l.created_by === user?.id
       );
     }
 
+    // No explicit permission: only free/unassigned leads
     return leads.filter(l => l.livre);
-  }, [leads, canViewAll, canViewOwn, allProfiles, user]);
+  }, [leads, canViewAll, canViewOwn, user]);
 
   const leadsByStage = useMemo(() => {
     const map: Record<string, Lead[]> = {};
