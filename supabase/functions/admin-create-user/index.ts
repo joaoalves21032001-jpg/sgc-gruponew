@@ -30,7 +30,7 @@ serve(async (req) => {
           const allowedRoles = ["administrador", "gerente", "supervisor", "diretor"];
           if (!roleData?.role || !allowedRoles.includes(roleData.role)) {
             return new Response(JSON.stringify({ error: "Somente administradores, gerentes, supervisores ou diretores podem criar usuários." }), {
-              status: 403,
+              status: 200,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
@@ -45,7 +45,7 @@ serve(async (req) => {
 
     if (!email || !nome_completo) {
       return new Response(JSON.stringify({ error: "E-mail e nome completo são obrigatórios." }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -64,7 +64,7 @@ serve(async (req) => {
       userId = existingProfile.id;
     } else if (existingProfile && !existingProfile.disabled) {
       return new Response(JSON.stringify({ error: `Já existe um usuário ativo com o e-mail ${email}.` }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } else {
@@ -84,13 +84,13 @@ serve(async (req) => {
             userId = existingAuthUser.id;
           } else {
             return new Response(JSON.stringify({ error: createError.message }), {
-              status: 400,
+              status: 200,
               headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
           }
         } else {
           return new Response(JSON.stringify({ error: createError.message }), {
-            status: 400,
+            status: 200,
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
@@ -128,7 +128,7 @@ serve(async (req) => {
 
     if (profileError) {
       return new Response(JSON.stringify({ error: `Erro ao atualizar perfil: ${profileError.message}` }), {
-        status: 400,
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -141,7 +141,7 @@ serve(async (req) => {
         .eq("user_id", userId);
       if (roleError) {
         return new Response(JSON.stringify({ error: `Erro ao atualizar papel: ${roleError.message}` }), {
-          status: 400,
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -152,7 +152,7 @@ serve(async (req) => {
     });
   } catch (err) {
     return new Response(JSON.stringify({ error: (err as Error).message }), {
-      status: 400,
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
