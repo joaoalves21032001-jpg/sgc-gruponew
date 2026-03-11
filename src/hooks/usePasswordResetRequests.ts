@@ -24,14 +24,36 @@ export function usePasswordResetRequests() {
       try {
         const { data, error } = await supabase
           .from('password_reset_requests' as any)
-          .select(`*, profiles:user_id(nome_completo, email)`)
+          .select(`*`)
           .order('requested_at', { ascending: false });
           
         if (error) {
           console.error('Erro ao buscar solicitacoes de senha:', error);
           return [];
         }
-        return (data ?? []) as any as PasswordResetRequest[];
+
+        const requests = (data ?? []) as any as PasswordResetRequest[];
+        
+        // Fetch profiles separately to avoid PostgREST foreign key relationship errors
+        // since user_id references auth.users instead of public.profiles
+        if (requests.length > 0) {
+          const userIds = [...new Set(requests.map(r => r.user_id))];
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('id, nome_completo, email')
+            .in('id', userIds);
+            
+          if (profilesData) {
+            requests.forEach(req => {
+              const p = profilesData.find(x => x.id === req.user_id);
+              if (p) {
+                req.profiles = { nome_completo: p.nome_completo, email: p.email };
+              }
+            });
+          }
+        }
+        
+        return requests;
       } catch (e) {
         console.error('Falha ao carregar solicitacoes de senha:', e);
         return [];
