@@ -123,6 +123,7 @@ export const MODULES_DEF: ResourceGroupDef[] = [
             { key: 'aprovacoes.cotacoes', label: 'Aprovações > Subguia Cotações', actions: APROVA_ACTIONS_REJECT },
             { key: 'aprovacoes.alteracoes', label: 'Aprovações > Subguia Alterações', actions: APROVA_ACTIONS_REJECT },
             { key: 'aprovacoes.mfa', label: 'Aprovações > Subguia MFA', actions: APROVA_ACTIONS_MFA },
+            { key: 'aprovacoes.senha', label: 'Aprovações > Subguia Senhas', actions: APROVA_ACTIONS_MFA },
         ]
     }
 ];
