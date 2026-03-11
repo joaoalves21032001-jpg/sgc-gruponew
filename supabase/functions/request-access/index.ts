@@ -24,8 +24,7 @@ serve(async (req) => {
     let encrypted_password = null;
 
     if (password) {
-      const bytes = new TextEncoder().encode(password);
-      encrypted_password = encode(bytes);
+      encrypted_password = encode(password);
     }
 
     const { error: insertError } = await supabaseAdmin.from('access_requests').insert({
