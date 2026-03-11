@@ -88,6 +88,7 @@ export const MODULES_DEF: ResourceGroupDef[] = [
             { key: 'dashboard', label: 'Dashboard', actions: COMMON_ACTIONS },
             { key: 'notificacoes', label: 'Notificações', actions: COMMON_ACTIONS },
             { key: 'usuarios', label: 'Usuários', actions: COMMON_ACTIONS },
+            { key: 'solicitacoes_acesso', label: 'Solic. de Acesso e Senhas', actions: COMMON_ACTIONS },
             { key: 'equipe', label: 'Equipe', actions: COMMON_ACTIONS },
             { key: 'logs_auditoria', label: 'Logs de Auditoria', actions: COMMON_ACTIONS },
             { key: 'configuracoes', label: 'Configurações do Sistema', actions: COMMON_ACTIONS },
@@ -138,6 +139,7 @@ export const PATH_TO_RESOURCE: Record<string, string> = {
     '/inventario': 'inventario',
     '/equipe': 'equipe',
     '/admin/usuarios': 'usuarios',
+    '/admin/solicitacoes': 'solicitacoes_acesso',
     '/admin/logs': 'logs_auditoria',
     '/admin/configuracoes': 'configuracoes',
 };
