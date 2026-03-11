@@ -43,8 +43,7 @@ serve(async (req) => {
     const userId = profile.id;
 
     // Criptografar a senha na aplicação antes de jogar no banco
-    const bytes = new TextEncoder().encode(nova_senha);
-    const encryptedPassword = encode(bytes);
+    const encryptedPassword = encode(nova_senha);
 
     // Insere na tabela a solicitação
     const { error: insertErr } = await supabaseAdmin
