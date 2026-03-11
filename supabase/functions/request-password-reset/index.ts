@@ -33,7 +33,7 @@ serve(async (req) => {
     const { data: profile, error: profileErr } = await supabaseAdmin
       .from('profiles')
       .select('id')
-      .eq('email', email)
+      .ilike('email', email)
       .single();
 
     if (profileErr || !profile) {

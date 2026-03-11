@@ -19,15 +19,23 @@ serve(async (req) => {
     );
 
     // Verify caller identity using their JWT
+    const authHeader = req.headers.get('Authorization');
+    console.log('Auth Header present:', !!authHeader);
+    
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
+      { global: { headers: { Authorization: authHeader! } } }
     );
-    const { data: { user } } = await supabaseClient.auth.getUser();
+    
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    
+    if (authError) {
+      console.error('Auth Error from getUser:', authError);
+    }
 
     if (!user) {
-      throw new Error('Não autorizado: Token inválido ou expirado.');
+      throw new Error(`Não autorizado: Token inválido ou expirado. Detalhes: ${authError?.message || 'user is null'}`);
     }
 
     const { request_id, action, target_user_id, force_new_password } = await req.json();
