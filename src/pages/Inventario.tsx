@@ -8,7 +8,7 @@ import {
   type Companhia, type Produto, type Modalidade as ModalidadeType
 } from '@/hooks/useInventario';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { KanbanBoard } from '@/components/KanbanBoard';
+import { LeadsListView } from '@/components/LeadsListView';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -411,7 +411,7 @@ const Inventario = () => {
         <TabsContent value="companhias"><CompanhiasTab /></TabsContent>
         <TabsContent value="produtos"><ProdutosTab /></TabsContent>
         <TabsContent value="modalidades"><ModalidadesTab /></TabsContent>
-        <TabsContent value="leads"><KanbanBoard permissionNamespace="inventario.leads" /></TabsContent>
+        <TabsContent value="leads"><LeadsListView permissionNamespace="inventario.leads" /></TabsContent>
       </Tabs>
     </div>
   );
