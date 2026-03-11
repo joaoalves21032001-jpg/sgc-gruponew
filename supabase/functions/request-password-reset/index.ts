@@ -52,7 +52,7 @@ serve(async (req) => {
         user_id: userId,
         motivo: motivo,
         encrypted_password: encryptedPassword,
-        status: 'pending'
+        status: 'pendente'
       });
 
     if (insertErr) {

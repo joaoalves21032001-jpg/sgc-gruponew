@@ -59,23 +59,24 @@ serve(async (req) => {
       throw new Error('Parâmetros inválidos.');
     }
 
+    // Check if the request exists and is pending
     const { data: request, error: reqErr } = await supabaseAdmin
       .from('password_reset_requests')
-      .select('*')
+      .select('user_id, status, encrypted_password') // Added encrypted_password back
       .eq('id', request_id)
       .single();
 
-    if (reqErr || !request || request.status !== 'pending') {
+    if (reqErr || !request || request.status !== 'pendente') {
       throw new Error('Solicitação inválida ou já resolvida.');
     }
 
-    if (action === 'reject') {
+    if (action === 'recusado') {
       const { error: rejectErr } = await supabaseAdmin
         .from('password_reset_requests')
-        .update({ status: 'rejected', resolved_at: new Date().toISOString(), resolved_by: user.id })
+        .update({ status: 'recusado', resolved_at: new Date().toISOString(), resolved_by: user.id })
         .eq('id', request_id);
       if (rejectErr) throw rejectErr;
-    } else if (action === 'approve') {
+    } else if (action === 'aprovado') {
       const bytes = decode(request.encrypted_password);
       const decryptedPassword = new TextDecoder().decode(bytes);
 
@@ -83,18 +84,21 @@ serve(async (req) => {
         throw new Error('Falha ao descriptografar a senha armazenada.');
       }
 
-      const { error: updateErr } = await supabaseAdmin.auth.admin.updateUserById(request.user_id, {
-        password: decryptedPassword,
-      });
-      if (updateErr) throw updateErr;
+      // 1. Force update the user's password using admin API
+      const { error: updateAuthErr } = await supabaseAdmin.auth.admin.updateUserById(
+        request.user_id,
+        { password: decryptedPassword }
+      );
+      if (updateAuthErr) throw updateAuthErr;
 
+      // 2. Mark the request as approved
       const { error: approveErr } = await supabaseAdmin
         .from('password_reset_requests')
-        .update({ status: 'approved', resolved_at: new Date().toISOString(), resolved_by: user.id })
+        .update({ status: 'aprovado', resolved_at: new Date().toISOString(), resolved_by: user.id })
         .eq('id', request_id);
       if (approveErr) throw approveErr;
     } else {
-      throw new Error('Ação inválida.');
+      throw new Error('Ação inválida. Use "aprovado" ou "recusado".');
     }
 
     return new Response(JSON.stringify({ success: true }), {

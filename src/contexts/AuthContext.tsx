@@ -134,7 +134,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const checkMfaStatus = async () => {
     try {
       const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (!aalData) return;
+      if (!aalData) {
+        setNeedsMfa(true);
+        setMfaChecked(true);
+        return;
+      }
 
       const { currentLevel, nextLevel } = aalData;
 
