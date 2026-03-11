@@ -5,6 +5,7 @@ import {
   useCompanhias, useCreateCompanhia, useUpdateCompanhia, useDeleteCompanhia,
   useProdutos, useCreateProduto, useUpdateProduto, useDeleteProduto,
   useModalidades, useCreateModalidade, useUpdateModalidade, useDeleteModalidade,
+  useLeads,
   type Companhia, type Produto, type Modalidade as ModalidadeType
 } from '@/hooks/useInventario';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,8 +20,51 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  Building2, Package, Tag, Users, Plus, Pencil, Trash2, Search, Upload, Image
+  Building2, Package, Tag, Users, Plus, Pencil, Trash2, Search, Upload, Image, ClipboardList
 } from 'lucide-react';
+
+/* ─── Visão Geral Tab ─── */
+function VisaoGeralTab() {
+  const { data: companhias = [] } = useCompanhias();
+  const { data: produtos = [] } = useProdutos();
+  const { data: modalidades = [] } = useModalidades();
+  const { data: leads = [] } = useLeads(); // Will be imported above
+
+  return (
+    <div className="space-y-6 animate-fade-in-up">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 text-center">
+          <Building2 className="w-5 h-5 text-primary mx-auto mb-1" />
+          <p className="text-xl font-bold text-foreground">{companhias.length}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Companhias</p>
+        </div>
+        <div className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 text-center">
+          <Package className="w-5 h-5 text-warning mx-auto mb-1" />
+          <p className="text-xl font-bold text-foreground">{produtos.length}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Produtos</p>
+        </div>
+        <div className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 text-center">
+          <Tag className="w-5 h-5 text-info mx-auto mb-1" />
+          <p className="text-xl font-bold text-foreground">{modalidades.length}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Modalidades</p>
+        </div>
+        <div className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 text-center">
+          <Users className="w-5 h-5 text-success mx-auto mb-1" />
+          <p className="text-xl font-bold text-foreground">{leads.length}</p>
+          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Leads no Inventário</p>
+        </div>
+      </div>
+      
+      <div className="bg-muted/30 border border-border/20 rounded-2xl p-6 text-center">
+        <ClipboardList className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-50" />
+        <h3 className="text-sm font-semibold text-foreground">Gestão de Inventário</h3>
+        <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+          Navegue pelas abas acima para gerenciar o catálogo de vendas, cadastrando companhias, produtos e as modalidades de serviço disponíveis na corretora.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 /* ─── Companhias Tab with Logo Upload ─── */
 function CompanhiasTab() {
@@ -392,8 +436,11 @@ const Inventario = () => {
         <p className="text-sm text-muted-foreground mt-1">Gerencie companhias, produtos, modalidades e leads</p>
       </div>
 
-      <Tabs defaultValue="companhias" className="space-y-4">
+      <Tabs defaultValue="geral" className="space-y-4">
         <TabsList className="bg-card border border-border/40 shadow-elevated p-1 h-auto rounded-xl flex-wrap">
+          <TabsTrigger value="geral" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
+            <ClipboardList className="w-4 h-4" /> Visão Geral
+          </TabsTrigger>
           <TabsTrigger value="companhias" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
             <Building2 className="w-4 h-4" /> Companhias
           </TabsTrigger>
@@ -408,6 +455,7 @@ const Inventario = () => {
           </TabsTrigger>
         </TabsList>
 
+        <TabsContent value="geral"><VisaoGeralTab /></TabsContent>
         <TabsContent value="companhias"><CompanhiasTab /></TabsContent>
         <TabsContent value="produtos"><ProdutosTab /></TabsContent>
         <TabsContent value="modalidades"><ModalidadesTab /></TabsContent>
