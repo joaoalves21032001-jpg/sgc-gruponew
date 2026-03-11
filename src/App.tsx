@@ -25,6 +25,8 @@ import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
 import { Shield, UserPlus } from "lucide-react";
 import { Button } from "./components/ui/button";
+import { CopilotChat } from "./components/CopilotChat";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -109,37 +111,40 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/landing" element={<LandingPage />} />
-            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-              <Route path="/" element={<Index />} />
-              <Route path="/comercial" element={<Comercial />} />
-              <Route path="/minhas-acoes" element={<MinhasAcoes />} />
-              <Route path="/aprovacoes" element={<Aprovacoes />} />
-              <Route path="/gestao" element={<Gestao />} />
-              <Route path="/crm" element={<CRM />} />
-              <Route path="/inventario" element={<Inventario />} />
-              <Route path="/notificacoes" element={<Notificacoes />} />
-              <Route path="/perfil" element={<Perfil />} />
-              <Route path="/equipe" element={<Equipe />} />
-              <Route path="/admin/usuarios" element={<AdminUsuarios />} />
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/landing" element={<LandingPage />} />
+              <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+                <Route path="/" element={<Index />} />
+                <Route path="/comercial" element={<Comercial />} />
+                <Route path="/minhas-acoes" element={<MinhasAcoes />} />
+                <Route path="/aprovacoes" element={<Aprovacoes />} />
+                <Route path="/gestao" element={<Gestao />} />
+                <Route path="/crm" element={<CRM />} />
+                <Route path="/inventario" element={<Inventario />} />
+                <Route path="/notificacoes" element={<Notificacoes />} />
+                <Route path="/perfil" element={<Perfil />} />
+                <Route path="/equipe" element={<Equipe />} />
+                <Route path="/admin/usuarios" element={<AdminUsuarios />} />
 
-              <Route path="/admin/logs" element={<AuditLogs />} />
-              <Route path="/admin/configuracoes" element={<Configuracoes />} />
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+                <Route path="/admin/logs" element={<AuditLogs />} />
+                <Route path="/admin/configuracoes" element={<Configuracoes />} />
+              </Route>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <CopilotChat />
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;
