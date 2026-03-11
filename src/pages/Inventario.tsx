@@ -411,7 +411,7 @@ const Inventario = () => {
         <TabsContent value="companhias"><CompanhiasTab /></TabsContent>
         <TabsContent value="produtos"><ProdutosTab /></TabsContent>
         <TabsContent value="modalidades"><ModalidadesTab /></TabsContent>
-        <TabsContent value="leads"><KanbanBoard /></TabsContent>
+        <TabsContent value="leads"><KanbanBoard permissionNamespace="inventario.leads" /></TabsContent>
       </Tabs>
     </div>
   );

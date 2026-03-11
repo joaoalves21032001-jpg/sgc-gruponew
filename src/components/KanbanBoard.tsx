@@ -203,18 +203,18 @@ function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, on
 }
 
 /* ─── Main Kanban Board ─── */
-export function KanbanBoard() {
+export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespace?: string }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: profile } = useProfile();
   const { data: allProfiles = [] } = useTeamProfiles();
   const { data: myPermissions } = useMyPermissions();
-  const isAdmin = hasPermission(myPermissions, 'crm', 'edit_leads');
-  const canViewAll = hasPermission(myPermissions, 'crm', 'view_all');
-  const canViewOwn = hasPermission(myPermissions, 'crm', 'view_own');
-  const canEditOwn = hasPermission(myPermissions, 'crm', 'edit');
-  const canCreate = hasPermission(myPermissions, 'crm', 'create');
+  const isAdmin = hasPermission(myPermissions, permissionNamespace, 'edit_leads');
+  const canViewAll = hasPermission(myPermissions, permissionNamespace, 'view_all');
+  const canViewOwn = hasPermission(myPermissions, permissionNamespace, 'view_own');
+  const canEditOwn = hasPermission(myPermissions, permissionNamespace, 'edit');
+  const canCreate = hasPermission(myPermissions, permissionNamespace, 'create');
   const { data: stages = [], isLoading: stagesLoading } = useLeadStages();
   const { data: leads = [], isLoading: leadsLoading } = useLeads();
   const { data: modalidadesList = [] } = useModalidades();
