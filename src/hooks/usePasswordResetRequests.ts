@@ -63,7 +63,7 @@ export function usePasswordResetRequests() {
   });
 }
 
-export async function resolvePasswordResetRequest(requestId: string, action: 'approve' | 'reject') {
+export async function resolvePasswordResetRequest(requestId: string, action: 'aprovado' | 'recusado') {
   const { data, error } = await supabase.functions.invoke('resolve-password-reset', {
     body: { request_id: requestId, action },
   });

@@ -1384,7 +1384,7 @@ const Aprovacoes = () => {
                             onClick={async () => {
                               setSavingPwdReset(true);
                               try {
-                                await resolvePasswordResetRequest(req.id, 'approve');
+                                await resolvePasswordResetRequest(req.id, 'aprovado');
                                 toast.success('Senha atualizada com sucesso!');
                                 dispatchNotification('senha_resetada', req.user_id, 'Senha Atualizada', 'Sua nova senha foi aprovada e já pode ser utilizada.', 'seguranca', '/');
                                 queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
