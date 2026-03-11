@@ -48,17 +48,15 @@ BEGIN
     IF TG_OP = 'INSERT' AND NEW.status = 'pending' THEN
         INSERT INTO public.notifications (
             user_id,
-            type,
-            title,
-            content,
-            trigger_event_id,
-            action_url
+            tipo,
+            titulo,
+            descricao,
+            link
         ) VALUES (
-            NEW.user_id, -- Used just to link to the requester, rules handle delivery
+            NEW.user_id,
             'password_reset_request',
             'Nova Solicitação de Reset de Senha',
             'Um usuário solicitou a alteração de sua senha de acesso e requer aprovação.',
-            NEW.id,
             '/aprovacoes'
         );
     END IF;
