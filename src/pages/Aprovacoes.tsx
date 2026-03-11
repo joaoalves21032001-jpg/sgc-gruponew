@@ -1394,6 +1394,26 @@ const Aprovacoes = () => {
                           >
                            <CheckCircle2 className="w-4 h-4" /> Aprovar e Aplicar Senha
                           </Button>
+                          {(hasPermission(myPermissions, 'aprovacoes.senha', 'return') || isSuperAdmin) && (
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30"
+                              disabled={savingPwdReset}
+                              onClick={async () => {
+                                setSavingPwdReset(true);
+                                try {
+                                  const { error } = await supabase.from('password_reset_requests' as any)
+                                    .update({ status: 'devolvido' } as any)
+                                    .eq('id', req.id);
+                                  if (error) throw error;
+                                  toast.success('Solicitação devolvida ao usuário.');
+                                  dispatchNotification('senha_devolvida', req.user_id, 'Solicitação Devolvida', 'Sua solicitação de reset de senha foi devolvida para revisão.', 'seguranca', '/');
+                                  queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
+                                } catch (err: any) { toast.error(err.message); }
+                                finally { setSavingPwdReset(false); }
+                              }}
+                            >
+                             <Undo2 className="w-4 h-4" /> Devolver
+                            </Button>
+                          )}
                           <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30"
                             onClick={() => { setRejectPwdReq(req); setRejectPwdReason(''); }}
                           >
