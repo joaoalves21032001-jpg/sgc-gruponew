@@ -211,7 +211,7 @@ export function KanbanBoard() {
   const { data: allProfiles = [] } = useTeamProfiles();
   const { data: myPermissions } = useMyPermissions();
   const isAdmin = hasPermission(myPermissions, 'crm', 'edit_leads');
-  const canViewAll = isAdmin || hasPermission(myPermissions, 'crm', 'view_all');
+  const canViewAll = hasPermission(myPermissions, 'crm', 'view_all');
   const canViewOwn = hasPermission(myPermissions, 'crm', 'view_own');
   const canEditOwn = hasPermission(myPermissions, 'crm', 'edit');
   const canCreate = hasPermission(myPermissions, 'crm', 'create');

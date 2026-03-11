@@ -1373,28 +1373,33 @@ const Aprovacoes = () => {
                     </div>
                     
                     <div className="flex gap-1.5 shrink-0 flex-wrap justify-end mt-2">
-                      <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => toast.info('Análise detalhada apenas via card principal.')}>
-                        <Eye className="w-4 h-4" /> Analisar
-                      </Button>
+                      {hasPermission(myPermissions, 'aprovacoes.senha', 'analyze') && (
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => toast.info('Análise detalhada apenas via card principal.')}>
+                          <Eye className="w-4 h-4" /> Analisar
+                        </Button>
+                      )}
                       
-                      {req.status === 'pendente' && (hasPermission(myPermissions, 'aprovacoes.senha', 'edit') || isSuperAdmin) && (
+                      {req.status === 'pendente' && (
                         <>
-                          <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30"
-                            disabled={savingPwdReset}
-                            onClick={async () => {
-                              setSavingPwdReset(true);
-                              try {
-                                await resolvePasswordResetRequest(req.id, 'aprovado');
-                                toast.success('Senha atualizada com sucesso!');
-                                dispatchNotification('senha_resetada', req.user_id, 'Senha Atualizada', 'Sua nova senha foi aprovada e já pode ser utilizada.', 'seguranca', '/');
-                                queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
-                              } catch (err: any) { toast.error(err.message); }
-                              finally { setSavingPwdReset(false); }
-                            }}
-                          >
-                           <CheckCircle2 className="w-4 h-4" /> Aprovar e Aplicar Senha
-                          </Button>
-                          {(hasPermission(myPermissions, 'aprovacoes.senha', 'return') || isSuperAdmin) && (
+                          {hasPermission(myPermissions, 'aprovacoes.senha', 'approve') && (
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30"
+                              disabled={savingPwdReset}
+                              onClick={async () => {
+                                setSavingPwdReset(true);
+                                try {
+                                  await resolvePasswordResetRequest(req.id, 'aprovado');
+                                  toast.success('Senha atualizada com sucesso!');
+                                  dispatchNotification('senha_resetada', req.user_id, 'Senha Atualizada', 'Sua nova senha foi aprovada e já pode ser utilizada.', 'seguranca', '/');
+                                  queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
+                                } catch (err: any) { toast.error(err.message); }
+                                finally { setSavingPwdReset(false); }
+                              }}
+                            >
+                             <CheckCircle2 className="w-4 h-4" /> Aprovar e Aplicar Senha
+                            </Button>
+                          )}
+                          
+                          {hasPermission(myPermissions, 'aprovacoes.senha', 'return') && (
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30"
                               disabled={savingPwdReset}
                               onClick={async () => {
@@ -1414,14 +1419,17 @@ const Aprovacoes = () => {
                              <Undo2 className="w-4 h-4" /> Devolver
                             </Button>
                           )}
-                          <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30"
-                            onClick={() => { setRejectPwdReq(req); setRejectPwdReason(''); }}
-                          >
-                           <XCircle className="w-4 h-4" /> Recusar
-                          </Button>
+
+                          {hasPermission(myPermissions, 'aprovacoes.senha', 'reject') && (
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30"
+                              onClick={() => { setRejectPwdReq(req); setRejectPwdReason(''); }}
+                            >
+                             <XCircle className="w-4 h-4" /> Recusar
+                            </Button>
+                          )}
                         </>
                       )}
-                      {(hasPermission(myPermissions, 'aprovacoes.senha', 'delete') || isSuperAdmin) && (
+                      {hasPermission(myPermissions, 'aprovacoes.senha', 'delete') && (
                         <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
                           if (!confirm('Excluir esta solicitação de senha?')) return;
                           try {

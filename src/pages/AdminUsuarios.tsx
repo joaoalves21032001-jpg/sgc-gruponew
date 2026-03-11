@@ -426,41 +426,50 @@ const AdminUsuarios = () => {
                   </div>
                 </div>
                 <div className="flex gap-1.5 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 text-primary hover:bg-primary/10"
-                    onClick={(e) => { e.stopPropagation(); setPwdResetConfirm(p); setNewPassword(''); }}
-                    title="Configurar Nova Senha"
-                  >
-                    <Shield className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 text-primary hover:bg-primary/10"
-                    onClick={(e) => { e.stopPropagation(); setMfaResetConfirm(p); }}
-                    title="Resetar MFA"
-                  >
-                    <KeyRound className="w-3.5 h-3.5" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className={`h-8 w-8 ${isDisabled ? 'text-success hover:bg-success/10' : 'text-warning hover:bg-warning/10'}`}
-                    onClick={(e) => { e.stopPropagation(); setDisableConfirm(p); }}
-                    title={isDisabled ? 'Reativar' : 'Desabilitar'}
-                  >
-                    {isDisabled ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
-                    onClick={(e) => { e.stopPropagation(); setDeleteConfirm(p); }}
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+                  {hasPermission(myPermissions, 'usuarios', 'reset_password') && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 text-primary hover:bg-primary/10"
+                      onClick={(e) => { e.stopPropagation(); setPwdResetConfirm(p); setNewPassword(''); }}
+                      title="Configurar Nova Senha"
+                    >
+                      <Shield className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                  {hasPermission(myPermissions, 'usuarios', 'reset_mfa') && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 text-primary hover:bg-primary/10"
+                      onClick={(e) => { e.stopPropagation(); setMfaResetConfirm(p); }}
+                      title="Resetar MFA"
+                    >
+                      <KeyRound className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                  {hasPermission(myPermissions, 'usuarios', 'disable') && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className={`h-8 w-8 ${isDisabled ? 'text-success hover:bg-success/10' : 'text-warning hover:bg-warning/10'}`}
+                      onClick={(e) => { e.stopPropagation(); setDisableConfirm(p); }}
+                      title={isDisabled ? 'Reativar' : 'Desabilitar'}
+                    >
+                      {isDisabled ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
+                    </Button>
+                  )}
+                  {hasPermission(myPermissions, 'usuarios', 'delete') && (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
+                      onClick={(e) => { e.stopPropagation(); setDeleteConfirm(p); }}
+                      title="Excluir"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
                 </div>
               </div>
             );
