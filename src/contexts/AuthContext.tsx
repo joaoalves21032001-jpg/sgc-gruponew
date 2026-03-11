@@ -46,13 +46,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const prevUser = user;
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (!session?.user) {
+
+      // When session becomes null (SIGNED_OUT, token revoked after password reset, etc.)
+      if (_event === 'SIGNED_OUT' || !session) {
+        setSession(null);
+        setUser(null);
         setMfaVerified(false);
         setNeedsMfa(false);
+        setMfaChecked(false);
         setHasProfile(null);
-        // Log logout
         if (prevUser) {
           supabase.from('audit_logs').insert({
             user_id: prevUser.id,
@@ -60,14 +62,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             action: 'logout',
           } as any).then(() => { });
         }
-      } else if (!prevUser && session?.user && _event === 'SIGNED_IN') {
-        // Log login
+        setLoading(false);
+        return;
+      }
+
+      setSession(session);
+      setUser(session.user);
+
+      if (!prevUser && _event === 'SIGNED_IN') {
         supabase.from('audit_logs').insert({
           user_id: session.user.id,
           user_name: session.user.email,
           action: 'login',
         } as any).then(() => { });
       }
+
+      // When user changes (e.g. password was reset), reset MFA check state
+      if (prevUser && prevUser.id === session.user.id && _event === 'USER_UPDATED') {
+        setMfaChecked(false);
+        setMfaVerified(false);
+      }
+
       setLoading(false);
     });
 
@@ -132,50 +147,72 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, hasProfile]);
 
   const checkMfaStatus = async () => {
-    try {
-      const { data: aalData } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      if (!aalData) {
-        setNeedsMfa(true);
+    // Safety net: if anything hangs for more than 5s, unblock the UI gracefully
+    const timeout = new Promise<void>((resolve) =>
+      setTimeout(() => {
+        setNeedsMfa(false);
         setMfaChecked(true);
-        return;
-      }
+        resolve();
+      }, 5000)
+    );
 
-      const { currentLevel, nextLevel } = aalData;
+    const check = async () => {
+      try {
+        const { data: aalData, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
 
-      if (nextLevel === 'aal2' && currentLevel === 'aal1') {
-        const deviceHash = localStorage.getItem('mfa_device_hash');
-        if (deviceHash) {
-          const { data: trusted } = await supabase
-            .from('mfa_trusted_devices')
-            .select('trusted_until')
-            .eq('user_id', user!.id)
-            .eq('device_hash', deviceHash)
-            .gte('trusted_until', new Date().toISOString())
-            .maybeSingle();
+        // If we get an auth error, the session was invalidated — sign the user out
+        if (error) {
+          await supabase.auth.signOut();
+          return;
+        }
 
-          if (trusted) {
-            const { data: factors } = await supabase.auth.mfa.listFactors();
-            if (factors?.totp?.[0]) {
-              setMfaVerified(true);
-              setNeedsMfa(false);
-              return;
+        if (!aalData) {
+          setNeedsMfa(false);
+          setMfaChecked(true);
+          return;
+        }
+
+        const { currentLevel, nextLevel } = aalData;
+
+        if (nextLevel === 'aal2' && currentLevel === 'aal1') {
+          const deviceHash = localStorage.getItem('mfa_device_hash');
+          if (deviceHash) {
+            const { data: trusted } = await supabase
+              .from('mfa_trusted_devices')
+              .select('trusted_until')
+              .eq('user_id', user!.id)
+              .eq('device_hash', deviceHash)
+              .gte('trusted_until', new Date().toISOString())
+              .maybeSingle();
+
+            if (trusted) {
+              const { data: factors } = await supabase.auth.mfa.listFactors();
+              if (factors?.totp?.[0]) {
+                setMfaVerified(true);
+                setNeedsMfa(false);
+                setMfaChecked(true);
+                return;
+              }
             }
           }
+          setNeedsMfa(true);
+          setMfaVerified(false);
+        } else if (currentLevel === 'aal2') {
+          setMfaVerified(true);
+          setNeedsMfa(false);
+        } else {
+          setNeedsMfa(false);
+          setMfaVerified(false);
         }
-        setNeedsMfa(true);
-        setMfaVerified(false);
-      } else if (currentLevel === 'aal2') {
-        setMfaVerified(true);
+        setMfaChecked(true);
+      } catch {
+        // On unexpected error, don't block the user — let them through
         setNeedsMfa(false);
-      } else {
-        setNeedsMfa(true);
-        setMfaVerified(false);
+        setMfaChecked(true);
       }
-      setMfaChecked(true);
-    } catch {
-      setNeedsMfa(true);
-      setMfaChecked(true);
-    }
+    };
+
+    await Promise.race([check(), timeout]);
   };
 
   const signOut = async () => {
