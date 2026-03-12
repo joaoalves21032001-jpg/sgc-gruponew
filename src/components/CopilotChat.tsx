@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Bot, Send, X, Sparkles, User, FileText, Minimize2 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -118,7 +119,9 @@ export function CopilotChat() {
                       : 'bg-card border border-border/50 text-foreground rounded-bl-none shadow-sm'
                   }`}>
                     {msg.role === 'assistant' ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-snug prose-p:my-1 prose-a:text-primary" dangerouslySetInnerHTML={{ __html: msg.content.replace(/\n/g, '<br/>') }} />
+                      <div className="prose prose-sm dark:prose-invert max-w-none prose-p:leading-snug prose-p:my-1 prose-a:text-primary">
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
                     ) : (
                       <p className="whitespace-pre-wrap leading-snug">{msg.content}</p>
                     )}

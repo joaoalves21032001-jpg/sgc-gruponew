@@ -158,7 +158,7 @@ Ticket médio: R$ ${ticketVendas} | Por modalidade: ${JSON.stringify(modalidades
     // 4. APROVAÇÕES — Fluxos de aprovação
     // ═══════════════════════════════════════════
     const { data: accessReqs } = await supabaseAdmin.from('access_requests').select('status, cargo, created_at, updated_at').limit(200);
-    const { data: mfaResets } = await supabaseAdmin.from('mfa_reset_requests' as any).select('status, created_at').limit(100).catch(() => ({ data: [] }));
+    const { data: mfaResets } = await supabaseAdmin.from('mfa_reset_requests' as any).select('status, created_at').limit(100);
 
     const aprovStatus = freq(accessReqs || [], 'status');
     const avgAprovTime = accessReqs?.filter((r: any) => r.updated_at && r.status !== 'pending').length ?
@@ -251,9 +251,11 @@ Seja específico e tático como um especialista em mídia paga. Responda em Port
     // NOTIFICAR ADMIN SE STARK TEM PERGUNTAS
     // ═══════════════════════════════════════════
     if (starkQuestions.length > 0) {
-      const adminProfile = await supabaseAdmin.from('profiles').select('id').eq('email', ADMIN_EMAIL).single().catch(() => null) as any;
-      const adminUser = await supabaseAdmin.from('profiles').select('id').eq('role', 'administrador').limit(1).single().catch(() => null) as any;
-      const adminId = adminProfile?.data?.id || adminUser?.data?.id;
+      const adminProfileQuery = await supabaseAdmin.from('profiles').select('id').eq('email', ADMIN_EMAIL).single();
+      const adminProfile = adminProfileQuery.data as any;
+      const adminUserQuery = await supabaseAdmin.from('profiles').select('id').eq('role', 'administrador').limit(1).single();
+      const adminUser = adminUserQuery.data as any;
+      const adminId = adminProfile?.id || adminUser?.id;
 
       if (adminId) {
         for (const question of starkQuestions) {

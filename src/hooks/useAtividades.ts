@@ -82,7 +82,7 @@ export function useCreateAtividade() {
       const payload = {
         ...atividade,
         user_id: user.id,
-        ...(isAutoApprove ? { status: 'aprovado' } : {}),
+        status: isAutoApprove ? 'aprovado' : 'pendente',
       } as any;
 
       let result = await supabase

@@ -116,6 +116,7 @@ export function useDeleteProduto() {
 export interface Modalidade {
   id: string;
   nome: string;
+  tipo_documento: 'CPF' | 'CNPJ';
   documentos_obrigatorios: string[];
   documentos_opcionais: string[];
   quantidade_vidas: string;
@@ -137,7 +138,7 @@ export function useModalidades() {
 export function useCreateModalidade() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (m: { nome: string; documentos_obrigatorios: string[]; documentos_opcionais: string[]; quantidade_vidas: string }) => {
+    mutationFn: async (m: { nome: string; tipo_documento: 'CPF' | 'CNPJ'; documentos_obrigatorios: string[]; documentos_opcionais: string[]; quantidade_vidas: string }) => {
       const { data, error } = await supabase.from('modalidades').insert(m as any).select().single();
       if (error) throw error;
       return data;
@@ -149,7 +150,7 @@ export function useCreateModalidade() {
 export function useUpdateModalidade() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...rest }: { id: string; nome: string; documentos_obrigatorios: string[]; documentos_opcionais: string[]; quantidade_vidas: string }) => {
+    mutationFn: async ({ id, ...rest }: { id: string; nome: string; tipo_documento: 'CPF' | 'CNPJ'; documentos_obrigatorios: string[]; documentos_opcionais: string[]; quantidade_vidas: string }) => {
       const { error } = await supabase.from('modalidades').update(rest as any).eq('id', id);
       if (error) throw error;
     },

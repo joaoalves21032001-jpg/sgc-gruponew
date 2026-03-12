@@ -335,6 +335,7 @@ function ModalidadesTab() {
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState<ModalidadeType | null>(null);
   const [nome, setNome] = useState('');
+  const [tipoDoc, setTipoDoc] = useState<'CPF' | 'CNPJ'>('CPF');
   const [docsObrig, setDocsObrig] = useState('');
   const [docsOpc, setDocsOpc] = useState('');
   const [qtdVidas, setQtdVidas] = useState('indefinido');
@@ -343,6 +344,7 @@ function ModalidadesTab() {
 
   const openEdit = (m: ModalidadeType) => {
     setEditItem(m); setNome(m.nome);
+    setTipoDoc((m as any).tipo_documento || 'CPF');
     setDocsObrig(m.documentos_obrigatorios.join('\n'));
     setDocsOpc(m.documentos_opcionais.join('\n'));
     setQtdVidas(m.quantidade_vidas); setShowAdd(true);
@@ -353,6 +355,7 @@ function ModalidadesTab() {
     setSaving(true);
     const payload = {
       nome: nome.trim(),
+      tipo_documento: tipoDoc,
       documentos_obrigatorios: docsObrig.split('\n').map(s => s.trim()).filter(Boolean),
       documentos_opcionais: docsOpc.split('\n').map(s => s.trim()).filter(Boolean),
       quantidade_vidas: qtdVidas.trim() || 'indefinido',
@@ -360,7 +363,7 @@ function ModalidadesTab() {
     try {
       if (editItem) { await updateMut.mutateAsync({ id: editItem.id, ...payload }); logAction('editar_modalidade', 'modalidade', editItem.id, { nome: nome.trim() }); toast.success('Modalidade atualizada!'); }
       else { await createMut.mutateAsync(payload); logAction('criar_modalidade', 'modalidade', undefined, { nome: nome.trim() }); toast.success('Modalidade criada!'); }
-      setShowAdd(false); setEditItem(null); setNome(''); setDocsObrig(''); setDocsOpc(''); setQtdVidas('indefinido');
+      setShowAdd(false); setEditItem(null); setNome(''); setTipoDoc('CPF'); setDocsObrig(''); setDocsOpc(''); setQtdVidas('indefinido');
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
   };
@@ -369,7 +372,7 @@ function ModalidadesTab() {
     <div className="space-y-4">
       <div className="flex items-center justify-end">
         {canEdit && (
-          <Button onClick={() => { setShowAdd(true); setEditItem(null); setNome(''); setDocsObrig(''); setDocsOpc(''); setQtdVidas('indefinido'); }} className="gap-1.5 font-semibold shadow-brand">
+          <Button onClick={() => { setShowAdd(true); setEditItem(null); setNome(''); setTipoDoc('CPF'); setDocsObrig(''); setDocsOpc(''); setQtdVidas('indefinido'); }} className="gap-1.5 font-semibold shadow-brand">
             <Plus className="w-4 h-4" /> Nova Modalidade
           </Button>
         )}
@@ -391,6 +394,7 @@ function ModalidadesTab() {
                 </div>
                 <div className="flex flex-wrap gap-1">
                   <Badge variant="outline" className="text-[10px]">Vidas: {m.quantidade_vidas}</Badge>
+                  <Badge variant="outline" className={`text-[10px] ${(m as any).tipo_documento === 'CNPJ' ? 'border-info/30 text-info bg-info/5' : 'border-success/30 text-success bg-success/5'}`}>{(m as any).tipo_documento || 'CPF'}</Badge>
                   {m.documentos_obrigatorios.map(d => <Badge key={d} className="text-[10px] bg-destructive/10 text-destructive border-destructive/20">{d}</Badge>)}
                   {m.documentos_opcionais.map(d => <Badge key={d} variant="outline" className="text-[10px]">{d}</Badge>)}
                 </div>
@@ -403,6 +407,17 @@ function ModalidadesTab() {
           <DialogHeader><DialogTitle className="font-display">{editItem ? 'Editar' : 'Nova'} Modalidade</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div><label className="text-xs font-semibold text-muted-foreground">Nome</label><Input value={nome} onChange={e => setNome(e.target.value)} className="h-10" /></div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Tipo de Documento</label>
+              <Select value={tipoDoc} onValueChange={v => setTipoDoc(v as 'CPF' | 'CNPJ')}>
+                <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CPF">CPF — Pessoa Física</SelectItem>
+                  <SelectItem value="CNPJ">CNPJ — Pessoa Jurídica</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground mt-1">Isso define qual campo de documento é exibido ao criar leads com essa modalidade.</p>
+            </div>
             <div><label className="text-xs font-semibold text-muted-foreground">Documentos Obrigatórios <span className="text-destructive">*</span></label><p className="text-[10px] text-muted-foreground mb-1">Um por linha</p><Textarea value={docsObrig} onChange={e => setDocsObrig(e.target.value)} rows={4} placeholder="Documento com foto&#10;Comprovante de endereço" /></div>
             <div><label className="text-xs font-semibold text-muted-foreground">Documentos Opcionais</label><p className="text-[10px] text-muted-foreground mb-1">Um por linha</p><Textarea value={docsOpc} onChange={e => setDocsOpc(e.target.value)} rows={3} /></div>
             <div><label className="text-xs font-semibold text-muted-foreground">Quantidade de Vidas</label><Input value={qtdVidas} onChange={e => setQtdVidas(e.target.value)} placeholder="Ex: 1, 5, indefinido" className="h-10" /></div>

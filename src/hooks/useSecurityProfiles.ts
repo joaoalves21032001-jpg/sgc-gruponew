@@ -112,6 +112,7 @@ export const MODULES_DEF: ResourceGroupDef[] = [
             { key: 'comercial', label: 'Registro de Atividades (Geral)', actions: COMMON_ACTIONS },
             { key: 'comercial.atividades', label: 'Registro de Atividades > Subguia Atividades', actions: COMMON_ACTIONS },
             { key: 'comercial.vendas', label: 'Registro de Atividades > Subguia Vendas', actions: COMMON_ACTIONS },
+            { key: 'minhas_acoes', label: 'Minhas Ações (Geral)', actions: COMMON_ACTIONS },
             { key: 'minhas_acoes.pendentes', label: 'Minhas Ações > Subguia Pendentes', actions: COMMON_ACTIONS },
             { key: 'minhas_acoes.aprovados', label: 'Minhas Ações > Subguia Aprovados', actions: COMMON_ACTIONS },
             { key: 'minhas_acoes.devolvidos', label: 'Minhas Ações > Subguia Devolvidos', actions: COMMON_ACTIONS },

@@ -8,9 +8,8 @@ import {
 import { useProfile, useUserRole } from '@/hooks/useProfile';
 import { getPatente, getFraseMotivacional } from '@/lib/gamification';
 import { PatenteBadge } from './PatenteBadge';
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { HelpGuide } from './HelpGuide';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import { useSidebarOrder } from '@/hooks/useSidebarOrder';
 import { useMyPermissions, hasPermission, PATH_TO_RESOURCE } from '@/hooks/useSecurityProfiles';
@@ -44,7 +43,6 @@ const navItems: NavItem[] = [
 export function AppSidebar() {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
-  const [helpOpen, setHelpOpen] = useState(false);
   const [search, setSearch] = useState('');
   const { signOut } = useAuth();
   const { data: profile } = useProfile();
@@ -293,11 +291,6 @@ export function AppSidebar() {
           <UserCircle className="w-[18px] h-[18px] shrink-0" />
           {!collapsed && <span>Meu Perfil</span>}
         </NavLink>
-        <button onClick={() => setHelpOpen(true)} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-[13px] font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent/10 hover:text-sidebar-foreground w-full transition-all duration-150 ${collapsed ? 'justify-center' : ''}`}>
-          <HelpCircle className="w-[18px] h-[18px] shrink-0" />
-          {!collapsed && <span>Ajuda</span>}
-        </button>
-        <HelpGuide open={helpOpen} onOpenChange={setHelpOpen} />
 
         {/* Footer text */}
         {!collapsed && (

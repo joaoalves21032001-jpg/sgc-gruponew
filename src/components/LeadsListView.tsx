@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
-    useLeads, useUpdateLead, useDeleteLead,
+    useLeads, useUpdateLead, useDeleteLead, useCreateLead,
     useCompanhias, useProdutos, useModalidades,
     type Lead,
 } from '@/hooks/useInventario';
@@ -12,7 +12,7 @@ import { maskCPF, maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
 import {
     Search, ChevronUp, ChevronDown, ChevronsUpDown, Trash2,
     Pencil, Users, Phone, Mail, FileText, Building2, X, Save,
-    CircleSlash,
+    CircleSlash, Plus,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -54,6 +54,7 @@ export function LeadsListView({ permissionNamespace = 'inventario.leads' }: Prop
     const { data: modalidades = [] } = useModalidades();
     const updateLead = useUpdateLead();
     const deleteLead = useDeleteLead();
+    const createLead = useCreateLead();
 
     /* Permissions */
     const canViewAll = hasPermission(myPermissions, permissionNamespace, 'view_all');
@@ -61,6 +62,8 @@ export function LeadsListView({ permissionNamespace = 'inventario.leads' }: Prop
     const canEdit    = hasPermission(myPermissions, permissionNamespace, 'edit')
                     || hasPermission(myPermissions, permissionNamespace, 'edit_leads');
     const canDelete  = hasPermission(myPermissions, permissionNamespace, 'edit_leads')
+                    || hasPermission(myPermissions, permissionNamespace, 'edit');
+    const canCreate  = hasPermission(myPermissions, permissionNamespace, 'create')
                     || hasPermission(myPermissions, permissionNamespace, 'edit');
 
     /* Visible leads based on permission */
@@ -79,6 +82,32 @@ export function LeadsListView({ permissionNamespace = 'inventario.leads' }: Prop
 
     /* Delete confirm */
     const [deleteConfirm, setDeleteConfirm] = useState<Lead | null>(null);
+
+    /* New Lead dialog */
+    const [showNewLead, setShowNewLead] = useState(false);
+    const [newLeadForm, setNewLeadForm] = useState({ nome: '', tipo: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', stage_id: null as string | null, companhia_nome: '', produto: '', valor: '', quantidade_vidas: '', livre: false });
+
+    const openNewLead = () => {
+        setNewLeadForm({ nome: '', tipo: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', stage_id: null, companhia_nome: '', produto: '', valor: '', quantidade_vidas: '', livre: false });
+        setShowNewLead(true);
+    };
+
+    const handleCreate = async () => {
+        if (!newLeadForm.nome.trim()) { toast.error('Informe o nome.'); return; }
+        if (!newLeadForm.tipo) { toast.error('Selecione o tipo.'); return; }
+        setSaving(true);
+        try {
+            const valorNum = newLeadForm.valor ? unmaskCurrency(newLeadForm.valor) : null;
+            const origemJson = JSON.stringify({ companhia_nome: newLeadForm.companhia_nome || null, produto: newLeadForm.produto || null, quantidade_vidas: newLeadForm.quantidade_vidas ? parseInt(newLeadForm.quantidade_vidas) : null, valor: valorNum && !isNaN(valorNum) && valorNum > 0 ? valorNum : null });
+            await createLead.mutateAsync({ nome: newLeadForm.nome.trim(), tipo: newLeadForm.tipo, contato: newLeadForm.contato || null, email: newLeadForm.email || null, endereco: newLeadForm.endereco || null, cpf: isPF(newLeadForm.tipo) ? (newLeadForm.cpf || null) : null, cnpj: !isPF(newLeadForm.tipo) ? (newLeadForm.cnpj || null) : null, stage_id: newLeadForm.stage_id || null, livre: newLeadForm.livre, origem: origemJson });
+            toast.success('Lead criado com sucesso!');
+            setShowNewLead(false);
+        } catch {
+            toast.error('Erro ao criar lead.');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     /* Inline edit dialog */
     const [editLead, setEditLead] = useState<Lead | null>(null);
@@ -238,6 +267,11 @@ export function LeadsListView({ permissionNamespace = 'inventario.leads' }: Prop
                         {filtered.length} registro{filtered.length !== 1 ? 's' : ''} encontrado{filtered.length !== 1 ? 's' : ''}
                     </p>
                 </div>
+                {canCreate && (
+                    <Button onClick={openNewLead} className="gap-2 h-9" size="sm">
+                        <Plus className="w-4 h-4" /> Novo Lead
+                    </Button>
+                )}
             </div>
 
             {/* Filters */}
@@ -595,6 +629,141 @@ export function LeadsListView({ permissionNamespace = 'inventario.leads' }: Prop
                         <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancelar</Button>
                         <Button variant="destructive" onClick={handleDelete} disabled={deleteLead.isPending}>
                             {deleteLead.isPending ? 'Excluindo...' : 'Excluir'}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* New Lead Dialog */}
+            <Dialog open={showNewLead} onOpenChange={v => { if (!v) setShowNewLead(false); }}>
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="font-display flex items-center gap-2"><Plus className="w-4 h-4" /> Novo Lead</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-1">
+                        {/* Tipo / Modalidade */}
+                        <div>
+                            <label className={fieldLabel}>Tipo / Modalidade <span className="text-destructive">*</span></label>
+                            <Select value={newLeadForm.tipo} onValueChange={v => {
+                                const mod = modalidades.find(m => m.nome === v);
+                                const isCpf = (mod as any)?.tipo_documento === 'CPF' || (mod as any)?.tipo_documento == null ? isPF(v) : false;
+                                setNewLeadForm(p => ({ ...p, tipo: v, cpf: '', cnpj: '' }));
+                            }}>
+                                <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                <SelectContent>
+                                    {modalidades.map(m => <SelectItem key={m.id} value={m.nome}>{m.nome}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {/* Nome */}
+                        <div>
+                            <label className={fieldLabel}>Nome <span className="text-destructive">*</span></label>
+                            <Input value={newLeadForm.nome} onChange={e => setNewLeadForm(p => ({ ...p, nome: e.target.value }))} className="h-10" placeholder="Nome completo" />
+                        </div>
+                        {/* Contato + Email */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className={fieldLabel}>Contato</label>
+                                <Input value={newLeadForm.contato} onChange={e => setNewLeadForm(p => ({ ...p, contato: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                            </div>
+                            <div>
+                                <label className={fieldLabel}>E-mail</label>
+                                <Input value={newLeadForm.email} onChange={e => setNewLeadForm(p => ({ ...p, email: e.target.value }))} placeholder="email@exemplo.com" className="h-10" />
+                            </div>
+                        </div>
+                        {/* CPF / CNPJ - auto based on modalidade tipo_documento */}
+                        {newLeadForm.tipo && (() => {
+                            const mod = modalidades.find(m => m.nome === newLeadForm.tipo);
+                            const tipDoc = (mod as any)?.tipo_documento;
+                            const showCpf = tipDoc === 'CPF' || (!tipDoc && isPF(newLeadForm.tipo));
+                            return showCpf ? (
+                                <div>
+                                    <label className={fieldLabel}>CPF</label>
+                                    <Input value={newLeadForm.cpf} onChange={e => setNewLeadForm(p => ({ ...p, cpf: maskCPF(e.target.value) }))} placeholder="000.000.000-00" className="h-10" />
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className={fieldLabel}>CNPJ</label>
+                                    <Input value={newLeadForm.cnpj} onChange={e => setNewLeadForm(p => ({ ...p, cnpj: e.target.value }))} className="h-10" />
+                                </div>
+                            );
+                        })()}
+                        {/* Endereço */}
+                        <div>
+                            <label className={fieldLabel}>Endereço</label>
+                            <Input value={newLeadForm.endereco} onChange={e => setNewLeadForm(p => ({ ...p, endereco: e.target.value }))} className="h-10" />
+                        </div>
+                        <Separator />
+                        {/* Fase */}
+                        <div>
+                            <label className={fieldLabel}>Fase do Funil</label>
+                            <Select value={newLeadForm.stage_id || 'none'} onValueChange={v => setNewLeadForm(p => ({ ...p, stage_id: v === 'none' ? null : v }))}>
+                                <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="none">Sem fase</SelectItem>
+                                    {stages.map(s => (
+                                        <SelectItem key={s.id} value={s.id}>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: (s as any).cor }} />
+                                                {s.nome}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        {/* Companhia + Produto */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className={fieldLabel}>Companhia</label>
+                                <Select value={newLeadForm.companhia_nome || '__none__'} onValueChange={v => setNewLeadForm(p => ({ ...p, companhia_nome: v === '__none__' ? '' : v, produto: '' }))}>
+                                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">Nenhuma</SelectItem>
+                                        {companhias.map(c => <SelectItem key={c.id} value={c.nome}>{c.nome}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <label className={fieldLabel}>Produto</label>
+                                <Select value={newLeadForm.produto || '__none__'} onValueChange={v => setNewLeadForm(p => ({ ...p, produto: v === '__none__' ? '' : v }))}>
+                                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="__none__">Nenhum</SelectItem>
+                                        {(companhias.find(c => c.nome === newLeadForm.companhia_nome)
+                                            ? produtos.filter(p => (p as any).companhia_id === companhias.find(c => c.nome === newLeadForm.companhia_nome)?.id)
+                                            : produtos).map(p => <SelectItem key={p.id} value={p.nome}>{p.nome}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
+                        {/* Valor + Vidas */}
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className={fieldLabel}>Valor Total (R$)</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-primary/50 font-medium">R$</span>
+                                    <Input value={newLeadForm.valor} onChange={e => setNewLeadForm(p => ({ ...p, valor: maskCurrency(e.target.value) }))} placeholder="0,00" className="h-10 pl-10" />
+                                </div>
+                            </div>
+                            <div>
+                                <label className={fieldLabel}>Qtd. de Vidas</label>
+                                <Input type="number" value={newLeadForm.quantidade_vidas} onChange={e => setNewLeadForm(p => ({ ...p, quantidade_vidas: e.target.value }))} placeholder="Ex: 3" className="h-10" />
+                            </div>
+                        </div>
+                        {/* Lead livre */}
+                        <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
+                            <Switch checked={newLeadForm.livre} onCheckedChange={v => setNewLeadForm(p => ({ ...p, livre: v }))} />
+                            <Label className="text-sm text-foreground cursor-pointer">Lead livre (disponível para assumir)</Label>
+                        </div>
+                    </div>
+                    <div className="flex gap-2 justify-end pt-2">
+                        <Button variant="outline" onClick={() => setShowNewLead(false)} disabled={saving}>
+                            <X className="w-3.5 h-3.5 mr-1.5" /> Cancelar
+                        </Button>
+                        <Button onClick={handleCreate} disabled={saving} className="gap-1.5">
+                            <Save className="w-3.5 h-3.5" />
+                            {saving ? 'Criando...' : 'Criar Lead'}
                         </Button>
                     </div>
                 </DialogContent>
