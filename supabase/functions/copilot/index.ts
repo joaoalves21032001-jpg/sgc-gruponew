@@ -36,26 +36,30 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Missing Authorization header' }), { status: 401, headers: corsHeaders });
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || 'https://cfqtbvkiegwmzkzmpojt.supabase.co';
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     
-    // Create Supabase Client with User Auth
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    // Create an admin client using the service role key, but pass the user's Bearer token 
+    // via a separate call to validate — this is the correct pattern for edge functions
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Extract the JWT from the Authorization header  
+    const jwt = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(jwt);
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+      console.error("Auth getUser error:", userError);
+      return new Response(JSON.stringify({ error: 'Unauthorized', details: userError }), { status: 401, headers: corsHeaders });
     }
 
     // Attempt to get user profile details for personalized answers
-    const { data: profile } = await supabase.from('profiles').select('nome_completo, role, perfil_id').eq('id', user.id).single();
+    const { data: profile } = await supabaseAdmin.from('profiles').select('nome_completo, role, perfil_id').eq('id', user.id).single();
 
     // -- ADMIN ROUTE: Create new knowledge embedding --
     if (action === 'embed_knowledge') {
-       if (profile?.role !== 'administrador' && profile?.role !== 'admin') {
-          return new Response(JSON.stringify({ error: 'Apenas administradores podem treinar a IA' }), { status: 403, headers: corsHeaders });
+       const isMainAdmin = user.email === 'admin@sgc.com';
+       if (!isMainAdmin) {
+          return new Response(JSON.stringify({ error: 'Apenas o administrador principal (admin@sgc.com) pode treinar a IA.' }), { status: 403, headers: corsHeaders });
        }
        
        if (!content || !categoria) {
@@ -72,7 +76,7 @@ serve(async (req) => {
        const embeddingVector = embeddingData.data[0].embedding;
 
        // 2. Insert into knowledge_base
-       const { data: inserted, error: insertError } = await supabase.from('knowledge_base').insert({
+       const { data: inserted, error: insertError } = await supabaseAdmin.from('knowledge_base').insert({
           content,
           categoria,
           embedding: embeddingVector,
@@ -88,7 +92,7 @@ serve(async (req) => {
     // 2. Fetch User Permissions to dynamically build AI Tools
     let allowedTools: any[] = [];
     if (profile?.perfil_id) {
-       const { data: perms } = await supabase.from('permissoes').select('recurso, acoes').eq('perfil_id', profile.perfil_id);
+       const { data: perms } = await supabaseAdmin.from('permissoes').select('recurso, acoes').eq('perfil_id', profile.perfil_id);
        if (perms) {
          // Example Tool Definition based on permissions
          // If user is allowed to "edit" solicitacoes, the AI can approve accesses
@@ -134,7 +138,7 @@ serve(async (req) => {
       
       // We perform standard similarity search using match_knowledge_base
       // Assuming threshold 0.2 and limit 5 texts
-      const { data: documents } = await supabase.rpc('match_knowledge_base', {
+      const { data: documents } = await supabaseAdmin.rpc('match_knowledge_base', {
         query_embedding: embedding,
         match_threshold: 0.2, // allows matches even if slightly varied words
         match_count: 5
@@ -158,7 +162,7 @@ Instruções críticas:
 1. Responda perguntas relacionadas ao uso da plataforma SGC.
 2. Seja proativo: se o usuário pedir para aprovar uma solicitação, NÃO explique como ele pode fazer: USE A FERRAMENTA 'aprovar_solicitacao_acesso' fornecida para você para realizar a ação a favor dele. 
 3. Se você não tem as ferramentas ativas, informe educadamente que o usuário atual (${profile?.nome_completo}) não possui o nível de permissão adequado no sistema para que você execute esta ação.
-4. Responda em Português (BR) com um tom elegante, natural e colaborativo e use markdown. 
+4. Responda em Português (BR) com um tone elegante, natural e colaborativo e use markdown. 
 
 === CONTEXTO DE CONHECIMENTO CADASTRADO ===
 ${contextText || "(Nenhum contexto RAG encontrado. Converse naturalmente)."}
@@ -204,7 +208,7 @@ ${contextText || "(Nenhum contexto RAG encontrado. Converse naturalmente)."}
             if (functionName === "aprovar_solicitacao_acesso") {
                try {
                   // Executa no Deno: Aprovar a solicitação usando as mesmas credenciais RLS!
-                  const { data: sol, error: solError } = await supabase.from('access_requests').update({ status: 'approved' }).eq('id', functionArgs.solicitacao_id).select();
+                   const { data: sol, error: solError } = await supabaseAdmin.from('access_requests').update({ status: 'approved' }).eq('id', functionArgs.solicitacao_id).select();
                   if (solError) toolResultContent = "Erro do banco de dados ao aprovar: " + solError.message;
                   else if (sol && sol.length > 0) toolResultContent = "Sucesso! Solicitação aprovada.";
                   else toolResultContent = "Solicitação não encontrada ou erro de permissão RLS do usuário logado.";

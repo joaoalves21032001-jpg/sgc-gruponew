@@ -1,6 +1,5 @@
 -- Create storage bucket for lead documents
-INSERT INTO storage.buckets (id, name, public) VALUES ('lead-documentos', 'lead-documentos', false)
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('lead-documentos', 'lead-documentos', false) ON CONFLICT (id) DO NOTHING;
 
 -- Storage policies for lead documents
 CREATE POLICY "Admins can upload lead documents"

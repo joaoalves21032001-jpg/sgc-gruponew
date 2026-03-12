@@ -19,8 +19,7 @@ CREATE POLICY "Users can manage their own trusted devices"
 CREATE INDEX idx_mfa_trusted_devices_user ON public.mfa_trusted_devices(user_id);
 
 -- Add avatar storage bucket for profile photos
-INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true)
-ON CONFLICT (id) DO NOTHING;
+INSERT INTO storage.buckets (id, name, public) VALUES ('avatars', 'avatars', true) ON CONFLICT (id) DO NOTHING;
 
 CREATE POLICY "Avatar images are publicly accessible"
   ON storage.objects FOR SELECT

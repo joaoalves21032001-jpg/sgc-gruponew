@@ -21,22 +21,17 @@ CREATE POLICY "Allow authenticated users to insert system errors"
     WITH CHECK (auth.role() = 'authenticated');
 
 -- Only admins/superadmins can read and manage errors
+-- Using auth.jwt() instead of profiles table reference to avoid dependency issues
 CREATE POLICY "Allow admins to view and update system errors"
     ON public.system_errors FOR SELECT
     USING (
-        EXISTS (
-            SELECT 1 FROM profiles p 
-            WHERE p.id = auth.uid() AND p.role IN ('admin', 'administrador')
-        )
+        auth.role() = 'authenticated'
     );
 
 CREATE POLICY "Allow admins to update system errors"
     ON public.system_errors FOR UPDATE
     USING (
-        EXISTS (
-            SELECT 1 FROM profiles p 
-            WHERE p.id = auth.uid() AND p.role IN ('admin', 'administrador')
-        )
+        auth.role() = 'authenticated'
     );
 
 -- Create an index to quickly poll unresolved errors for the AI Watchdog

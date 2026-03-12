@@ -74,3 +74,32 @@ export function useDeleteKnowledge() {
     },
   });
 }
+
+export function useAnalyzeSystem() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { data: session } = await supabase.auth.getSession();
+      if (!session.session) throw new Error('Não autenticado');
+
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/stark-analyze-system`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || 'Erro ao executar análise do sistema');
+      }
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['knowledge_base'] });
+    },
+  });
+}
+

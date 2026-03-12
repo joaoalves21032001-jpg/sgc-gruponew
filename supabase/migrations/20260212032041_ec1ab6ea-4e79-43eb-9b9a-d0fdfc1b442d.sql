@@ -80,7 +80,7 @@ CREATE TABLE public.venda_documentos (
 ALTER TABLE public.venda_documentos ENABLE ROW LEVEL SECURITY;
 
 -- 7. STORAGE BUCKET
-INSERT INTO storage.buckets (id, name, public) VALUES ('venda-documentos', 'venda-documentos', false);
+INSERT INTO storage.buckets (id, name, public) VALUES ('venda-documentos', 'venda-documentos', false) ON CONFLICT (id) DO NOTHING;
 
 -- 8. HELPER FUNCTIONS (security definer to avoid RLS recursion)
 

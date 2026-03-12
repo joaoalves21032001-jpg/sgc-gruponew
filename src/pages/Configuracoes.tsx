@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import {
     Settings, Shield, Database, Bell, Clock, Save,
     Trash2, Users, Activity, Eye, Lock, Plus, Pencil,
-    Check, X, UserPlus, ChevronRight, ShieldCheck, ChevronDown, AlertTriangle, BrainCircuit, Sparkles, History
+    Check, X, UserPlus, ChevronRight, ShieldCheck, ChevronDown, AlertTriangle, BrainCircuit, Sparkles, History, Loader2, RefreshCw, Cpu
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -55,7 +55,7 @@ import {
     AUDIT_CATEGORIES,
     type AuditLogConfig,
 } from '@/hooks/useAuditLogConfig';
-import { useKnowledgeBase, useCreateKnowledge, useDeleteKnowledge } from '@/hooks/useKnowledgeBase';
+import { useKnowledgeBase, useCreateKnowledge, useDeleteKnowledge, useAnalyzeSystem } from '@/hooks/useKnowledgeBase';
 import { useStarkWatchdog, useUpdateStarkErrorStatus } from '@/hooks/useStarkWatchdog';
 
 const Configuracoes = () => {
@@ -65,7 +65,13 @@ const Configuracoes = () => {
     const logAction = useLogAction();
     const queryClient = useQueryClient();
     const { data: myPagePermissions } = useMyPermissions();
+    const [isMainAdmin, setIsMainAdmin] = useState(false);
 
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setIsMainAdmin(session?.user?.email === 'admin@sgc.com');
+        });
+    }, []);
     // Log Retention
     const [retentionMonths, setRetentionMonths] = useState('6');
     const [autoDeleteReadNotifs, setAutoDeleteReadNotifs] = useState(false);
@@ -129,6 +135,7 @@ const Configuracoes = () => {
     const { data: knowledgeItems = [], isLoading: kbLoading } = useKnowledgeBase();
     const createKb = useCreateKnowledge();
     const deleteKb = useDeleteKnowledge();
+    const analyzeSystem = useAnalyzeSystem();
     const [newKbOpen, setNewKbOpen] = useState(false);
     const [newKbContent, setNewKbContent] = useState('');
     const [newKbCategoria, setNewKbCategoria] = useState('geral');
@@ -456,6 +463,51 @@ const Configuracoes = () => {
 
                 {/* ═══════════ TAB: KNOWLEDGE BASE IA ═══════════ */}
                 <TabsContent value="knowledge" className="space-y-4">
+                    {/* Auto-Analysis Panel */}
+                    <div className="bg-gradient-to-r from-indigo-500/10 to-purple-500/5 rounded-2xl border border-indigo-300/30 shadow-elevated p-6 space-y-4 relative overflow-hidden">
+                        <Cpu className="absolute -top-4 -right-4 w-32 h-32 text-indigo-400/10 opacity-50" />
+                        <div className="relative z-10 flex items-start justify-between gap-4">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <RefreshCw className="w-5 h-5 text-indigo-500" />
+                                    <h2 className="text-base font-bold font-display text-foreground">Aprendizado Automático do Sistema</h2>
+                                </div>
+                                <p className="text-xs text-muted-foreground max-w-xl">
+                                    O Stark analisa automaticamente todos os dados do SGC — Leads, Vendas, Atividades, Aprovações, Erros e muito mais — e gera insights estratégicos que ficam disponíveis no seu cérebro. Executado toda segunda-feira, mas você pode forçar agora.
+                                </p>
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {['Leads & Campanhas', 'Vendas', 'Performance Consultores', 'Aprovações', 'Erros & Bugs', 'Configurações'].map(tag => (
+                                        <span key={tag} className="text-[10px] bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 border border-indigo-300/30 px-2 py-0.5 rounded-full font-medium">{tag}</span>
+                                    ))}
+                                </div>
+                            </div>
+                            {isMainAdmin && (
+                            <Button
+                                size="sm"
+                                className="shrink-0 gap-2 font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-brand"
+                                disabled={analyzeSystem.isPending}
+                                onClick={() => analyzeSystem.mutate(undefined, {
+                                    onSuccess: (data: any) => toast.success(data.message || 'Análise concluída! Base de Conhecimento atualizada.'),
+                                    onError: (err: any) => toast.error('Erro na análise: ' + err.message),
+                                })}
+                            >
+                                {analyzeSystem.isPending ? (
+                                    <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Analisando...</>
+                                ) : (
+                                    <><RefreshCw className="w-3.5 h-3.5" /> Analisar Sistema Agora</>
+                                )}
+                            </Button>
+                            )}
+                        </div>
+                        {analyzeSystem.isPending && (
+                            <div className="relative z-10 bg-indigo-500/5 border border-indigo-300/20 rounded-xl p-3 text-xs text-indigo-700 dark:text-indigo-300 flex items-center gap-2 animate-pulse">
+                                <Sparkles className="w-4 h-4 shrink-0" />
+                                O Stark está lendo todos os dados do sistema e gerando insights com GPT-4o... Isso pode levar até 30 segundos.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Manual Knowledge Base */}
                     <div className="bg-gradient-to-r from-primary/10 to-primary/5 rounded-2xl border border-primary/20 shadow-elevated p-6 space-y-4 relative overflow-hidden">
                          <Sparkles className="absolute -top-4 -right-4 w-32 h-32 text-primary/10 opacity-50" />
                          <div className="relative z-10 flex items-center justify-between">
@@ -463,9 +515,11 @@ const Configuracoes = () => {
                                 <BrainCircuit className="w-6 h-6 text-primary" />
                                 <h2 className="text-lg font-bold font-display text-foreground">Inteligência Artificial (Stark)</h2>
                             </div>
+                            {isMainAdmin && (
                             <Button size="sm" className="gap-1.5 font-semibold shadow-brand" onClick={() => setNewKbOpen(true)}>
                                 <Plus className="w-3.5 h-3.5" /> Ensinar a IA
                             </Button>
+                            )}
                         </div>
                         <p className="text-sm text-muted-foreground relative z-10 max-w-2xl">
                             Adicione blocos de conhecimento (regras de negócio, passos a passo, como aprovar X ou Y) 
@@ -483,15 +537,21 @@ const Configuracoes = () => {
                                 ) : (
                                     knowledgeItems.map(item => (
                                         <div key={item.id} className="bg-card rounded-xl border border-border/40 p-4 shadow-sm flex items-start gap-3 group">
-                                            <div className="bg-muted p-2 rounded-lg mt-0.5">
-                                                <BrainCircuit className="w-4 h-4 text-muted-foreground" />
+                                            <div className={`p-2 rounded-lg mt-0.5 ${item.categoria.startsWith('insight_') ? 'bg-indigo-500/10' : 'bg-muted'}`}>
+                                                {item.categoria.startsWith('insight_') ? (
+                                                    <Cpu className="w-4 h-4 text-indigo-500" />
+                                                ) : (
+                                                    <BrainCircuit className="w-4 h-4 text-muted-foreground" />
+                                                )}
                                             </div>
-                                            <div className="flex-1">
+                                            <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2 mb-1">
-                                                    <Badge variant="outline" className="text-[10px] bg-primary/5">{item.categoria}</Badge>
+                                                    <Badge variant="outline" className={`text-[10px] ${item.categoria.startsWith('insight_') ? 'bg-indigo-500/5 text-indigo-700 dark:text-indigo-300 border-indigo-300/30' : 'bg-primary/5'}`}>
+                                                        {item.categoria.startsWith('insight_') ? '🤖 Auto: ' : ''}{item.categoria.replace('insight_', '')}
+                                                    </Badge>
                                                     <span className="text-[10px] text-muted-foreground">{new Date(item.created_at).toLocaleDateString('pt-BR')}</span>
                                                 </div>
-                                                <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap">{item.content}</p>
+                                                <p className="text-sm font-medium leading-relaxed whitespace-pre-wrap line-clamp-4">{item.content}</p>
                                             </div>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0" onClick={() => setConfirmDeleteKbId(item.id)}>
                                                 <Trash2 className="w-4 h-4" />
@@ -503,6 +563,7 @@ const Configuracoes = () => {
                         )}
                     </div>
                 </TabsContent>
+
 
                 {/* ═══════════ TAB: STARK WATCHDOG ═══════════ */}
                 <TabsContent value="stark" className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">

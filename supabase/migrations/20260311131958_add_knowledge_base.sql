@@ -21,9 +21,9 @@ CREATE POLICY "Admins can manage knowledge base" ON public.knowledge_base
     FOR ALL
     USING (
         EXISTS (
-            SELECT 1 FROM profiles
-            WHERE profiles.id = auth.uid()
-            AND profiles.role = 'administrador'
+            SELECT 1 FROM user_roles
+            WHERE user_roles.user_id = auth.uid()
+            AND user_roles.role IN ('administrador', 'gerente')
         )
     );
 

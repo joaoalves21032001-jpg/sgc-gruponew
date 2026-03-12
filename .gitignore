@@ -22,3 +22,14 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment variables - NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# Debug/temp scripts
+test_copilot.cjs
+fix_permissions.cjs
+upgrade_admin.cjs
+*_assign.cjs

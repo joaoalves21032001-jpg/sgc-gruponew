@@ -11,7 +11,7 @@ CREATE POLICY "Leitura de solicitacoes de reset de senha" ON public.password_res
         -- Admin role
         EXISTS (
             SELECT 1 FROM public.user_roles ur
-            WHERE ur.user_id = auth.uid() AND ur.role IN ('administrador', 'gerente', 'supervisor', 'diretor')
+            WHERE ur.user_id = auth.uid() AND ur.role IN ('administrador', 'gerente', 'supervisor')
         )
         OR
         -- Security profile has solicitacoes_acesso view
