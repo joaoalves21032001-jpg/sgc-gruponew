@@ -15,6 +15,7 @@ export interface Profile {
   numero_emergencia_1: string | null;
   numero_emergencia_2: string | null;
   cargo: string;
+  cargo_id: string | null;
   supervisor_id: string | null;
   gerente_id: string | null;
   avatar_url: string | null;

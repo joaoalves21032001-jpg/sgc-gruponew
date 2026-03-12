@@ -46,6 +46,15 @@ import {
     EVENTS,
     type NotificationRule,
 } from '@/hooks/useNotificationRules';
+import {
+    useCargos,
+    useCargoPermissions,
+    useCreateCargo,
+    useUpdateCargo,
+    useDeleteCargo,
+    useToggleCargoPermission,
+    CARGO_MODULES_DEF
+} from '@/hooks/useCargos';
 import { MultiSelect } from '@/components/ui/multi-select';
 import {
     useAuditLogConfig,
@@ -88,6 +97,23 @@ const Configuracoes = () => {
     const deleteProfile = useDeleteSecurityProfile();
     const togglePerm = useTogglePermission();
     const assignProfile = useAssignSecurityProfile();
+
+    // Cargos
+    const { data: cargos = [], isLoading: cargosLoading } = useCargos();
+    const [selectedCargoId, setSelectedCargoId] = useState<string | null>(null);
+    const { data: cargoPerms = [] } = useCargoPermissions(selectedCargoId);
+    const createCargo = useCreateCargo();
+    const updateCargo = useUpdateCargo();
+    const deleteCargo = useDeleteCargo();
+    const toggleCargoPerm = useToggleCargoPermission();
+
+    // Cargo Dialogs
+    const [newCargoOpen, setNewCargoOpen] = useState(false);
+    const [newCargoName, setNewCargoName] = useState('');
+    const [newCargoDesc, setNewCargoDesc] = useState('');
+    const [editingCargo, setEditingCargo] = useState<{ id: string; name: string; description: string } | null>(null);
+    const [confirmDeleteCargoId, setConfirmDeleteCargoId] = useState<string | null>(null);
+    const [expandedCargoResources, setExpandedCargoResources] = useState<Set<string>>(new Set());
 
     // Notification Rules
     const { data: notifRules = [], isLoading: nrLoading } = useNotificationRules();
@@ -362,6 +388,54 @@ const Configuracoes = () => {
         togglePerm.mutate({ profileId: selectedProfileId, resource, action, allowed: newAllowed });
     };
 
+    const handleCreateCargo = async () => {
+        if (!newCargoName.trim()) { toast.error('Nome obrigatório.'); return; }
+        try {
+            const result = await createCargo.mutateAsync({ name: newCargoName.trim(), description: newCargoDesc.trim() || undefined });
+            logAction('criar_cargo', 'cargos', undefined, { name: newCargoName });
+            toast.success(`Cargo "${newCargoName}" criado!`);
+            setNewCargoOpen(false);
+            setNewCargoName('');
+            setNewCargoDesc('');
+            setSelectedCargoId(result.id);
+        } catch (err: any) {
+            toast.error(err.message || 'Erro ao criar cargo.');
+        }
+    };
+
+    const handleUpdateCargo = async () => {
+        if (!editingCargo) return;
+        try {
+            await updateCargo.mutateAsync({ id: editingCargo.id, name: editingCargo.name, description: editingCargo.description });
+            logAction('editar_cargo', 'cargos', editingCargo.id);
+            toast.success('Cargo atualizado!');
+            setEditingCargo(null);
+        } catch (err: any) { toast.error(err.message); }
+    };
+
+    const handleDeleteCargo = async () => {
+        if (!confirmDeleteCargoId) return;
+        try {
+            await deleteCargo.mutateAsync(confirmDeleteCargoId);
+            logAction('excluir_cargo', 'cargos', confirmDeleteCargoId);
+            toast.success('Cargo excluído!');
+            if (selectedCargoId === confirmDeleteCargoId) setSelectedCargoId(null);
+            setConfirmDeleteCargoId(null);
+        } catch (err: any) { toast.error(err.message); }
+    };
+
+    const handleToggleCargoPerm = (resource: string, action: string) => {
+        if (!selectedCargoId) return;
+        const existing = cargoPerms.find(p => p.resource === resource && p.action === action);
+        const newAllowed = !(existing?.allowed ?? false);
+        toggleCargoPerm.mutate({ cargoId: selectedCargoId, resource, action, allowed: newAllowed });
+    };
+
+    const isCargoPermAllowed = (resource: string, action: string): boolean => {
+        const perm = cargoPerms.find(p => p.resource === resource && p.action === action);
+        return perm?.allowed ?? false;
+    };
+
     const isPermAllowed = (resource: string, action: string): boolean => {
         const perm = profilePerms.find(p => p.resource === resource && p.action === action);
         return perm?.allowed ?? false;
@@ -443,6 +517,9 @@ const Configuracoes = () => {
                 <TabsList className="bg-card border border-border/40 shadow-elevated p-1 h-auto rounded-xl">
                     <TabsTrigger value="profiles" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
                         <Shield className="w-4 h-4" /> Perfis de Segurança
+                    </TabsTrigger>
+                    <TabsTrigger value="cargos" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
+                        <Users className="w-4 h-4" /> Cargos e Funções
                     </TabsTrigger>
                     <TabsTrigger value="notifications" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
                         <Bell className="w-4 h-4" /> Notificações
@@ -1532,6 +1609,74 @@ const Configuracoes = () => {
                             className="gap-1.5"
                         >
                             <Trash2 className="w-4 h-4" /> Apagar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={newCargoOpen} onOpenChange={setNewCargoOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="font-display text-lg">Criar Novo Cargo</DialogTitle>
+                        <DialogDescription>Crie um novo cargo que poderá ser associado aos perfis de usuários para determinar aprovações.</DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3 py-2">
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-muted-foreground">Nome do Cargo *</Label>
+                            <Input value={newCargoName} onChange={e => setNewCargoName(e.target.value)} placeholder="Ex: Diretor Comercial" className="h-9 text-sm" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-semibold text-muted-foreground">Descrição (Opcional)</Label>
+                            <Input value={newCargoDesc} onChange={e => setNewCargoDesc(e.target.value)} placeholder="Ex: Acesso total a aprovações" className="h-9 text-sm" />
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setNewCargoOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleCreateCargo} disabled={createCargo.isPending || !newCargoName.trim()} className="gap-1.5">
+                            {createCargo.isPending ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
+                            Criar Cargo
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!editingCargo} onOpenChange={(open) => !open && setEditingCargo(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="font-display text-lg">Editar Cargo</DialogTitle>
+                        <DialogDescription>Altere as informações básicas deste cargo.</DialogDescription>
+                    </DialogHeader>
+                    {editingCargo && (
+                        <div className="space-y-3 py-2">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold text-muted-foreground">Nome do Cargo *</Label>
+                                <Input value={editingCargo.name} onChange={e => setEditingCargo({ ...editingCargo, name: e.target.value })} className="h-9 text-sm" />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
+                                <Input value={editingCargo.description || ''} onChange={e => setEditingCargo({ ...editingCargo, description: e.target.value })} className="h-9 text-sm" />
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setEditingCargo(null)}>Cancelar</Button>
+                        <Button onClick={handleUpdateCargo} disabled={updateCargo.isPending} className="gap-1.5">
+                            <Save className="w-4 h-4" /> Salvar Alterações
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!confirmDeleteCargoId} onOpenChange={() => setConfirmDeleteCargoId(null)}>
+                <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle className="font-display text-lg text-destructive">Excluir Cargo</DialogTitle>
+                        <DialogDescription>Esta ação é irreversível. Todos os usuários com este cargo terão suas permissões de aprovação revogadas.</DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setConfirmDeleteCargoId(null)}>Cancelar</Button>
+                        <Button variant="destructive" onClick={handleDeleteCargo} disabled={deleteCargo.isPending} className="gap-1.5">
+                            <Trash2 className="w-4 h-4" /> Confirmar Exclusão
                         </Button>
                     </DialogFooter>
                 </DialogContent>

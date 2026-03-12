@@ -79,6 +79,7 @@ function CompanhiasTab() {
   const [editItem, setEditItem] = useState<Companhia | null>(null);
   const [nome, setNome] = useState('');
   const [metaTitulo, setMetaTitulo] = useState('10');
+  const [nomeTitulo, setNomeTitulo] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [deleteItem, setDeleteItem] = useState<Companhia | null>(null);
   const [saving, setSaving] = useState(false);
@@ -106,7 +107,10 @@ function CompanhiasTab() {
           logoUrl = await uploadLogo(editItem.id, logoFile);
         }
         await updateMut.mutateAsync({ id: editItem.id, nome: nome.trim() });
-        await supabase.from('companhias').update({ meta_titulo: parseInt(metaTitulo) || 10 } as any).eq('id', editItem.id);
+        await supabase.from('companhias').update({ 
+            meta_titulo: parseInt(metaTitulo) || 10,
+            nome_titulo: nomeTitulo.trim() || 'Título'
+        } as any).eq('id', editItem.id);
         if (logoUrl) {
           await supabase.from('companhias').update({ logo_url: logoUrl } as any).eq('id', editItem.id);
         }
@@ -114,14 +118,20 @@ function CompanhiasTab() {
         toast.success('Companhia atualizada!');
       } else {
         const result = await createMut.mutateAsync(nome.trim());
-        if (logoFile && result?.id) {
-          logoUrl = await uploadLogo(result.id, logoFile);
-          await supabase.from('companhias').update({ logo_url: logoUrl } as any).eq('id', result.id);
+        if (result?.id) {
+            if (logoFile) {
+                logoUrl = await uploadLogo(result.id, logoFile);
+            }
+            await supabase.from('companhias').update({
+                logo_url: logoUrl || null,
+                meta_titulo: parseInt(metaTitulo) || 10,
+                nome_titulo: nomeTitulo.trim() || 'Título'
+            } as any).eq('id', result.id);
         }
         logAction('criar_companhia', 'companhia', result?.id, { nome: nome.trim() });
         toast.success('Companhia criada!');
       }
-      setShowAdd(false); setEditItem(null); setNome(''); setMetaTitulo('10'); setLogoFile(null);
+      setShowAdd(false); setEditItem(null); setNome(''); setMetaTitulo('10'); setNomeTitulo(''); setLogoFile(null);
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
   };
@@ -146,7 +156,7 @@ function CompanhiasTab() {
           <Input placeholder="Buscar companhia..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-10 bg-card border-border/40" />
         </div>
         {canEdit && (
-          <Button onClick={() => { setShowAdd(true); setEditItem(null); setNome(''); setMetaTitulo('10'); setLogoFile(null); }} className="gap-1.5 font-semibold shadow-brand">
+          <Button onClick={() => { setShowAdd(true); setEditItem(null); setNome(''); setMetaTitulo('10'); setNomeTitulo(''); setLogoFile(null); }} className="gap-1.5 font-semibold shadow-brand">
             <Plus className="w-4 h-4" /> Nova Companhia
           </Button>
         )}
@@ -166,12 +176,19 @@ function CompanhiasTab() {
                   </Avatar>
                   <div>
                     <p className="text-sm font-semibold text-foreground">{c.nome}</p>
-                    <p className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleDateString('pt-BR')} · Meta Título: {(c as any).meta_titulo ?? 10} vendas</p>
+                    <p className="text-[10px] text-muted-foreground">{new Date(c.created_at).toLocaleDateString('pt-BR')} · Meta: {(c as any).meta_titulo ?? 10} vendas para um(a) {(c as any).nome_titulo || 'Título'}</p>
                   </div>
                 </div>
                 {canEdit && (
                   <div className="flex gap-1.5 shrink-0">
-                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditItem(c); setNome(c.nome); setMetaTitulo(String((c as any).meta_titulo ?? 10)); setLogoFile(null); setShowAdd(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { 
+                        setEditItem(c); 
+                        setNome(c.nome); 
+                        setMetaTitulo(String((c as any).meta_titulo ?? 10)); 
+                        setNomeTitulo((c as any).nome_titulo || 'Título');
+                        setLogoFile(null); 
+                        setShowAdd(true); 
+                    }}><Pencil className="w-3.5 h-3.5" /></Button>
                     <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteItem(c)}><Trash2 className="w-3.5 h-3.5" /></Button>
                   </div>
                 )}
@@ -184,6 +201,10 @@ function CompanhiasTab() {
           <DialogHeader><DialogTitle className="font-display">{editItem ? 'Editar' : 'Nova'} Companhia</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome da companhia" className="h-10" />
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground">Nome a ser Atingido (Ex: Título, Viagem, Prêmio)</label>
+              <Input value={nomeTitulo} onChange={e => setNomeTitulo(e.target.value)} placeholder="Título" className="h-10 mt-1" />
+            </div>
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Meta p/ Título (vendas necessárias)</label>
               <Input type="number" min="1" value={metaTitulo} onChange={e => setMetaTitulo(e.target.value)} placeholder="10" className="h-10 mt-1" />
@@ -335,7 +356,7 @@ function ModalidadesTab() {
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState<ModalidadeType | null>(null);
   const [nome, setNome] = useState('');
-  const [tipoDoc, setTipoDoc] = useState<'CPF' | 'CNPJ'>('CPF');
+  const [tipoDoc, setTipoDoc] = useState<'CPF' | 'CNPJ' | 'EMPRESA'>('CPF');
   const [docsObrig, setDocsObrig] = useState('');
   const [docsOpc, setDocsOpc] = useState('');
   const [qtdVidas, setQtdVidas] = useState('indefinido');
@@ -394,7 +415,7 @@ function ModalidadesTab() {
                 </div>
                 <div className="flex flex-wrap gap-1">
                   <Badge variant="outline" className="text-[10px]">Vidas: {m.quantidade_vidas}</Badge>
-                  <Badge variant="outline" className={`text-[10px] ${(m as any).tipo_documento === 'CNPJ' ? 'border-info/30 text-info bg-info/5' : 'border-success/30 text-success bg-success/5'}`}>{(m as any).tipo_documento || 'CPF'}</Badge>
+                  <Badge variant="outline" className={`text-[10px] ${(m as any).tipo_documento === 'CNPJ' ? 'border-info/30 text-info bg-info/5' : (m as any).tipo_documento === 'EMPRESA' ? 'border-primary/30 text-primary bg-primary/5' : 'border-success/30 text-success bg-success/5'}`}>{(m as any).tipo_documento || 'CPF'}</Badge>
                   {m.documentos_obrigatorios.map(d => <Badge key={d} className="text-[10px] bg-destructive/10 text-destructive border-destructive/20">{d}</Badge>)}
                   {m.documentos_opcionais.map(d => <Badge key={d} variant="outline" className="text-[10px]">{d}</Badge>)}
                 </div>
@@ -409,11 +430,12 @@ function ModalidadesTab() {
             <div><label className="text-xs font-semibold text-muted-foreground">Nome</label><Input value={nome} onChange={e => setNome(e.target.value)} className="h-10" /></div>
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Tipo de Documento</label>
-              <Select value={tipoDoc} onValueChange={v => setTipoDoc(v as 'CPF' | 'CNPJ')}>
+              <Select value={tipoDoc} onValueChange={v => setTipoDoc(v as 'CPF' | 'CNPJ' | 'EMPRESA')}>
                 <SelectTrigger className="h-10 mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="CPF">CPF — Pessoa Física</SelectItem>
                   <SelectItem value="CNPJ">CNPJ — Pessoa Jurídica</SelectItem>
+                  <SelectItem value="EMPRESA">CNPJ — Empresa</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-[10px] text-muted-foreground mt-1">Isso define qual campo de documento é exibido ao criar leads com essa modalidade.</p>

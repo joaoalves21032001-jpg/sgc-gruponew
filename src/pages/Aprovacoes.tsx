@@ -280,6 +280,11 @@ const Aprovacoes = () => {
   const [selectedAtiv, setSelectedAtiv] = useState<Atividade | null>(null);
   const [ativJustificativa, setAtivJustificativa] = useState('');
   const [savingAtiv, setSavingAtiv] = useState(false);
+  
+  // Edit Atividade
+  const [editAtiv, setEditAtiv] = useState<Atividade | null>(null);
+  const [editForm, setEditForm] = useState({ ligacoes: '', mensagens: '', cotacoes_enviadas: '', cotacoes_fechadas: '', cotacoes_nao_respondidas: '', follow_up: '' });
+  const [editSaving, setEditSaving] = useState(false);
 
   // Access dialog
   const [viewAccess, setViewAccess] = useState<AccessRequest | null>(null);
@@ -652,10 +657,39 @@ const Aprovacoes = () => {
       }
       queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
       queryClient.invalidateQueries({ queryKey: ['atividades'] });
+      setSelectedAtiv(null);
     } catch (err: any) {
       toast.error(err.message || 'Erro ao atualizar.');
     } finally {
       setSavingAtiv(false);
+    }
+  };
+
+  const handleSaveEditAtiv = async () => {
+    if (!editAtiv) return;
+    setEditSaving(true);
+    try {
+      const { error } = await supabase.from('atividades').update({
+        ligacoes: parseInt(editForm.ligacoes) || 0,
+        mensagens: parseInt(editForm.mensagens) || 0,
+        cotacoes_enviadas: parseInt(editForm.cotacoes_enviadas) || 0,
+        cotacoes_fechadas: parseInt(editForm.cotacoes_fechadas) || 0,
+        cotacoes_nao_respondidas: parseInt(editForm.cotacoes_nao_respondidas) || 0,
+        follow_up: parseInt(editForm.follow_up) || 0,
+      } as any).eq('id', editAtiv.id);
+      
+      if (error) throw error;
+      
+      logAction('editar_atividade', 'atividade', editAtiv.id, { data: editAtiv.data });
+      toast.success('Atividade atualizada com sucesso!');
+      queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
+      queryClient.invalidateQueries({ queryKey: ['atividades'] });
+      setEditAtiv(null);
+      setSelectedAtiv(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao atualizar.');
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -932,8 +966,9 @@ const Aprovacoes = () => {
                           <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={async () => {
                             if (!confirm('Excluir esta atividade?')) return;
                             try {
-                              const { error } = await supabase.from('atividades').delete().eq('id', a.id);
+                              const { error, data } = await supabase.from('atividades').delete().eq('id', a.id).select();
                               if (error) throw error;
+                              if (!data || data.length === 0) throw new Error('Não foi possível excluir. Sem permissão no banco de dados ou registro inexistente.');
                               toast.success('Atividade excluída!');
                               queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
                             } catch (err: any) { toast.error(err.message); }
@@ -1005,8 +1040,9 @@ const Aprovacoes = () => {
                           <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={async () => {
                             if (!confirm('Excluir esta venda?')) return;
                             try {
-                              const { error } = await supabase.from('vendas').delete().eq('id', v.id);
+                              const { error, data } = await supabase.from('vendas').delete().eq('id', v.id).select();
                               if (error) throw error;
+                              if (!data || data.length === 0) throw new Error('Não foi possível excluir a venda. Valide suas permissões.');
                               toast.success('Venda excluída!');
                               queryClient.invalidateQueries({ queryKey: ['team-vendas'] });
                             } catch (err: any) { toast.error(err.message); }
@@ -1465,8 +1501,9 @@ const Aprovacoes = () => {
         onDelete={async (v: Venda) => {
           if (!confirm('Excluir esta venda?')) return;
           try {
-            const { error } = await supabase.from('vendas').delete().eq('id', v.id);
+            const { error, data } = await supabase.from('vendas').delete().eq('id', v.id).select();
             if (error) throw error;
+            if (!data || data.length === 0) throw new Error('Não foi possível excluir a venda. Valide suas permissões.');
             toast.success('Venda excluída!');
             queryClient.invalidateQueries({ queryKey: ['team-vendas'] });
             setSelectedVenda(null);
@@ -1507,7 +1544,17 @@ const Aprovacoes = () => {
                     <Button onClick={() => handleAtivAction(selectedAtiv, 'devolvido')} disabled={savingAtiv} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
                       <Undo2 className="w-5 h-5" /> Devolver
                     </Button>
-                    <Button onClick={() => toast.info('Edição detalhada será implementada em breve.')} variant="outline" className="flex-1 font-semibold gap-1.5 border-muted-foreground text-foreground hover:bg-muted" size="lg">
+                    <Button onClick={() => {
+                        setEditAtiv(selectedAtiv);
+                        setEditForm({
+                          ligacoes: String(selectedAtiv.ligacoes),
+                          mensagens: String(selectedAtiv.mensagens),
+                          cotacoes_enviadas: String(selectedAtiv.cotacoes_enviadas),
+                          cotacoes_fechadas: String(selectedAtiv.cotacoes_fechadas),
+                          cotacoes_nao_respondidas: String((selectedAtiv as any).cotacoes_nao_respondidas ?? 0),
+                          follow_up: String(selectedAtiv.follow_up),
+                        });
+                      }} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
                       <Pencil className="w-5 h-5" /> Editar
                     </Button>
                   </>
@@ -1516,8 +1563,9 @@ const Aprovacoes = () => {
                   <Button variant="destructive" className="flex-1 font-semibold gap-1.5" size="lg" onClick={async () => {
                     if (!confirm('Excluir esta atividade?')) return;
                     try {
-                      const { error } = await supabase.from('atividades').delete().eq('id', selectedAtiv.id);
+                      const { error, data } = await supabase.from('atividades').delete().eq('id', selectedAtiv.id).select();
                       if (error) throw error;
+                      if (!data || data.length === 0) throw new Error('Não foi possível excluir. Sem permissão no banco de dados ou registro inexistente.');
                       toast.success('Atividade excluída!');
                       queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
                       setSelectedAtiv(null);
@@ -1529,6 +1577,36 @@ const Aprovacoes = () => {
               </div>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Atividade Dialog ── */}
+      <Dialog open={!!editAtiv} onOpenChange={(v) => { if (!v) setEditAtiv(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Editar Atividade — {editAtiv?.data?.split('-').reverse().join('/')}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            {[
+              { key: 'ligacoes', label: 'Ligações' },
+              { key: 'mensagens', label: 'Mensagens' },
+              { key: 'cotacoes_enviadas', label: 'Cot. Enviadas' },
+              { key: 'cotacoes_fechadas', label: 'Cot. Fechadas' },
+              { key: 'cotacoes_nao_respondidas', label: 'Cot. Não Respondidas' },
+              { key: 'follow_up', label: 'Follow-up' },
+            ].map(({ key, label }) => (
+              <div key={key} className="space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">{label}</label>
+                <Input type="number" min={0} value={(editForm as any)[key]} onChange={(e) => setEditForm(prev => ({ ...prev, [key]: e.target.value }))} className="h-9" />
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setEditAtiv(null)}>Cancelar</Button>
+            <Button onClick={handleSaveEditAtiv} disabled={editSaving} className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+              {editSaving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Salvar Alterações'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

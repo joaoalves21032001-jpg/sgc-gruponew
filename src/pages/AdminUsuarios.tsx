@@ -3,8 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole, useTeamProfiles } from '@/hooks/useProfile';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
-
 import { useLogAction } from '@/hooks/useAuditLog';
+import { useCargos } from '@/hooks/useCargos';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -70,6 +70,7 @@ interface FormData {
   rg: string;
   endereco: string;
   cargo: string;
+  cargo_id: string;
   codigo: string;
   role: 'consultor' | 'supervisor' | 'gerente' | 'administrador';
   numero_emergencia_1: string;
@@ -88,7 +89,7 @@ interface FormData {
 
 const emptyForm: FormData = {
   email: '', nome_completo: '', apelido: '', celular: '', cpf: '', rg: '',
-  endereco: '', cargo: 'Consultor de Vendas', codigo: '', role: 'consultor',
+  endereco: '', cargo: '', cargo_id: '', codigo: '', role: 'consultor',
   numero_emergencia_1: '', numero_emergencia_2: '',
   nome_emergencia_1: '', nome_emergencia_2: '',
   supervisor_id: '', gerente_id: '',
@@ -102,6 +103,7 @@ const emptyForm: FormData = {
 const AdminUsuarios = () => {
   const { data: role } = useUserRole();
   const { data: allProfiles, isLoading } = useTeamProfiles();
+  const { data: allCargos } = useCargos();
   const logAction = useLogAction();
   const { data: myPermissions } = useMyPermissions();
   const [open, setOpen] = useState(false);
@@ -159,12 +161,17 @@ const AdminUsuarios = () => {
   const setField = (key: keyof FormData, value: string | boolean) => {
     setForm(prev => {
       const next = { ...prev, [key]: value };
-      if (key === 'cargo') {
-        if (['Supervisor', 'Gerente', 'Diretor'].includes(value as string)) {
-          next.supervisor_id = 'none';
-        }
-        if (['Gerente', 'Diretor'].includes(value as string)) {
-          next.gerente_id = 'none';
+      if (key === 'cargo_id') {
+        const cargoObj = allCargos?.find(c => c.id === value);
+        if (cargoObj) {
+            next.cargo = cargoObj.name;
+            const nomeStr = cargoObj.name.toLowerCase();
+            if (nomeStr.includes('supervisor') || nomeStr.includes('gerente') || nomeStr.includes('diretor')) {
+                next.supervisor_id = 'none';
+            }
+            if (nomeStr.includes('gerente') || nomeStr.includes('diretor')) {
+                next.gerente_id = 'none';
+            }
         }
       }
       return next;
@@ -195,7 +202,8 @@ const AdminUsuarios = () => {
       cpf: profile.cpf || '',
       rg: profile.rg || '',
       endereco: profile.endereco || '',
-      cargo: profile.cargo,
+      cargo: profile.cargo || '',
+      cargo_id: profile.cargo_id || '',
       codigo: profile.codigo || '',
       role: currentRole,
       numero_emergencia_1: profile.numero_emergencia_1 || '',
@@ -267,6 +275,7 @@ const AdminUsuarios = () => {
           rg: form.rg,
           endereco: form.endereco,
           cargo: form.cargo,
+          cargo_id: form.cargo_id || null,
           numero_emergencia_1: form.numero_emergencia_1,
           numero_emergencia_2: form.numero_emergencia_2,
           nome_emergencia_1: form.nome_emergencia_1 || null,
@@ -295,6 +304,7 @@ const AdminUsuarios = () => {
             rg: form.rg,
             endereco: form.endereco,
             cargo: form.cargo,
+            cargo_id: form.cargo_id || null,
             role: form.role,
             password: form.senha,
             supervisor_id: form.supervisor_id && form.supervisor_id !== 'none' ? form.supervisor_id : null,
@@ -421,7 +431,7 @@ const AdminUsuarios = () => {
                     <p className="text-xs text-muted-foreground truncate">{p.email}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs font-medium text-foreground">{p.cargo}</p>
+                    <p className="text-xs font-medium text-foreground">{allCargos?.find(c => c.id === p.cargo_id)?.name || p.cargo}</p>
                     {p.codigo && <p className="text-[10px] text-muted-foreground font-mono">ID {p.codigo}</p>}
                   </div>
                 </div>
@@ -585,10 +595,10 @@ const AdminUsuarios = () => {
                   <Input value={form.codigo} disabled placeholder="Gerado automaticamente" className="h-10 bg-muted/50" />
                 </FieldWithTooltip>
                 <FieldWithTooltip label="Cargo" tooltip="Cargo oficial do colaborador na empresa." required>
-                  <Select value={form.cargo} onValueChange={(v) => setField('cargo', v)}>
+                  <Select value={form.cargo_id} onValueChange={(v) => setField('cargo_id', v)}>
                     <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {CARGOS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      {allCargos?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </FieldWithTooltip>
@@ -599,7 +609,7 @@ const AdminUsuarios = () => {
                   <Select
                     value={form.supervisor_id}
                     onValueChange={(v) => setField('supervisor_id', v)}
-                    disabled={['Supervisor', 'Gerente', 'Diretor'].includes(form.cargo)}
+                    disabled={form.cargo?.toLowerCase().includes('supervisor') || form.cargo?.toLowerCase().includes('gerente') || form.cargo?.toLowerCase().includes('diretor')}
                   >
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                     <SelectContent>
@@ -612,7 +622,7 @@ const AdminUsuarios = () => {
                   <Select
                     value={form.gerente_id}
                     onValueChange={(v) => setField('gerente_id', v)}
-                    disabled={['Gerente', 'Diretor'].includes(form.cargo)}
+                    disabled={form.cargo?.toLowerCase().includes('gerente') || form.cargo?.toLowerCase().includes('diretor')}
                   >
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                     <SelectContent>

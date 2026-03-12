@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Bot, Send, X, Sparkles, User, FileText, Minimize2 } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -12,6 +13,7 @@ interface Message {
 }
 
 export function CopilotChat() {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { role: 'assistant', content: 'Olá! Meu nome é **Stark**, a inteligência artificial da plataforma SGC. Como posso te auxiliar?' }
@@ -77,6 +79,8 @@ export function CopilotChat() {
     if (path.includes('/aprovacoes')) return ["Como aprovar acesso de novos usuários?", "Como recusar uma cotação?"];
     return ["Como funciona o registro de atividades?", "Qual meu nível de acesso?", "O que é o módulo CRM?"];
   };
+
+  if (!user) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end pointer-events-none">

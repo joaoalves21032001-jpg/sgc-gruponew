@@ -71,11 +71,22 @@ export function useCreateVenda() {
     mutationFn: async (venda: { nome_titular: string; modalidade: string; vidas: number; valor?: number; observacoes?: string; data_lancamento?: string; justificativa_retroativo?: string; dados_completos?: string }) => {
       if (!user) throw new Error('Not authenticated');
 
-      // Check if user is gerente or above for auto-approval
-      // Supervisors submit for gerente approval; gerente+ auto-approved
+      // Fetch profile to get cargo_id for auto-approval permission
+      const { data: profile } = await supabase.from('profiles').select('cargo_id').eq('id', user.id).maybeSingle();
+      let isAutoApprove = false;
+      if (profile?.cargo_id) {
+          const { data: perm } = await supabase.from('cargo_permissions')
+            .select('allowed')
+            .eq('cargo_id', profile.cargo_id)
+            .eq('resource', 'automacao')
+            .eq('action', 'auto_aprovar_vendas')
+            .maybeSingle();
+          isAutoApprove = perm?.allowed ?? false;
+      }
+
+      // Check user_roles for legacy retro-compatibility where needed
       const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).maybeSingle();
       const userRole = roleData?.role;
-      const isAutoApprove = ['gerente', 'diretor', 'administrador'].includes(userRole || '');
 
       const { data, error } = await supabase
         .from('vendas')

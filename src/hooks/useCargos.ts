@@ -1,0 +1,241 @@
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProfile } from './useProfile';
+
+// ─── Types ───────────────────────────────────────────────────────
+export interface Cargo {
+    id: string;
+    name: string;
+    description: string | null;
+    is_system: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface CargoPermission {
+    id: string;
+    cargo_id: string;
+    resource: string;
+    action: string;
+    allowed: boolean;
+}
+
+export interface CargoActionDef {
+    key: string;
+    label: string;
+}
+
+export interface CargoResourceDef {
+    key: string;
+    label: string;
+    actions: CargoActionDef[];
+}
+
+export interface CargoResourceGroupDef {
+    groupLabel: string;
+    resources: CargoResourceDef[];
+}
+
+// ─── Definition of available Cargo permissions ─────────────────────
+
+export const CARGO_MODULES_DEF: CargoResourceGroupDef[] = [
+    {
+        groupLabel: 'Automações de Sistema',
+        resources: [
+            {
+                key: 'automacao',
+                label: 'Aprovações Automáticas',
+                actions: [
+                    { key: 'auto_aprovar_vendas', label: 'Vendas' },
+                    { key: 'auto_aprovar_atividades', label: 'Atividades' },
+                ]
+            }
+        ]
+    },
+    {
+        groupLabel: 'Aprovações Comerciais',
+        resources: [
+            {
+                key: 'aprovacao_comercial',
+                label: 'Gestão de Registros',
+                actions: [
+                    { key: 'aprovar_venda', label: 'Aprovar Venda' },
+                    { key: 'devolver_venda', label: 'Devolver Venda' },
+                    { key: 'aprovar_atividade', label: 'Aprovar Ativ.' },
+                    { key: 'devolver_atividade', label: 'Devolver Ativ.' },
+                    { key: 'aprovar_cotacao', label: 'Analisar Cotação' },
+                ]
+            }
+        ]
+    },
+    {
+        groupLabel: 'Aprovações Administrativas',
+        resources: [
+            {
+                key: 'aprovacao_admin',
+                label: 'Controle de Acesso e Correções',
+                actions: [
+                    { key: 'aprovar_acesso', label: 'Aprovar Acesso' },
+                    { key: 'aprovar_mfa', label: 'Reset MFA' },
+                    { key: 'aprovar_senha', label: 'Reset Senha' },
+                    { key: 'avaliar_correcao', label: 'Avaliar Correções' },
+                ]
+            }
+        ]
+    }
+];
+
+// ─── Hooks ───────────────────────────────────────────────────────
+
+/** Fetch all cargos */
+export function useCargos() {
+    return useQuery({
+        queryKey: ['cargos'],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('cargos' as any)
+                .select('*')
+                .order('created_at');
+            if (error) {
+                if (error.message?.includes('relation "public.cargos" does not exist') || error.code === '42P01') return [];
+                throw error;
+            }
+            return (data ?? []) as unknown as Cargo[];
+        },
+    });
+}
+
+/** Fetch permissions for a specific cargo */
+export function useCargoPermissions(cargoId: string | null) {
+    return useQuery({
+        queryKey: ['cargo-permissions', cargoId],
+        queryFn: async () => {
+            if (!cargoId) return [];
+            const { data, error } = await supabase
+                .from('cargo_permissions' as any)
+                .select('*')
+                .eq('cargo_id', cargoId);
+            if (error) {
+                if (error.code === '42P01') return [];
+                throw error;
+            }
+            return (data ?? []) as unknown as CargoPermission[];
+        },
+        enabled: !!cargoId,
+    });
+}
+
+/** Fetch the current user's cargo permissions */
+export function useMyCargoPermissions() {
+    const { user } = useAuth();
+    const { data: profile } = useProfile();
+
+    return useQuery({
+        queryKey: ['my-cargo-permissions', user?.id, (profile as any)?.cargo_id],
+        queryFn: async () => {
+            const cargoId = (profile as any)?.cargo_id as string | undefined;
+            if (!cargoId) return null;
+            
+            const { data, error } = await supabase
+                .from('cargo_permissions' as any)
+                .select('*')
+                .eq('cargo_id', cargoId);
+            if (error) {
+                if (error.code === '42P01') return null;
+                throw error;
+            }
+            return (data ?? []) as unknown as CargoPermission[];
+        },
+        enabled: !!user && !!profile,
+    });
+}
+
+/**
+ * Check if the user has a specific cargo permission.
+ */
+export function hasCargoPermission(
+    permissions: CargoPermission[] | null | undefined,
+    resource: string,
+    action: string
+): boolean {
+    if (!permissions || permissions.length === 0) return false;
+    const perm = permissions.find(p => p.resource === resource && p.action === action);
+    return perm?.allowed ?? false;
+}
+
+// ─── Mutations ───────────────────────────────────────────────────
+
+export function useCreateCargo() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ name, description }: { name: string; description?: string }) => {
+            const { data, error } = await supabase
+                .from('cargos' as any)
+                .insert({ name, description } as any)
+                .select()
+                .single();
+            if (error) throw error;
+            return data as unknown as Cargo;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cargos'] });
+        },
+    });
+}
+
+export function useUpdateCargo() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ id, name, description }: { id: string; name: string; description?: string }) => {
+            const { error } = await supabase
+                .from('cargos' as any)
+                .update({ name, description, updated_at: new Date().toISOString() } as any)
+                .eq('id', id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cargos'] });
+        },
+    });
+}
+
+export function useDeleteCargo() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async (id: string) => {
+            const { error } = await supabase
+                .from('cargos' as any)
+                .delete()
+                .eq('id', id);
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['cargos'] });
+        },
+    });
+}
+
+export function useToggleCargoPermission() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ cargoId, resource, action, allowed }: {
+            cargoId: string;
+            resource: string;
+            action: string;
+            allowed: boolean;
+        }) => {
+            const { error } = await supabase
+                .from('cargo_permissions' as any)
+                .upsert(
+                    { cargo_id: cargoId, resource, action, allowed } as any,
+                    { onConflict: 'cargo_id,resource,action' }
+                );
+            if (error) throw error;
+        },
+        onSuccess: (_, { cargoId }) => {
+            queryClient.invalidateQueries({ queryKey: ['cargo-permissions', cargoId] });
+            queryClient.invalidateQueries({ queryKey: ['my-cargo-permissions'] });
+        },
+    });
+}

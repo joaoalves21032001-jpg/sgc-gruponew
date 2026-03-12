@@ -197,12 +197,73 @@ export type Database = {
         }
         Relationships: []
       }
+      cargos: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_system: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      cargo_permissions: {
+        Row: {
+          action: string
+          allowed: boolean | null
+          cargo_id: string
+          id: string
+          resource: string
+        }
+        Insert: {
+          action?: string
+          allowed?: boolean | null
+          cargo_id: string
+          id?: string
+          resource: string
+        }
+        Update: {
+          action?: string
+          allowed?: boolean | null
+          cargo_id?: string
+          id?: string
+          resource?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cargo_permissions_cargo_id_fkey"
+            columns: ["cargo_id"]
+            isOneToOne: false
+            referencedRelation: "cargos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companhias: {
         Row: {
           created_at: string
           id: string
           logo_url: string | null
           nome: string
+          meta_titulo: number | null
+          nome_titulo: string | null
           updated_at: string
         }
         Insert: {
@@ -210,6 +271,8 @@ export type Database = {
           id?: string
           logo_url?: string | null
           nome: string
+          meta_titulo?: number | null
+          nome_titulo?: string | null
           updated_at?: string
         }
         Update: {
@@ -217,6 +280,8 @@ export type Database = {
           id?: string
           logo_url?: string | null
           nome?: string
+          meta_titulo?: number | null
+          nome_titulo?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -682,6 +747,7 @@ export type Database = {
           atividades_desabilitadas: boolean
           avatar_url: string | null
           cargo: string
+          cargo_id: string | null
           celular: string | null
           codigo: string | null
           cpf: string | null
@@ -711,6 +777,7 @@ export type Database = {
           atividades_desabilitadas?: boolean
           avatar_url?: string | null
           cargo?: string
+          cargo_id?: string | null
           celular?: string | null
           codigo?: string | null
           cpf?: string | null
@@ -740,6 +807,7 @@ export type Database = {
           atividades_desabilitadas?: boolean
           avatar_url?: string | null
           cargo?: string
+          cargo_id?: string | null
           celular?: string | null
           codigo?: string | null
           cpf?: string | null
@@ -783,6 +851,13 @@ export type Database = {
             columns: ["supervisor_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_cargo_id_fkey"
+            columns: ["cargo_id"]
+            isOneToOne: false
+            referencedRelation: "cargos"
             referencedColumns: ["id"]
           },
         ]

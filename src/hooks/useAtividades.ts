@@ -74,10 +74,22 @@ export function useCreateAtividade() {
         throw new Error('Você já possui um registro para este dia. Para alterar, acesse a guia "Minhas Ações" e solicite a alteração do registro.');
       }
 
-      // Check if user is gerente or above for auto-approval
+      // Check profile's cargo_id for auto-approve permission
+      const { data: profile } = await supabase.from('profiles').select('cargo_id').eq('id', user.id).maybeSingle();
+      let isAutoApprove = false;
+      if (profile?.cargo_id) {
+          const { data: perm } = await supabase.from('cargo_permissions')
+            .select('allowed')
+            .eq('cargo_id', profile.cargo_id)
+            .eq('resource', 'automacao')
+            .eq('action', 'auto_aprovar_atividades')
+            .maybeSingle();
+          isAutoApprove = perm?.allowed ?? false;
+      }
+
+      // Pre-fetch userRole for legacy compatibility in return object
       const { data: roleData } = await supabase.from('user_roles').select('role').eq('user_id', user.id).maybeSingle();
       const userRole = roleData?.role;
-      const isAutoApprove = ['gerente', 'diretor', 'administrador'].includes(userRole || '');
 
       const payload = {
         ...atividade,
