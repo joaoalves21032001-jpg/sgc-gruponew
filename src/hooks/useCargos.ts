@@ -131,6 +131,7 @@ export const CARGO_MODULES_DEF: CargoResourceGroupDef[] = [
                 actions: [
                     { key: 'aprovar_acesso', label: 'Aprovar Acesso' },
                     { key: 'aprovar_mfa', label: 'Aprovar Reset MFA' },
+                    { key: 'aprovar_senha', label: 'Aprovar Reset Senha' },
                     { key: 'avaliar_correcao', label: 'Avaliar Correções' },
                 ]
             }

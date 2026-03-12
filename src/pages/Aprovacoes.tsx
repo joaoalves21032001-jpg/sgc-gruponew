@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
+import { useMyCargoPermissions, hasCargoPermission } from '@/hooks/useCargos';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useLogAction } from '@/hooks/useAuditLog';
@@ -265,6 +266,7 @@ const Aprovacoes = () => {
   const queryClient = useQueryClient();
   const logAction = useLogAction();
   const { data: myPermissions } = useMyPermissions();
+  const { data: myCargoPerms } = useMyCargoPermissions();
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('todos');
@@ -341,7 +343,7 @@ const Aprovacoes = () => {
     hasPermission(myPermissions, 'aprovacoes.cotacoes', 'analyze') ||
     hasPermission(myPermissions, 'aprovacoes.alteracoes', 'analyze') ||
     hasPermission(myPermissions, 'aprovacoes.mfa', 'approve') ||
-    hasPermission(myPermissions, 'aprovacoes.senha', 'approve') ||
+    hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_senha') ||
     isSuperAdmin;
 
   if (!canViewAnyAprovacao) {
@@ -949,7 +951,7 @@ const Aprovacoes = () => {
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedAtiv(a); setAtivJustificativa(''); }}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
-                        {(ativStatus === 'pendente') && hasPermission(myPermissions, 'aprovacoes.atividades', 'edit') && (
+                        {(ativStatus === 'pendente') && hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_atividade') && (
                           <>
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleAtivAction(a, 'aprovado')}>
                               <CheckCircle2 className="w-4 h-4" /> Aprovar
@@ -962,7 +964,7 @@ const Aprovacoes = () => {
                             </Button>
                           </>
                         )}
-                        {hasPermission(myPermissions, 'aprovacoes.atividades', 'delete') && (
+                        {hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_atividade') && (
                           <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={async () => {
                             if (!confirm('Excluir esta atividade?')) return;
                             try {
@@ -1023,7 +1025,7 @@ const Aprovacoes = () => {
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedVenda(v); setObs(v.observacoes || ''); setJustificativa(''); }}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
-                        {isPending && hasPermission(myPermissions, 'aprovacoes.vendas', 'edit') && (
+                        {isPending && hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_venda') && (
                           <>
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleVendaAction(v, 'aprovado')}>
                               <CheckCircle2 className="w-4 h-4" /> Aprovar
@@ -1036,7 +1038,7 @@ const Aprovacoes = () => {
                             </Button>
                           </>
                         )}
-                        {hasPermission(myPermissions, 'aprovacoes.vendas', 'delete') && (
+                        {hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_venda') && (
                           <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={async () => {
                             if (!confirm('Excluir esta venda?')) return;
                             try {
@@ -1104,7 +1106,7 @@ const Aprovacoes = () => {
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => setViewCotacao(c)}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
-                        {c.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.cotacoes', 'edit') && (
+                        {c.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_cotacao') && (
                           <>
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleApproveCotacao(c)} disabled={savingCotacao}>
                               <CheckCircle2 className="w-4 h-4" /> Aprovar
@@ -1114,7 +1116,7 @@ const Aprovacoes = () => {
                             </Button>
                           </>
                         )}
-                        {hasPermission(myPermissions, 'aprovacoes.cotacoes', 'delete') && (
+                        {hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_cotacao') && (
                           <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteCotacao(c)}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
@@ -1168,7 +1170,7 @@ const Aprovacoes = () => {
                           <Button variant="outline" size="sm" className="gap-1.5 font-semibold" onClick={() => setViewAccess(req)}>
                             <Eye className="w-4 h-4" /> Analisar
                           </Button>
-                          {req.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.acesso', 'edit') && (
+                          {req.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_acesso') && (
                             <>
                               <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleApproveAccess(req)} disabled={savingAccess}>
                                 <CheckCircle2 className="w-4 h-4" /> Aprovar
@@ -1178,7 +1180,7 @@ const Aprovacoes = () => {
                               </Button>
                             </>
                           )}
-                          {hasPermission(myPermissions, 'aprovacoes.acesso', 'delete') && (
+                          {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_acesso') && (
                             <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteAccess(req)}>
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
@@ -1248,7 +1250,7 @@ const Aprovacoes = () => {
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => toast.info('Análise detalhada apenas via card principal para alterações por enquanto.')}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
-                        {cr.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.alteracoes', 'edit') && (
+                        {cr.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'avaliar_correcao') && (
                           <>
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleApproveCR(cr)} disabled={savingCR}>
                               <CheckCircle2 className="w-4 h-4" /> Aprovar
@@ -1258,7 +1260,7 @@ const Aprovacoes = () => {
                             </Button>
                           </>
                         )}
-                        {hasPermission(myPermissions, 'aprovacoes.alteracoes', 'delete') && (
+                        {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'avaliar_correcao') && (
                           <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
                             if (!confirm('Excluir esta solicitação?')) return;
                             try {
@@ -1319,7 +1321,7 @@ const Aprovacoes = () => {
                       <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => toast.info('Análise detalhada apenas via card principal para MFA por enquanto.')}>
                         <Eye className="w-4 h-4" /> Analisar
                       </Button>
-                      {req.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.mfa', 'edit') && (
+                      {req.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_mfa') && (
                         <>
                           <Button
                             size="sm"
@@ -1350,7 +1352,7 @@ const Aprovacoes = () => {
                           </Button>
                         </>
                       )}
-                      {hasPermission(myPermissions, 'aprovacoes.mfa', 'delete') && (
+                      {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_mfa') && (
                         <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
                           if (!confirm('Excluir esta solicitação?')) return;
                           try {
@@ -1409,7 +1411,7 @@ const Aprovacoes = () => {
                     </div>
                     
                     <div className="flex gap-1.5 shrink-0 flex-wrap justify-end mt-2">
-                      {hasPermission(myPermissions, 'aprovacoes.senha', 'analyze') && (
+                      {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_senha') && (
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => toast.info('Análise detalhada apenas via card principal.')}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
@@ -1417,7 +1419,7 @@ const Aprovacoes = () => {
                       
                       {req.status === 'pendente' && (
                         <>
-                          {hasPermission(myPermissions, 'aprovacoes.senha', 'approve') && (
+                          {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_senha') && (
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30"
                               disabled={savingPwdReset}
                               onClick={async () => {
@@ -1435,7 +1437,7 @@ const Aprovacoes = () => {
                             </Button>
                           )}
                           
-                          {hasPermission(myPermissions, 'aprovacoes.senha', 'return') && (
+                          {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_senha') && (
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30"
                               disabled={savingPwdReset}
                               onClick={async () => {
@@ -1456,7 +1458,7 @@ const Aprovacoes = () => {
                             </Button>
                           )}
 
-                          {hasPermission(myPermissions, 'aprovacoes.senha', 'reject') && (
+                          {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_senha') && (
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30"
                               onClick={() => { setRejectPwdReq(req); setRejectPwdReason(''); }}
                             >
@@ -1465,7 +1467,7 @@ const Aprovacoes = () => {
                           )}
                         </>
                       )}
-                      {hasPermission(myPermissions, 'aprovacoes.senha', 'delete') && (
+                      {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_senha') && (
                         <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
                           if (!confirm('Excluir esta solicitação de senha?')) return;
                           try {
@@ -1496,8 +1498,8 @@ const Aprovacoes = () => {
         justificativa={justificativa}
         setJustificativa={setJustificativa}
         onAction={handleVendaAction}
-        canEdit={hasPermission(myPermissions, 'aprovacoes.vendas', 'edit')}
-        canDelete={hasPermission(myPermissions, 'aprovacoes.vendas', 'delete')}
+        canEdit={hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_venda')}
+        canDelete={hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_venda')}
         onDelete={async (v: Venda) => {
           if (!confirm('Excluir esta venda?')) return;
           try {
@@ -1536,7 +1538,7 @@ const Aprovacoes = () => {
                 <Textarea value={ativJustificativa} onChange={(e) => setAtivJustificativa(e.target.value)} placeholder="Obrigatório para devolver. Explique o motivo..." rows={3} className="border-border/40" />
               </div>
               <div className="flex gap-2 flex-wrap">
-                {hasPermission(myPermissions, 'aprovacoes.atividades', 'edit') && (
+                {hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_atividade') && (
                   <>
                     <Button onClick={() => handleAtivAction(selectedAtiv, 'aprovado')} disabled={savingAtiv} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
                       <CheckCircle2 className="w-5 h-5" /> Aprovar
@@ -1559,7 +1561,7 @@ const Aprovacoes = () => {
                     </Button>
                   </>
                 )}
-                {hasPermission(myPermissions, 'aprovacoes.atividades', 'delete') && (
+                {hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_atividade') && (
                   <Button variant="destructive" className="flex-1 font-semibold gap-1.5" size="lg" onClick={async () => {
                     if (!confirm('Excluir esta atividade?')) return;
                     try {
@@ -1632,7 +1634,7 @@ const Aprovacoes = () => {
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Emergência 1</span><p className="font-semibold mt-0.5">{viewAccess.numero_emergencia_1 || '—'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Emergência 2</span><p className="font-semibold mt-0.5">{viewAccess.numero_emergencia_2 || '—'}</p></div>
               <div className="col-span-2 flex gap-2 flex-wrap border-t border-border/20 pt-4 mt-2">
-                {viewAccess.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.acesso', 'edit') && (
+                {viewAccess.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_acesso') && (
                   <>
                     <Button onClick={() => { handleApproveAccess(viewAccess); setViewAccess(null); }} disabled={savingAccess} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
                       <CheckCircle2 className="w-5 h-5" /> Aprovar
@@ -1645,7 +1647,7 @@ const Aprovacoes = () => {
                     </Button>
                   </>
                 )}
-                {hasPermission(myPermissions, 'aprovacoes.acesso', 'delete') && (
+                {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_acesso') && (
                   <Button variant="destructive" className="flex-1 font-semibold gap-1.5" size="lg" onClick={() => { setDeleteAccess(viewAccess); setViewAccess(null); }}>
                     <Trash2 className="w-5 h-5" /> Excluir
                   </Button>
@@ -1822,7 +1824,7 @@ const Aprovacoes = () => {
                 <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Vidas</span><p className="font-semibold mt-0.5">{viewCotacao.quantidade_vidas}</p></div>
               </div>
               <div className="flex gap-2 flex-wrap border-t border-border/20 pt-4">
-                {viewCotacao.status === 'pendente' && hasPermission(myPermissions, 'aprovacoes.cotacoes', 'edit') && (
+                {viewCotacao.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_cotacao') && (
                   <>
                     <Button onClick={() => { handleApproveCotacao(viewCotacao); setViewCotacao(null); }} disabled={savingCotacao} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
                       <CheckCircle2 className="w-5 h-5" /> Aprovar
@@ -1835,7 +1837,7 @@ const Aprovacoes = () => {
                     </Button>
                   </>
                 )}
-                {hasPermission(myPermissions, 'aprovacoes.cotacoes', 'delete') && (
+                {hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_cotacao') && (
                   <Button variant="destructive" className="flex-1 font-semibold gap-1.5" size="lg" onClick={() => { setDeleteCotacao(viewCotacao); setViewCotacao(null); }}>
                     <Trash2 className="w-5 h-5" /> Excluir
                   </Button>
