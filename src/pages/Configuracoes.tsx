@@ -960,6 +960,240 @@ const Configuracoes = () => {
                     )}
                 </TabsContent>
 
+                {/* ═══════════ TAB: CARGOS E FUNÇÕES ═══════════ */}
+                <TabsContent value="cargos" className="space-y-4">
+                    <div className="bg-card rounded-2xl border border-border/40 shadow-elevated p-6 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Users className="w-5 h-5 text-primary" />
+                                <h2 className="text-base font-bold font-display text-foreground">Cargos e Funções</h2>
+                            </div>
+                            <Button size="sm" className="gap-1.5 font-semibold shadow-brand" onClick={() => setNewCargoOpen(true)}>
+                                <Plus className="w-3.5 h-3.5" /> Novo Cargo
+                            </Button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Gerencie os cargos da organização e suas permissões granulares por subguia. Os cargos definem o que um usuário pode fazer dentro de cada módulo.
+                        </p>
+
+                        {cargosLoading ? (
+                            <div className="text-center py-8 text-muted-foreground text-xs">Carregando cargos...</div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {cargos.length === 0 ? (
+                                    <div className="col-span-full text-center py-8 text-muted-foreground text-xs border border-dashed border-border/40 rounded-xl">
+                                        Nenhum cargo cadastrado. Clique em "Novo Cargo" para começar.
+                                    </div>
+                                ) : (
+                                    cargos.map((cargo: any) => (
+                                        <div
+                                            key={cargo.id}
+                                            onClick={() => setSelectedCargoId(cargo.id)}
+                                            className={`p-4 rounded-xl border cursor-pointer transition-all hover:shadow-elevated hover-lift ${selectedCargoId === cargo.id
+                                                ? 'border-primary bg-primary/[0.03] shadow-elevated ring-1 ring-primary/20'
+                                                : 'border-border/40 bg-muted/20 hover:border-primary/30'
+                                                }`}
+                                        >
+                                            <div className="flex items-center justify-between mb-1">
+                                                <div className="flex items-center gap-2">
+                                                    <ShieldCheck className={`w-4 h-4 ${selectedCargoId === cargo.id ? 'text-primary' : 'text-muted-foreground'}`} />
+                                                    <h3 className="text-sm font-bold text-foreground">{cargo.name}</h3>
+                                                </div>
+                                            </div>
+                                            <p className="text-[11px] text-muted-foreground line-clamp-2">{cargo.description || 'Sem descrição'}</p>
+                                            <div className="flex items-center gap-1 mt-2">
+                                                <ChevronRight className="w-3 h-3 text-muted-foreground" />
+                                                <span className="text-[10px] text-muted-foreground">Clique para gerenciar</span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* ── Selected cargo detail ── */}
+                    {selectedCargoId && cargos.find((c: any) => c.id === selectedCargoId) && (() => {
+                        const selectedCargo = cargos.find((c: any) => c.id === selectedCargoId);
+                        return (
+                            <div className="bg-card rounded-2xl border border-border/40 shadow-elevated p-6 space-y-5 animate-fade-in-up">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <Users className="w-5 h-5 text-primary" />
+                                        <div>
+                                            <h3 className="text-base font-bold text-foreground">{selectedCargo.name}</h3>
+                                            {selectedCargo.description && <p className="text-xs text-muted-foreground">{selectedCargo.description}</p>}
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="outline" size="sm" className="gap-1" onClick={() => setEditingCargo({
+                                            id: selectedCargo.id, name: selectedCargo.name, description: selectedCargo.description || '',
+                                        })}>
+                                            <Pencil className="w-3 h-3" /> Editar
+                                        </Button>
+                                        <Button variant="outline" size="sm" className="gap-1 text-destructive hover:bg-destructive/10" onClick={() => setConfirmDeleteCargoId(selectedCargo.id)}>
+                                            <Trash2 className="w-3 h-3" /> Excluir
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <Separator className="bg-border/20" />
+
+                                {/* Cargo permissions matrix */}
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-2">
+                                        <Lock className="w-4 h-4 text-primary" />
+                                        <h4 className="text-sm font-bold text-foreground">Permissões do Cargo</h4>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Configure quais ações este cargo pode executar em cada subguia e módulo da plataforma.
+                                    </p>
+
+                                    <div className="space-y-6">
+                                        {CARGO_MODULES_DEF.map((group) => {
+                                            const groupActions = new Map<string, { key: string; label: string }>();
+                                            group.resources.forEach(res => {
+                                                res.actions.forEach(a => {
+                                                    if (!groupActions.has(a.key)) groupActions.set(a.key, a);
+                                                });
+                                            });
+                                            const uniqueActions = Array.from(groupActions.values());
+
+                                            return (
+                                                <div key={group.groupLabel} className="space-y-2">
+                                                    <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
+                                                        {group.groupLabel}
+                                                    </h5>
+                                                    <div className="overflow-x-auto rounded-lg border border-border/30">
+                                                        <table className="w-full text-sm border-collapse bg-card">
+                                                            <thead>
+                                                                <tr className="border-b border-border/30 bg-muted/20">
+                                                                    <th className="text-left py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[250px]">Recurso</th>
+                                                                    {uniqueActions.map(a => (
+                                                                        <th key={a.key} className="text-center py-2.5 px-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider w-[100px]">{a.label}</th>
+                                                                    ))}
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {group.resources.map((res) => (
+                                                                    <tr key={res.key} className="border-b border-border/10 hover:bg-muted/10 transition-colors">
+                                                                        <td className="py-2.5 px-3 text-sm font-semibold text-foreground">
+                                                                            {res.label}
+                                                                        </td>
+                                                                        {uniqueActions.map(act => {
+                                                                            const actionExists = res.actions.some(a => a.key === act.key);
+                                                                            if (!actionExists) {
+                                                                                return (
+                                                                                    <td key={act.key} className="text-center py-2.5 px-3">
+                                                                                        <div className="w-7 h-7 mx-auto flex items-center justify-center opacity-30 select-none">
+                                                                                            <span className="text-xs text-muted-foreground font-bold">-</span>
+                                                                                        </div>
+                                                                                    </td>
+                                                                                );
+                                                                            }
+                                                                            const allowed = isCargoPermAllowed(res.key, act.key);
+                                                                            return (
+                                                                                <td key={act.key} className="text-center py-2.5 px-3">
+                                                                                    <button
+                                                                                        onClick={() => handleToggleCargoPerm(res.key, act.key)}
+                                                                                        className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${allowed
+                                                                                            ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
+                                                                                            : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
+                                                                                            }`}
+                                                                                    >
+                                                                                        {allowed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
+                                                                                    </button>
+                                                                                </td>
+                                                                            );
+                                                                        })}
+                                                                    </tr>
+                                                                ))}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Create Cargo Dialog */}
+                    <Dialog open={newCargoOpen} onOpenChange={setNewCargoOpen}>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle className="font-display text-lg">Novo Cargo</DialogTitle>
+                                <DialogDescription>Defina o nome e descrição. As permissões granulares podem ser configuradas depois.</DialogDescription>
+                            </DialogHeader>
+                            <div className="space-y-3 py-2">
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold text-muted-foreground">Nome *</Label>
+                                    <Input value={newCargoName} onChange={e => setNewCargoName(e.target.value)} placeholder="Ex: Gerente Comercial" className="h-10" />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label className="text-xs font-semibold text-muted-foreground">Descrição (opcional)</Label>
+                                    <Textarea value={newCargoDesc} onChange={e => setNewCargoDesc(e.target.value)} placeholder="Descreva as responsabilidades..." rows={2} />
+                                </div>
+                            </div>
+                            <DialogFooter className="gap-2">
+                                <Button variant="outline" onClick={() => setNewCargoOpen(false)}>Cancelar</Button>
+                                <Button onClick={handleCreateCargo} disabled={createCargo.isPending} className="gap-1.5">
+                                    {createCargo.isPending ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
+                                    Criar Cargo
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Edit Cargo Dialog */}
+                    <Dialog open={!!editingCargo} onOpenChange={() => setEditingCargo(null)}>
+                        <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                                <DialogTitle className="font-display text-lg">Editar Cargo</DialogTitle>
+                                <DialogDescription>Altere o nome e descrição do cargo.</DialogDescription>
+                            </DialogHeader>
+                            {editingCargo && (
+                                <div className="space-y-3 py-2">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-semibold text-muted-foreground">Nome *</Label>
+                                        <Input value={editingCargo.name} onChange={e => setEditingCargo({ ...editingCargo, name: e.target.value })} className="h-10" />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
+                                        <Textarea value={editingCargo.description} onChange={e => setEditingCargo({ ...editingCargo, description: e.target.value })} rows={2} />
+                                    </div>
+                                </div>
+                            )}
+                            <DialogFooter className="gap-2">
+                                <Button variant="outline" onClick={() => setEditingCargo(null)}>Cancelar</Button>
+                                <Button onClick={handleUpdateCargo} disabled={updateCargo.isPending} className="gap-1.5">
+                                    <Save className="w-4 h-4" /> Salvar
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+
+                    {/* Delete Cargo Confirm */}
+                    <Dialog open={!!confirmDeleteCargoId} onOpenChange={() => setConfirmDeleteCargoId(null)}>
+                        <DialogContent className="sm:max-w-sm">
+                            <DialogHeader>
+                                <DialogTitle className="font-display text-lg text-destructive flex items-center gap-2">
+                                    <Trash2 className="w-5 h-5" /> Excluir Cargo
+                                </DialogTitle>
+                                <DialogDescription>Esta ação é irreversível. O cargo será removido e todos os usuários vinculados perderão suas permissões específicas.</DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter className="gap-2">
+                                <Button variant="outline" onClick={() => setConfirmDeleteCargoId(null)}>Cancelar</Button>
+                                <Button variant="destructive" onClick={handleDeleteCargo} disabled={deleteCargo.isPending} className="gap-1.5">
+                                    <Trash2 className="w-4 h-4" /> Excluir
+                                </Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                </TabsContent>
+
                 {/* ═══════════ TAB: SISTEMA ═══════════ */}
                 <TabsContent value="system" className="space-y-4">
                     <div className="bg-card rounded-2xl border border-border/40 shadow-elevated p-6 space-y-4">

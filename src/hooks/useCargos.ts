@@ -39,7 +39,60 @@ export interface CargoResourceGroupDef {
 
 // ─── Definition of available Cargo permissions ─────────────────────
 
+const BASIC_CRUD: CargoActionDef[] = [
+    { key: 'view', label: 'Visualizar' },
+    { key: 'edit', label: 'Editar' }
+];
+
+const EXTENDED_CRUD: CargoActionDef[] = [
+    { key: 'view', label: 'Visualizar' },
+    { key: 'edit', label: 'Editar' },
+    { key: 'delete', label: 'Excluir' }
+];
+
+const CRM_LEADS_ACTIONS: CargoActionDef[] = [
+    { key: 'view', label: 'Visualizar' },
+    { key: 'edit', label: 'Editar' },
+    { key: 'view_own', label: 'Ver Somente Meus' },
+    { key: 'view_all', label: 'Ver Todos' }
+];
+
 export const CARGO_MODULES_DEF: CargoResourceGroupDef[] = [
+    {
+        groupLabel: 'Subguias: Registro de Atividades',
+        resources: [
+            { key: 'atividades.atividades', label: 'Atividades', actions: BASIC_CRUD },
+            { key: 'atividades.vendas', label: 'Vendas', actions: BASIC_CRUD },
+        ]
+    },
+    {
+        groupLabel: 'Subguias: CRM & Comercial',
+        resources: [
+            { key: 'crm.leads', label: 'CRM - Leads', actions: CRM_LEADS_ACTIONS },
+            { key: 'crm.clientes', label: 'CRM - Clientes', actions: BASIC_CRUD },
+            { key: 'comercial.cotacoes', label: 'Comercial - Cotações', actions: BASIC_CRUD },
+        ]
+    },
+    {
+        groupLabel: 'Subguias: Inventário',
+        resources: [
+            { key: 'inventario.companhias', label: 'Companhias', actions: BASIC_CRUD },
+            { key: 'inventario.produtos', label: 'Produtos', actions: BASIC_CRUD },
+            { key: 'inventario.modalidades', label: 'Modalidades', actions: BASIC_CRUD },
+        ]
+    },
+    {
+        groupLabel: 'Subguias: Configurações Extras',
+        resources: [
+            { key: 'config.permissoes', label: 'Perfis de Segurança', actions: EXTENDED_CRUD },
+            { key: 'config.cargos', label: 'Cargos e Funções', actions: EXTENDED_CRUD },
+            { key: 'config.usuarios', label: 'Gerenciar Usuários', actions: [
+                ...EXTENDED_CRUD,
+                { key: 'reset_password', label: 'Resetar Senha' },
+                { key: 'reset_mfa', label: 'Resetar MFA' },
+            ]},
+        ]
+    },
     {
         groupLabel: 'Automações de Sistema',
         resources: [
@@ -54,11 +107,11 @@ export const CARGO_MODULES_DEF: CargoResourceGroupDef[] = [
         ]
     },
     {
-        groupLabel: 'Aprovações Comerciais',
+        groupLabel: 'Aprovações de Registros',
         resources: [
             {
                 key: 'aprovacao_comercial',
-                label: 'Gestão de Registros',
+                label: 'Gestão de Vendas e Atividades',
                 actions: [
                     { key: 'aprovar_venda', label: 'Aprovar Venda' },
                     { key: 'devolver_venda', label: 'Devolver Venda' },
@@ -77,8 +130,7 @@ export const CARGO_MODULES_DEF: CargoResourceGroupDef[] = [
                 label: 'Controle de Acesso e Correções',
                 actions: [
                     { key: 'aprovar_acesso', label: 'Aprovar Acesso' },
-                    { key: 'aprovar_mfa', label: 'Reset MFA' },
-                    { key: 'aprovar_senha', label: 'Reset Senha' },
+                    { key: 'aprovar_mfa', label: 'Aprovar Reset MFA' },
                     { key: 'avaliar_correcao', label: 'Avaliar Correções' },
                 ]
             }

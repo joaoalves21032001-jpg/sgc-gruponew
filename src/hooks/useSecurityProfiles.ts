@@ -47,99 +47,21 @@ const COMMON_ACTIONS: ActionDef[] = [
     { key: 'edit', label: 'Editor' }
 ];
 
-const CRM_ACTIONS: ActionDef[] = [
-    { key: 'view', label: 'Visualizador' },
-    { key: 'view_own', label: 'Ver somente meus Leads' },
-    { key: 'view_all', label: 'Ver todos os Leads' },
-    { key: 'edit', label: 'Editor' },
-    { key: 'create', label: 'Criador' },
-    { key: 'edit_leads', label: 'Editor de Leads' }
-];
-
-const APROVA_ACTIONS_STD: ActionDef[] = [
-    { key: 'view', label: 'Visualizador' },
-    { key: 'analyze', label: 'Analisar' },
-    { key: 'approve', label: 'Aprovar' },
-    { key: 'return', label: 'Devolver' },
-    { key: 'edit', label: 'Editar' },
-    { key: 'delete', label: 'Excluir' }
-];
-
-const USER_ACTIONS: ActionDef[] = [
-    { key: 'view', label: 'Visualizador' },
-    { key: 'edit', label: 'Editor' },
-    { key: 'reset_password', label: 'Resetar Senha' },
-    { key: 'reset_mfa', label: 'Resetar MFA' },
-    { key: 'disable', label: 'Desabilitar' },
-    { key: 'delete', label: 'Excluir' }
-];
-
-const APROVA_ACTIONS_REJECT: ActionDef[] = [
-    { key: 'view', label: 'Visualizador' },
-    { key: 'analyze', label: 'Analisar' },
-    { key: 'approve', label: 'Aprovar' },
-    { key: 'reject', label: 'Rejeitar' },
-    { key: 'edit', label: 'Editar' },
-    { key: 'delete', label: 'Excluir' }
-];
-
-const APROVA_ACTIONS_MFA: ActionDef[] = [
-    { key: 'view', label: 'Visualizador' },
-    { key: 'approve', label: 'Aprovar' },
-    { key: 'reject', label: 'Rejeitar' },
-    { key: 'return', label: 'Devolver' },
-    { key: 'edit', label: 'Editar' },
-    { key: 'delete', label: 'Excluir' }
+const VIEW_ONLY_ACTIONS: ActionDef[] = [
+    { key: 'view', label: 'Visualizador' }
 ];
 
 export const MODULES_DEF: ResourceGroupDef[] = [
     {
-        groupLabel: 'Módulos de Gestão, Sistema e Dashboard',
+        groupLabel: 'Módulos (Guias Principais)',
         resources: [
-            { key: 'progresso', label: 'Meu Progresso', actions: COMMON_ACTIONS },
-            { key: 'dashboard', label: 'Dashboard', actions: COMMON_ACTIONS },
-            { key: 'notificacoes', label: 'Notificações', actions: COMMON_ACTIONS },
-            { key: 'usuarios', label: 'Usuários', actions: USER_ACTIONS },
-            { key: 'solicitacoes_acesso', label: 'Solic. de Acesso e Senhas', actions: COMMON_ACTIONS },
-            { key: 'equipe', label: 'Equipe', actions: COMMON_ACTIONS },
-            { key: 'logs_auditoria', label: 'Logs de Auditoria', actions: COMMON_ACTIONS },
-            { key: 'configuracoes', label: 'Configurações do Sistema', actions: COMMON_ACTIONS },
-        ]
-    },
-    {
-        groupLabel: 'Módulos de Operação e CRM',
-        resources: [
-            { key: 'comercial', label: 'Registro de Atividades (Geral)', actions: COMMON_ACTIONS },
-            { key: 'comercial.atividades', label: 'Registro de Atividades > Subguia Atividades', actions: COMMON_ACTIONS },
-            { key: 'comercial.vendas', label: 'Registro de Atividades > Subguia Vendas', actions: COMMON_ACTIONS },
-            { key: 'minhas_acoes', label: 'Minhas Ações (Geral)', actions: COMMON_ACTIONS },
-            { key: 'minhas_acoes.pendentes', label: 'Minhas Ações > Subguia Pendentes', actions: COMMON_ACTIONS },
-            { key: 'minhas_acoes.aprovados', label: 'Minhas Ações > Subguia Aprovados', actions: COMMON_ACTIONS },
-            { key: 'minhas_acoes.devolvidos', label: 'Minhas Ações > Subguia Devolvidos', actions: COMMON_ACTIONS },
-            { key: 'minhas_acoes.alteracoes', label: 'Minhas Ações > Subguia Alterações', actions: COMMON_ACTIONS },
-            { key: 'crm', label: 'CRM (Geral)', actions: CRM_ACTIONS },
-            { key: 'inventario.leads', label: 'Inventário > Subguia Leads', actions: CRM_ACTIONS },
-        ]
-    },
-    {
-        groupLabel: 'Módulos de Inventário (Outros)',
-        resources: [
-            { key: 'inventario', label: 'Inventário (Geral)', actions: COMMON_ACTIONS },
-            { key: 'inventario.companhias', label: 'Inventário > Subguia Companhias', actions: COMMON_ACTIONS },
-            { key: 'inventario.produtos', label: 'Inventário > Subguia Produtos', actions: COMMON_ACTIONS },
-            { key: 'inventario.modalidades', label: 'Inventário > Subguia Modalidades', actions: COMMON_ACTIONS },
-        ]
-    },
-    {
-        groupLabel: 'Módulo de Aprovações (Colunas de Ação)',
-        resources: [
-            { key: 'aprovacoes', label: 'Aprovações (Geral)', actions: COMMON_ACTIONS },
-            { key: 'aprovacoes.atividades', label: 'Aprovações > Subguia Atividades', actions: APROVA_ACTIONS_STD },
-            { key: 'aprovacoes.vendas', label: 'Aprovações > Subguia Vendas', actions: APROVA_ACTIONS_STD },
-            { key: 'aprovacoes.cotacoes', label: 'Aprovações > Subguia Cotações', actions: APROVA_ACTIONS_REJECT },
-            { key: 'aprovacoes.alteracoes', label: 'Aprovações > Subguia Alterações', actions: APROVA_ACTIONS_REJECT },
-            { key: 'aprovacoes.mfa', label: 'Aprovações > Subguia MFA', actions: APROVA_ACTIONS_MFA },
-            { key: 'aprovacoes.senha', label: 'Aprovações > Subguia Senhas', actions: APROVA_ACTIONS_MFA },
+            { key: 'progresso', label: 'Meu Progresso', actions: VIEW_ONLY_ACTIONS },
+            { key: 'atividades', label: 'Registro de Atividades', actions: COMMON_ACTIONS },
+            { key: 'crm', label: 'CRM', actions: COMMON_ACTIONS },
+            { key: 'comercial', label: 'Comercial', actions: COMMON_ACTIONS },
+            { key: 'inventario', label: 'Inventário', actions: COMMON_ACTIONS },
+            { key: 'aprovacoes', label: 'Aprovações', actions: COMMON_ACTIONS },
+            { key: 'configuracoes', label: 'Configurações', actions: COMMON_ACTIONS },
         ]
     }
 ];

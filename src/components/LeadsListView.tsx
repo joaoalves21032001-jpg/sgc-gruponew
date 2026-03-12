@@ -8,7 +8,7 @@ import {
 import { useTeamProfiles } from '@/hooks/useProfile';
 import { useLeadStages } from '@/hooks/useLeadStages';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
-import { maskCPF, maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
+import { maskCPF, maskCNPJ, maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
 import {
     Search, ChevronUp, ChevronDown, ChevronsUpDown, Trash2,
     Pencil, Users, Phone, Mail, FileText, Building2, X, Save,
@@ -502,17 +502,23 @@ export function LeadsListView({ permissionNamespace = 'inventario.leads' }: Prop
                         </div>
 
                         {/* CPF / CNPJ */}
-                        {isPF(editForm.tipo) ? (
-                            <div>
-                                <label className={fieldLabel}>CPF</label>
-                                <Input value={editForm.cpf} onChange={e => setEditForm(p => ({ ...p, cpf: maskCPF(e.target.value) }))} placeholder="000.000.000-00" className="h-10" />
-                            </div>
-                        ) : (
-                            <div>
-                                <label className={fieldLabel}>CNPJ</label>
-                                <Input value={editForm.cnpj} onChange={e => setEditForm(p => ({ ...p, cnpj: e.target.value }))} className="h-10" />
-                            </div>
-                        )}
+                        {(() => {
+                            const mod = modalidades.find(m => m.nome === editForm.tipo);
+                            const tipDoc = (mod as any)?.tipo_documento;
+                            const showCpf = tipDoc === 'CPF' || (!tipDoc && isPF(editForm.tipo));
+                            
+                            return showCpf ? (
+                                <div>
+                                    <label className={fieldLabel}>CPF</label>
+                                    <Input value={editForm.cpf} onChange={e => setEditForm(p => ({ ...p, cpf: maskCPF(e.target.value) }))} placeholder="000.000.000-00" className="h-10" />
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className={fieldLabel}>CNPJ</label>
+                                    <Input value={editForm.cnpj} onChange={e => setEditForm(p => ({ ...p, cnpj: maskCNPJ(e.target.value) }))} placeholder="00.000.000/0000-00" className="h-10" />
+                                </div>
+                            );
+                        })()}
 
                         {/* Endereço */}
                         <div>
@@ -645,8 +651,6 @@ export function LeadsListView({ permissionNamespace = 'inventario.leads' }: Prop
                         <div>
                             <label className={fieldLabel}>Tipo / Modalidade <span className="text-destructive">*</span></label>
                             <Select value={newLeadForm.tipo} onValueChange={v => {
-                                const mod = modalidades.find(m => m.nome === v);
-                                const isCpf = (mod as any)?.tipo_documento === 'CPF' || (mod as any)?.tipo_documento == null ? isPF(v) : false;
                                 setNewLeadForm(p => ({ ...p, tipo: v, cpf: '', cnpj: '' }));
                             }}>
                                 <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
@@ -675,7 +679,10 @@ export function LeadsListView({ permissionNamespace = 'inventario.leads' }: Prop
                         {newLeadForm.tipo && (() => {
                             const mod = modalidades.find(m => m.nome === newLeadForm.tipo);
                             const tipDoc = (mod as any)?.tipo_documento;
+                            // Se a modalidade não tem configuração salva (antigas), usa o fallback 'isPF'. 
+                            // Caso contrário usa estritamente o tipo_documento da modalidade (CPF vs CNPJ/EMPRESA)
                             const showCpf = tipDoc === 'CPF' || (!tipDoc && isPF(newLeadForm.tipo));
+                            
                             return showCpf ? (
                                 <div>
                                     <label className={fieldLabel}>CPF</label>
@@ -684,7 +691,7 @@ export function LeadsListView({ permissionNamespace = 'inventario.leads' }: Prop
                             ) : (
                                 <div>
                                     <label className={fieldLabel}>CNPJ</label>
-                                    <Input value={newLeadForm.cnpj} onChange={e => setNewLeadForm(p => ({ ...p, cnpj: e.target.value }))} className="h-10" />
+                                    <Input value={newLeadForm.cnpj} onChange={e => setNewLeadForm(p => ({ ...p, cnpj: maskCNPJ(e.target.value) }))} placeholder="00.000.000/0000-00" className="h-10" />
                                 </div>
                             );
                         })()}

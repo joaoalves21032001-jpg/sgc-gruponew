@@ -25,7 +25,7 @@ import { toast } from 'sonner';
 import {
   Plus, Pencil, Trash2, X, Upload, MoreHorizontal, Phone, Mail, Shield, User, FileText, Building2, Users, Heart, DollarSign
 } from 'lucide-react';
-import { maskCPF, maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
+import { maskCPF, maskCNPJ, maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 /* ─── Lead Card ─── */
@@ -716,11 +716,18 @@ export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespa
               <div><label className="text-xs font-semibold text-muted-foreground">Contato</label><Input value={form.contato} onChange={e => setForm(p => ({ ...p, contato: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" /></div>
               <div><label className="text-xs font-semibold text-muted-foreground">E-mail</label><Input value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} className="h-10" /></div>
             </div>
-            {isPessoaFisica(form.tipo) ? (
-              <div><label className="text-xs font-semibold text-muted-foreground">CPF</label><Input value={form.cpf} onChange={e => setForm(p => ({ ...p, cpf: maskCPF(e.target.value) }))} placeholder="000.000.000-00" className="h-10" /></div>
-            ) : (
-              <div><label className="text-xs font-semibold text-muted-foreground">CNPJ</label><Input value={form.cnpj} onChange={e => setForm(p => ({ ...p, cnpj: e.target.value }))} className="h-10" /></div>
-            )}
+            {/* CPF / CNPJ */}
+            {(() => {
+              const mod = modalidadesList.find(m => m.nome === form.tipo);
+              const tipDoc = (mod as any)?.tipo_documento;
+              const showCpf = tipDoc === 'CPF' || (!tipDoc && isPessoaFisica(form.tipo));
+
+              return showCpf ? (
+                <div><label className="text-xs font-semibold text-muted-foreground">CPF</label><Input value={form.cpf} onChange={e => setForm(p => ({ ...p, cpf: maskCPF(e.target.value) }))} placeholder="000.000.000-00" className="h-10" /></div>
+              ) : (
+                <div><label className="text-xs font-semibold text-muted-foreground">CNPJ</label><Input value={form.cnpj} onChange={e => setForm(p => ({ ...p, cnpj: maskCNPJ(e.target.value) }))} placeholder="AA.AAA.AAA/AAAA-DD" className="h-10" /></div>
+              );
+            })()}
             <div><label className="text-xs font-semibold text-muted-foreground">Endereço</label><Input value={form.endereco} onChange={e => setForm(p => ({ ...p, endereco: e.target.value }))} className="h-10" /></div>
 
             <div className="grid grid-cols-2 gap-3">
