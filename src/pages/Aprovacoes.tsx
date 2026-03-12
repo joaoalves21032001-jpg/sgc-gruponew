@@ -1633,6 +1633,9 @@ const Aprovacoes = () => {
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Data de Admissão</span><p className="font-semibold mt-0.5">{viewAccess.data_admissao ? new Date(viewAccess.data_admissao + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Emergência 1</span><p className="font-semibold mt-0.5">{viewAccess.numero_emergencia_1 || '—'}</p></div>
               <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Emergência 2</span><p className="font-semibold mt-0.5">{viewAccess.numero_emergencia_2 || '—'}</p></div>
+              {viewAccess.mensagem && (
+                <div className="col-span-2"><span className="text-[10px] text-muted-foreground uppercase font-semibold">Mensagem Adicional</span><p className="font-semibold mt-0.5 whitespace-pre-wrap bg-muted/30 p-3 rounded-lg border border-border/40 mt-1">{viewAccess.mensagem}</p></div>
+              )}
               <div className="col-span-2 flex gap-2 flex-wrap border-t border-border/20 pt-4 mt-2">
                 {viewAccess.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_acesso') && (
                   <>
