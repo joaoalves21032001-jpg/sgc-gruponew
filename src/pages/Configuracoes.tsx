@@ -33,6 +33,7 @@ import {
     useMyPermissions,
     hasPermission,
     MODULES_DEF,
+    SUPER_ADMIN_PROFILE_NAME,
     type ActionDef,
     type ResourceGroupDef,
 } from '@/hooks/useSecurityProfiles';
@@ -383,6 +384,12 @@ const Configuracoes = () => {
 
     const handleTogglePerm = (resource: string, action: string) => {
         if (!selectedProfileId) return;
+        // Super Admin is always fully granted — immutable
+        const sp = securityProfiles.find(p => p.id === selectedProfileId);
+        if (sp?.name?.toLowerCase().includes(SUPER_ADMIN_PROFILE_NAME)) {
+            toast.info('O perfil Super Admin é imutável. Suas permissões são sempre completas.');
+            return;
+        }
         const existing = profilePerms.find(p => p.resource === resource && p.action === action);
         const newAllowed = !(existing?.allowed ?? false);
         togglePerm.mutate({ profileId: selectedProfileId, resource, action, allowed: newAllowed });
@@ -789,7 +796,11 @@ const Configuracoes = () => {
                                                 <ShieldCheck className={`w-4 h-4 ${selectedProfileId === sp.id ? 'text-primary' : 'text-muted-foreground'}`} />
                                                 <h3 className="text-sm font-bold text-foreground">{sp.name}</h3>
                                             </div>
-                                            {sp.is_system && <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/20">Sistema</Badge>}
+                                            {sp.is_system && (
+                                                sp.name?.toLowerCase().includes(SUPER_ADMIN_PROFILE_NAME)
+                                                    ? <Badge variant="outline" className="text-[9px] bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" /> Imutável</Badge>
+                                                    : <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/20">Sistema</Badge>
+                                            )}
                                         </div>
                                         <p className="text-[11px] text-muted-foreground line-clamp-2">{sp.description || 'Sem descrição'}</p>
                                         <div className="flex items-center gap-1 mt-2">
@@ -883,30 +894,20 @@ const Configuracoes = () => {
                                                                                 </td>
                                                                             );
                                                                         }
-                                                                        let allowed = isPermAllowed(res.key, act.key);
-                                                                        const isSuperAdminProfile = selectedProfile?.name.toLowerCase().includes('superadmin');
-                                                                        const isConfiguracoesRes = res.key === 'configuracoes';
-
-                                                                        if (isSuperAdminProfile && isConfiguracoesRes) {
-                                                                            allowed = true; // Força como permitido visualmente
-                                                                        }
-
-                                                                        const disableToggle = isSuperAdminProfile && isConfiguracoesRes;
+                                                                        // Super Admin: always fully granted, toggles locked
+                                                                        const isSuperAdminProfile = selectedProfile?.name?.toLowerCase().includes(SUPER_ADMIN_PROFILE_NAME);
+                                                                        const allowed = isSuperAdminProfile ? true : isPermAllowed(res.key, act.key);
+                                                                        const disableToggle = !!isSuperAdminProfile;
 
                                                                         return (
                                                                             <td key={act.key} className="text-center py-2.5 px-3">
                                                                                 <button
-                                                                                    onClick={() => {
-                                                                                        if (disableToggle) {
-                                                                                            toast.info("A guia de configurações é inalterável para o perfil Superadmin.");
-                                                                                            return;
-                                                                                        }
-                                                                                        handleTogglePerm(res.key, act.key);
-                                                                                    }}
+                                                                                    onClick={() => handleTogglePerm(res.key, act.key)}
                                                                                     className={`w-7 h-7 rounded-md border transition-all flex items-center justify-center mx-auto ${allowed
                                                                                         ? 'bg-success/15 border-success/30 text-success hover:bg-success/25'
                                                                                         : 'bg-muted/30 border-border/30 text-muted-foreground/30 hover:bg-muted/50'
-                                                                                        } ${disableToggle ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                                                        } ${disableToggle ? 'opacity-60 cursor-not-allowed' : ''}`}
+                                                                                    title={disableToggle ? 'Super Admin é imutável' : undefined}
                                                                                 >
                                                                                     {allowed ? <Check className="w-3.5 h-3.5" /> : <X className="w-3.5 h-3.5" />}
                                                                                 </button>

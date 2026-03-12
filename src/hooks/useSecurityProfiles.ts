@@ -51,25 +51,49 @@ const VIEW_ONLY_ACTIONS: ActionDef[] = [
     { key: 'view', label: 'Visualizador' }
 ];
 
+/** Name constant used to enforce Super Admin immutability */
+export const SUPER_ADMIN_PROFILE_NAME = 'superadmin';
+
+/**
+ * Full module permission matrix.
+ * VIEW_ONLY_ACTIONS = Somente Visualizador
+ * COMMON_ACTIONS    = Editor + Visualizador
+ *
+ * Macro layer: defines which tabs a user can open at all.
+ * The Micro layer (Cargos) further filters what they can DO inside a tab.
+ */
 export const MODULES_DEF: ResourceGroupDef[] = [
     {
-        groupLabel: 'Módulos (Guias Principais)',
+        groupLabel: 'Somente Visualizador',
         resources: [
-            { key: 'progresso', label: 'Meu Progresso', actions: VIEW_ONLY_ACTIONS },
-            { key: 'atividades', label: 'Registro de Atividades', actions: COMMON_ACTIONS },
-            { key: 'crm', label: 'CRM', actions: COMMON_ACTIONS },
-            { key: 'comercial', label: 'Comercial', actions: COMMON_ACTIONS },
-            { key: 'inventario', label: 'Inventário', actions: COMMON_ACTIONS },
-            { key: 'aprovacoes', label: 'Aprovações', actions: COMMON_ACTIONS },
-            { key: 'configuracoes', label: 'Configurações', actions: COMMON_ACTIONS },
+            { key: 'progresso',      label: 'Meu Progresso',      actions: VIEW_ONLY_ACTIONS },
+            { key: 'notificacoes',   label: 'Notificações',        actions: VIEW_ONLY_ACTIONS },
+            { key: 'dashboard',      label: 'Dashboard',           actions: VIEW_ONLY_ACTIONS },
+            { key: 'logs_auditoria', label: 'Logs de Auditoria',   actions: VIEW_ONLY_ACTIONS },
+        ]
+    },
+    {
+        groupLabel: 'Editor e Visualizador',
+        resources: [
+            { key: 'atividades',   label: 'Registro de Atividades', actions: COMMON_ACTIONS },
+            { key: 'minhas_acoes', label: 'Minhas Ações',           actions: COMMON_ACTIONS },
+            { key: 'crm',         label: 'CRM',                    actions: COMMON_ACTIONS },
+            { key: 'aprovacoes',  label: 'Aprovações',             actions: COMMON_ACTIONS },
+            { key: 'inventario',  label: 'Inventário',             actions: COMMON_ACTIONS },
+            { key: 'equipe',      label: 'Equipe',                 actions: COMMON_ACTIONS },
+            { key: 'configuracoes', label: 'Configurações',        actions: COMMON_ACTIONS },
         ]
     }
 ];
 
-// Map sidebar paths → resource keys
+/** All resource keys that Super Admin must have ALL permissions on */
+export const ALL_RESOURCE_KEYS_WITH_ACTIONS = MODULES_DEF.flatMap(g =>
+    g.resources.flatMap(r => r.actions.map(a => ({ resource: r.key, action: a.key })))
+);
+
+// Map sidebar paths → resource keys (Macro level check)
 export const PATH_TO_RESOURCE: Record<string, string> = {
     '/': 'progresso',
-    '/comercial': 'comercial',
     '/minhas-acoes': 'minhas_acoes',
     '/crm': 'crm',
     '/notificacoes': 'notificacoes',
@@ -77,10 +101,13 @@ export const PATH_TO_RESOURCE: Record<string, string> = {
     '/gestao': 'dashboard',
     '/inventario': 'inventario',
     '/equipe': 'equipe',
-    '/admin/usuarios': 'usuarios',
-    '/admin/solicitacoes': 'solicitacoes_acesso',
+    '/admin/usuarios': 'configuracoes',
+    '/admin/solicitacoes': 'configuracoes',
     '/admin/logs': 'logs_auditoria',
     '/admin/configuracoes': 'configuracoes',
+    // Atividades routes
+    '/atividades': 'atividades',
+    '/vendas': 'atividades',
 };
 
 export function getAllResourceKeys(): string[] {

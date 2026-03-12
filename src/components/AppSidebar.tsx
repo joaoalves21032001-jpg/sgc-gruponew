@@ -38,6 +38,9 @@ const navItems: NavItem[] = [
   { to: '/admin/configuracoes', icon: Settings, label: 'Configurações' },
 ];
 
+// Additional path mappings for PATH_TO_RESOURCE:
+// /comercial → 'atividades', /gestao → 'dashboard' (view-only)
+
 // NAV_TAB_KEYS replaced by PATH_TO_RESOURCE from useSecurityProfiles
 
 export function AppSidebar() {
@@ -68,11 +71,18 @@ export function AppSidebar() {
   const borderClass = patente?.borderClass ?? 'border-sidebar-border';
 
   const canAccess = (item: NavItem) => {
-    // Rely completely on security profile matrix
+    // Rely completely on security profile matrix (Macro level)
+    // Admins always see Configurações
     if (item.to === '/admin/configuracoes' && role === 'administrador') return true;
-    const resource = PATH_TO_RESOURCE[item.to];
-    if (resource) {
-      return hasPermission(myPermissions, resource, 'view');
+    // Map the nav item path to the resource key
+    // Note: /comercial → 'atividades', /gestao → 'dashboard'
+    const resourceKey = item.to === '/comercial' ? 'atividades'
+      : item.to === '/gestao' ? 'dashboard'
+      : item.to === '/admin/usuarios' ? 'configuracoes'
+      : item.to === '/admin/logs' ? 'logs_auditoria'
+      : PATH_TO_RESOURCE[item.to];
+    if (resourceKey) {
+      return hasPermission(myPermissions, resourceKey, 'view');
     }
     return false;
   };
