@@ -21,6 +21,16 @@ serve(async (req) => {
     const body = await req.json();
     const { password, ...requestData } = body;
 
+    const { nome, email, telefone, cpf, rg, endereco, cargo } = requestData;
+    
+    // Server-side validation
+    if (!nome || !email || !telefone || !cpf || !rg || !endereco || !cargo || !password) {
+      return new Response(JSON.stringify({ error: 'Todos os campos obrigatórios (nome, email, telefone, cpf, rg, endereço, cargo e senha) devem ser preenchidos.' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
+    }
+
     let encrypted_password = null;
 
     if (password) {

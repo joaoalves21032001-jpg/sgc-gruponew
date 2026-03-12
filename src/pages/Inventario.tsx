@@ -102,31 +102,36 @@ function CompanhiasTab() {
     setSaving(true);
     try {
       let logoUrl: string | undefined;
+      const metaTituloVal = parseInt(metaTitulo) || 10;
+      const nomeTituloVal = nomeTitulo.trim() || 'Título';
+      
       if (editItem) {
         if (logoFile) {
           logoUrl = await uploadLogo(editItem.id, logoFile);
         }
-        await updateMut.mutateAsync({ id: editItem.id, nome: nome.trim() });
-        await supabase.from('companhias').update({ 
-            meta_titulo: parseInt(metaTitulo) || 10,
-            nome_titulo: nomeTitulo.trim() || 'Título'
-        } as any).eq('id', editItem.id);
-        if (logoUrl) {
-          await supabase.from('companhias').update({ logo_url: logoUrl } as any).eq('id', editItem.id);
-        }
+        await updateMut.mutateAsync({ 
+          id: editItem.id, 
+          nome: nome.trim(),
+          meta_titulo: metaTituloVal,
+          nome_titulo: nomeTituloVal,
+          ...(logoUrl ? { logo_url: logoUrl } : {})
+        });
         logAction('editar_companhia', 'companhia', editItem.id, { nome: nome.trim() });
         toast.success('Companhia atualizada!');
       } else {
-        const result = await createMut.mutateAsync(nome.trim());
+        // Primeiro crie com logo null, pegue o ID, caso tenha logo a gente upa e atualiza
+        const result = await createMut.mutateAsync({ 
+          nome: nome.trim(),
+          meta_titulo: metaTituloVal,
+          nome_titulo: nomeTituloVal
+        });
         if (result?.id) {
             if (logoFile) {
                 logoUrl = await uploadLogo(result.id, logoFile);
+                if (logoUrl) {
+                  await supabase.from('companhias').update({ logo_url: logoUrl } as any).eq('id', result.id);
+                }
             }
-            await supabase.from('companhias').update({
-                logo_url: logoUrl || null,
-                meta_titulo: parseInt(metaTitulo) || 10,
-                nome_titulo: nomeTitulo.trim() || 'Título'
-            } as any).eq('id', result.id);
         }
         logAction('criar_companhia', 'companhia', result?.id, { nome: nome.trim() });
         toast.success('Companhia criada!');

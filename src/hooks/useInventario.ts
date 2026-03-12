@@ -6,6 +6,8 @@ export interface Companhia {
   id: string;
   nome: string;
   logo_url: string | null;
+  meta_titulo: number | null;
+  nome_titulo: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -24,8 +26,8 @@ export function useCompanhias() {
 export function useCreateCompanhia() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (nome: string) => {
-      const { data, error } = await supabase.from('companhias').insert({ nome } as any).select().single();
+    mutationFn: async (payload: Partial<Companhia>) => {
+      const { data, error } = await supabase.from('companhias').insert(payload as any).select().single();
       if (error) throw error;
       return data;
     },
@@ -36,8 +38,8 @@ export function useCreateCompanhia() {
 export function useUpdateCompanhia() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, nome }: { id: string; nome: string }) => {
-      const { error } = await supabase.from('companhias').update({ nome } as any).eq('id', id);
+    mutationFn: async ({ id, ...payload }: Partial<Companhia> & { id: string }) => {
+      const { error } = await supabase.from('companhias').update(payload as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['companhias'] }),

@@ -223,7 +223,7 @@ export function useCreateCargo() {
         mutationFn: async ({ name, description }: { name: string; description?: string }) => {
             const { data, error } = await supabase
                 .from('cargos' as any)
-                .insert({ name, description } as any)
+                .insert({ name } as any)
                 .select()
                 .single();
             if (error) throw error;
@@ -241,7 +241,7 @@ export function useUpdateCargo() {
         mutationFn: async ({ id, name, description }: { id: string; name: string; description?: string }) => {
             const { error } = await supabase
                 .from('cargos' as any)
-                .update({ name, description, updated_at: new Date().toISOString() } as any)
+                .update({ name, updated_at: new Date().toISOString() } as any)
                 .eq('id', id);
             if (error) throw error;
         },
