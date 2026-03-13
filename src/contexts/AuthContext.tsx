@@ -140,99 +140,110 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkProfile();
   }, [user]);
 
-  // MFA check — require MFA verification after login
-  // Only run once per login session (mfaChecked guard prevents re-runs on token refresh)
+  // MFA check — run once per login (guarded by mfaChecked ref to avoid re-runs on token refresh)
+  const mfaCheckRef = { running: false };
   useEffect(() => {
     if (!user || hasProfile !== true || mfaChecked) return;
     checkMfaStatus();
-  }, [user, hasProfile, mfaChecked]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, hasProfile]); // intentionally exclude mfaChecked from deps — it's only a guard
 
   const checkMfaStatus = async () => {
-    // Safety net: if anything hangs for more than 6s, unblock the UI gracefully
-    const timeout = new Promise<void>((resolve) =>
-      setTimeout(() => {
-        setNeedsMfa(false);
-        setMfaChecked(true);
-        resolve();
-      }, 6000)
-    );
+    // Guard: don't run twice concurrently
+    if (mfaCheckRef.running) return;
+    mfaCheckRef.running = true;
 
-    const check = async () => {
-      try {
-        const { data: aalData, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    let cancelled = false;
 
-        // If there's an auth error (e.g. session error during token refresh),
-        // DO NOT sign out — that creates an infinite sign-out/sign-in loop.
-        // Instead, unblock gracefully and let the user proceed.
-        if (error) {
-          console.warn('MFA check error (non-fatal):', error.message);
-          setNeedsMfa(false);
-          setMfaChecked(true);
-          return;
-        }
-
-        if (!aalData) {
-          setNeedsMfa(false);
-          setMfaChecked(true);
-          return;
-        }
-
-        const { currentLevel, nextLevel } = aalData;
-
-        if (nextLevel === 'aal2' && currentLevel === 'aal1') {
-          const deviceHash = localStorage.getItem('mfa_device_hash');
-          if (deviceHash) {
-            const { data: trusted } = await supabase
-              .from('mfa_trusted_devices')
-              .select('trusted_until')
-              .eq('user_id', user!.id)
-              .eq('device_hash', deviceHash)
-              .gte('trusted_until', new Date().toISOString())
-              .maybeSingle();
-
-            if (trusted) {
-              const { data: factors } = await supabase.auth.mfa.listFactors();
-              if (factors?.totp?.[0]) {
-                setMfaVerified(true);
-                setNeedsMfa(false);
-                setMfaChecked(true);
-                return;
-              }
-            }
-          }
-          setNeedsMfa(true);
-          setMfaVerified(false);
-        } else if (currentLevel === 'aal2') {
-          setMfaVerified(true);
-          setNeedsMfa(false);
-        } else {
-          // currentLevel is aal1, nextLevel is aal1 — user has no enrolled MFA factor
-          const { data: factors } = await supabase.auth.mfa.listFactors();
-          if (!factors?.totp || factors.totp.length === 0) {
-            // No factor at all — needs to enroll
-            setNeedsMfa(true);
-            setMfaVerified(false);
-          } else {
-            const unverified = factors.totp.find(f => (f as any).status === 'unverified');
-            if (unverified) {
-              // Stale unverified factor — clean it up and force re-enrollment
-              try { await supabase.auth.mfa.unenroll({ factorId: unverified.id }); } catch { /* ignore */ }
-            }
-            // Has at least one factor (or just cleaned up) — needs to verify
-            setNeedsMfa(true);
-            setMfaVerified(false);
-          }
-        }
-        setMfaChecked(true);
-      } catch {
-        // On unexpected error, don't block the user — let them through
+    // Safety net: 8s timeout — only fires if check() hangs completely.
+    // Uses 'cancelled' flag so it can't override result after check() succeeds.
+    const timeoutId = setTimeout(() => {
+      if (!cancelled) {
+        console.warn('MFA check timed out — unblocking UI');
         setNeedsMfa(false);
         setMfaChecked(true);
       }
-    };
+    }, 8000);
 
-    await Promise.race([check(), timeout]);
+    try {
+      const { data: aalData, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+      cancelled = true; // prevent timeout from firing after this point
+      clearTimeout(timeoutId);
+
+      if (error) {
+        // Non-fatal: session might be refreshing — let user through gracefully
+        console.warn('MFA AAL check error (non-fatal):', error.message);
+        setNeedsMfa(false);
+        setMfaChecked(true);
+        return;
+      }
+
+      if (!aalData) {
+        setNeedsMfa(false);
+        setMfaChecked(true);
+        return;
+      }
+
+      const { currentLevel, nextLevel } = aalData;
+
+      if (nextLevel === 'aal2' && currentLevel === 'aal1') {
+        // User has an enrolled + verified MFA factor — needs to verify this session
+        const deviceHash = localStorage.getItem('mfa_device_hash');
+        if (deviceHash) {
+          const { data: trusted } = await supabase
+            .from('mfa_trusted_devices')
+            .select('trusted_until')
+            .eq('user_id', user!.id)
+            .eq('device_hash', deviceHash)
+            .gte('trusted_until', new Date().toISOString())
+            .maybeSingle();
+
+          if (trusted) {
+            const { data: factors } = await supabase.auth.mfa.listFactors();
+            if (factors?.totp?.[0]) {
+              setMfaVerified(true);
+              setNeedsMfa(false);
+              setMfaChecked(true);
+              return;
+            }
+          }
+        }
+        setNeedsMfa(true);
+        setMfaVerified(false);
+        setMfaChecked(true);
+        return;
+      }
+
+      if (currentLevel === 'aal2') {
+        // Already fully authenticated
+        setMfaVerified(true);
+        setNeedsMfa(false);
+        setMfaChecked(true);
+        return;
+      }
+
+      // currentLevel === aal1, nextLevel === aal1:
+      // User has no verified MFA factor at all — must enroll
+      // NOTE: Do NOT unenroll any factors here. If an unverified factor exists, it means
+      // MfaSetup is in the middle of enrollment. Let MfaSetup handle it.
+      setNeedsMfa(true);
+      setMfaVerified(false);
+      setMfaChecked(true);
+
+    } catch (err) {
+      cancelled = true;
+      clearTimeout(timeoutId);
+      console.error('MFA check exception:', err);
+      // On unexpected error — do NOT let the user through without MFA
+      // Instead, force MFA setup (safer than bypassing)
+      setNeedsMfa(true);
+      setMfaVerified(false);
+      setMfaChecked(true);
+    } finally {
+      mfaCheckRef.running = false;
+    }
   };
+
 
   const signOut = async () => {
     await supabase.auth.signOut();
