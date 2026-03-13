@@ -98,8 +98,15 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
       setFactorId(verifiedFactor.id);
       setStep('verify');
     } else if (unverifiedFactor) {
-      // There's already an unverified factor (e.g. user pressed back after QR appeared).
-      // Re-enroll to get a fresh QR code — the SDK replaces the old unverified one.
+      // Stale unverified factor from a previous session (e.g. user pressed back or logged out mid-setup).
+      // Unenroll it first — Supabase allows unenrolling UNVERIFIED factors at aal1.
+      try {
+        await supabase.auth.mfa.unenroll({ factorId: unverifiedFactor.id });
+        // Refresh session so the server reflects the removal before we enroll again
+        await supabase.auth.refreshSession();
+      } catch (e) {
+        console.warn('Could not unenroll stale factor (will try enrolling with unique name):', e);
+      }
       await enrollMfa();
     } else {
       await enrollMfa();
@@ -107,30 +114,33 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
   };
 
   const enrollMfa = async () => {
+    // Use a unique friendly name each time to avoid 'duplicate friendlyName' errors
+    // if a previous unverified factor wasn't cleaned up
+    const uniqueName = `Authenticator-${Date.now().toString(36).toUpperCase()}`;
     try {
       const { data, error } = await supabase.auth.mfa.enroll({
         factorType: 'totp',
-        friendlyName: 'Google Authenticator',
+        friendlyName: uniqueName,
       });
       if (error) {
         console.error('MFA enroll error:', error);
 
-        // Refresh session and retry once
+        // Refresh session and retry with a new unique name
         const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError || !sessionData.session) {
           toast.error('Sessão expirada. Por favor, faça logout e entre novamente.');
           return;
         }
 
+        const retryName = `Authenticator-${Date.now().toString(36).toUpperCase()}`;
         const retry = await supabase.auth.mfa.enroll({
           factorType: 'totp',
-          friendlyName: 'Google Authenticator',
+          friendlyName: retryName,
         });
 
         if (retry.error) {
           console.error('MFA enroll retry error:', retry.error);
           setEnrollFailed(true);
-          // Auto sign-out after 3s so user can start fresh
           toast.error('Sessão inválida. Fazendo logout automático...');
           setTimeout(async () => { await signOut(); }, 3000);
           return;
