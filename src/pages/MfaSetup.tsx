@@ -25,7 +25,8 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
   const [lostReason, setLostReason] = useState('');
   const [submittingReset, setSubmittingReset] = useState(false);
   const [resetSent, setResetSent] = useState(false);
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
+  const [enrollFailed, setEnrollFailed] = useState(false);
 
   useEffect(() => {
     checkMfaStatus();
@@ -128,8 +129,10 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
 
         if (retry.error) {
           console.error('MFA enroll retry error:', retry.error);
-          // Show a friendly message with sign-out option (avoid dead-end)
-          toast.error('Não foi possível gerar o QR Code. Faça logout e entre novamente para tentar de novo.');
+          setEnrollFailed(true);
+          // Auto sign-out after 3s so user can start fresh
+          toast.error('Sessão inválida. Fazendo logout automático...');
+          setTimeout(async () => { await signOut(); }, 3000);
           return;
         }
         setQrCode(retry.data.totp.qr_code);
@@ -214,8 +217,24 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
         </div>
 
         {step === 'loading' && (
-          <div className="flex justify-center py-12">
+          <div className="flex flex-col items-center gap-4 py-12">
             <div className="h-8 w-8 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
+            {enrollFailed ? (
+              <div className="text-center space-y-3">
+                <p className="text-sm text-destructive font-semibold">Não foi possível gerar o QR Code.</p>
+                <Button variant="outline" className="w-full" onClick={async () => { await signOut(); }}>
+                  Fazer Logout e Tentar Novamente
+                </Button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={async () => { await signOut(); }}
+                className="text-xs text-muted-foreground hover:text-destructive underline underline-offset-2 transition-colors"
+              >
+                Sair da conta
+              </button>
+            )}
           </div>
         )}
 
@@ -247,6 +266,13 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
                 Já escaneei, continuar
               </Button>
             </form>
+            <button
+              type="button"
+              onClick={async () => { await signOut(); }}
+              className="w-full text-center text-xs text-muted-foreground hover:text-destructive underline underline-offset-2 transition-colors pt-1"
+            >
+              Sair da conta
+            </button>
           </div>
         )}
 
