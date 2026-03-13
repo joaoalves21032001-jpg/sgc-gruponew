@@ -39,7 +39,7 @@ const Login = () => {
   const [submitting, setSubmitting] = useState(false);
   const [supervisores, setSupervisores] = useState<LeaderOption[]>([]);
   const [gerentes, setGerentes] = useState<LeaderOption[]>([]);
-  const [cargosData, setCargosData] = useState<{ id: string, nome: string }[]>([]);
+  const [cargosData, setCargosData] = useState<{ id: string, nome: string, requires_leader: boolean }[]>([]);
   const [selectedSupervisor, setSelectedSupervisor] = useState('');
   const [selectedGerente, setSelectedGerente] = useState('');
   
@@ -63,7 +63,7 @@ const Login = () => {
       try {
         const [leadersRes, cargosRes] = await Promise.all([
           supabase.functions.invoke('get-leaders'),
-          supabase.from('cargos').select('id, nome')
+          supabase.from('cargos').select('id, nome, requires_leader')
         ]);
         
         if (leadersRes.error) throw leadersRes.error;
@@ -153,13 +153,19 @@ const Login = () => {
       toast.error('Selecione um cargo.');
       return;
     }
-    if (!['Supervisor', 'Gerente', 'Diretor'].includes(cargo) && !selectedSupervisor) {
-      toast.error('Selecione o Supervisor ou "Nenhum".');
-      return;
-    }
-    if (!['Gerente', 'Diretor'].includes(cargo) && !selectedGerente) {
-      toast.error('Selecione o Gerente.');
-      return;
+    const isManagerOrDirector = cargo.toLowerCase().includes('gerente') || cargo.toLowerCase().includes('diretor');
+    const selectedCargoObj = cargosData.find(c => c.nome === cargo);
+    const requiresLeader = selectedCargoObj ? selectedCargoObj.requires_leader !== false : true;
+
+    if (requiresLeader) {
+        if (!isManagerOrDirector && !['Supervisor'].includes(cargo) && !selectedSupervisor) {
+          toast.error('Selecione o Supervisor ou "Nenhum".');
+          return;
+        }
+        if (!isManagerOrDirector && !selectedGerente) {
+          toast.error('Selecione o Gerente.');
+          return;
+        }
     }
     setSubmitting(true);
     try {
@@ -207,10 +213,14 @@ const Login = () => {
     setRequestForm(prev => {
       const next = { ...prev, [key]: value };
       if (key === 'cargo') {
-        if (['Supervisor', 'Gerente', 'Diretor'].includes(value)) {
+        const selectedObj = cargosData.find(c => c.nome === value);
+        const requiresLeader = selectedObj ? selectedObj.requires_leader !== false : true;
+        const isManagerOrDirector = value.toLowerCase().includes('gerente') || value.toLowerCase().includes('diretor');
+
+        if (!requiresLeader || isManagerOrDirector || ['Supervisor'].includes(value)) {
           setSelectedSupervisor('');
         }
-        if (['Gerente', 'Diretor'].includes(value)) {
+        if (!requiresLeader || isManagerOrDirector) {
           setSelectedGerente('');
         }
       }
@@ -484,11 +494,16 @@ const Login = () => {
             </div>
 
             {/* Líderes */}
-            {!['Gerente', 'Diretor'].includes(requestForm.cargo) && (
+            {(() => {
+                const selectedObj = cargosData.find(c => c.nome === requestForm.cargo);
+                const requiresLeader = selectedObj ? selectedObj.requires_leader !== false : true;
+                const isManagerOrDirector = requestForm.cargo.toLowerCase().includes('gerente') || requestForm.cargo.toLowerCase().includes('diretor');
+                return requiresLeader && !isManagerOrDirector;
+            })() && (
               <div>
                 <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Líderes</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {!['Supervisor', 'Gerente', 'Diretor'].includes(requestForm.cargo) && (
+                  {!['Supervisor'].includes(requestForm.cargo) && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Supervisor *</label>
                       <Select

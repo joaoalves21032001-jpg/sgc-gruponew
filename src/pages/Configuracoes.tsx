@@ -111,7 +111,8 @@ const Configuracoes = () => {
     const [newCargoOpen, setNewCargoOpen] = useState(false);
     const [newCargoNome, setNewCargoNome] = useState('');
     const [newCargoDesc, setNewCargoDesc] = useState('');
-    const [editingCargo, setEditingCargo] = useState<{ id: string; nome: string; description: string } | null>(null);
+    const [newCargoRequiresLeader, setNewCargoRequiresLeader] = useState(true);
+    const [editingCargo, setEditingCargo] = useState<{ id: string; nome: string; description: string; requires_leader: boolean } | null>(null);
     const [confirmDeleteCargoId, setConfirmDeleteCargoId] = useState<string | null>(null);
     const [expandedCargoResources, setExpandedCargoResources] = useState<Set<string>>(new Set());
 
@@ -397,12 +398,17 @@ const Configuracoes = () => {
     const handleCreateCargo = async () => {
         if (!newCargoNome.trim()) { toast.error('Nome obrigatório.'); return; }
         try {
-            const result = await createCargo.mutateAsync({ nome: newCargoNome.trim(), description: newCargoDesc.trim() || undefined });
+            const result = await createCargo.mutateAsync({ 
+                nome: newCargoNome.trim(), 
+                description: newCargoDesc.trim() || undefined,
+                requires_leader: newCargoRequiresLeader 
+            });
             logAction('criar_cargo', 'cargos', undefined, { nome: newCargoNome });
             toast.success(`Cargo "${newCargoNome}" criado!`);
             setNewCargoOpen(false);
             setNewCargoNome('');
             setNewCargoDesc('');
+            setNewCargoRequiresLeader(true);
             setSelectedCargoId(result.id);
         } catch (err: any) {
             toast.error(err.message || 'Erro ao criar cargo.');
@@ -412,7 +418,12 @@ const Configuracoes = () => {
     const handleUpdateCargo = async () => {
         if (!editingCargo) return;
         try {
-            await updateCargo.mutateAsync({ id: editingCargo.id, nome: editingCargo.nome, description: editingCargo.description });
+            await updateCargo.mutateAsync({ 
+                id: editingCargo.id, 
+                nome: editingCargo.nome, 
+                description: editingCargo.description,
+                requires_leader: editingCargo.requires_leader
+            });
             logAction('editar_cargo', 'cargos', editingCargo.id);
             toast.success('Cargo atualizado!');
             setEditingCargo(null);
@@ -434,7 +445,14 @@ const Configuracoes = () => {
         if (!selectedCargoId) return;
         const existing = cargoPerms.find(p => p.resource === resource && p.action === action);
         const newAllowed = !(existing?.allowed ?? false);
-        toggleCargoPerm.mutate({ cargoId: selectedCargoId, resource, action, allowed: newAllowed });
+        toggleCargoPerm.mutate(
+            { cargoId: selectedCargoId, resource, action, allowed: newAllowed },
+            {
+                onError: (err: any) => {
+                    toast.error(`Erro ao salvar permissão: ${err.message || 'Falha na rede'}`);
+                }
+            }
+        );
     };
 
     const isCargoPermAllowed = (resource: string, action: string): boolean => {
@@ -1027,7 +1045,7 @@ const Configuracoes = () => {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Button variant="outline" size="sm" className="gap-1" onClick={() => setEditingCargo({
-                                            id: selectedCargo.id, nome: selectedCargo.nome, description: selectedCargo.description || '',
+                                            id: selectedCargo.id, nome: selectedCargo.nome, description: selectedCargo.description || '', requires_leader: selectedCargo.requires_leader !== false
                                         })}>
                                             <Pencil className="w-3 h-3" /> Editar
                                         </Button>

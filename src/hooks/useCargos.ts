@@ -9,6 +9,7 @@ export interface Cargo {
     nome: string;
     description: string | null;
     is_system: boolean;
+    requires_leader: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -113,11 +114,12 @@ export const CARGO_MODULES_DEF: CargoResourceGroupDef[] = [
                 key: 'aprovacao_comercial',
                 label: 'Gestão de Vendas e Atividades',
                 actions: [
-                    { key: 'aprovar_venda', label: 'Aprovar Venda' },
-                    { key: 'devolver_venda', label: 'Devolver Venda' },
-                    { key: 'aprovar_atividade', label: 'Aprovar Ativ.' },
-                    { key: 'devolver_atividade', label: 'Devolver Ativ.' },
-                    { key: 'aprovar_cotacao', label: 'Analisar Cotação' },
+                    { key: 'analisar_venda', label: 'Analisar (Venda/Ativ)' },
+                    { key: 'aprovar_venda', label: 'Aprovar (Venda/Ativ)' },
+                    { key: 'editar_venda', label: 'Editar (Venda/Ativ)' },
+                    { key: 'devolver_venda', label: 'Devolver (Venda/Ativ)' },
+                    { key: 'rejeitar_venda', label: 'Rejeitar (Venda/Ativ)' },
+                    { key: 'excluir_venda', label: 'Excluir (Venda/Ativ)' },
                 ]
             }
         ]
@@ -220,10 +222,10 @@ export function hasCargoPermission(
 export function useCreateCargo() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ nome, description }: { nome: string; description?: string }) => {
+        mutationFn: async ({ nome, description, requires_leader = true }: { nome: string; description?: string; requires_leader?: boolean }) => {
             const { data, error } = await supabase
                 .from('cargos' as any)
-                .insert({ nome, description } as any)
+                .insert({ nome, description, requires_leader } as any)
                 .select()
                 .single();
             if (error) throw error;
@@ -238,10 +240,13 @@ export function useCreateCargo() {
 export function useUpdateCargo() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ id, nome, description }: { id: string; nome: string; description?: string }) => {
+        mutationFn: async ({ id, nome, description, requires_leader }: { id: string; nome: string; description?: string; requires_leader?: boolean }) => {
+            const updateProps: any = { nome, description, updated_at: new Date().toISOString() };
+            if (requires_leader !== undefined) updateProps.requires_leader = requires_leader;
+            
             const { error } = await supabase
                 .from('cargos' as any)
-                .update({ nome, description, updated_at: new Date().toISOString() } as any)
+                .update(updateProps)
                 .eq('id', id);
             if (error) throw error;
         },

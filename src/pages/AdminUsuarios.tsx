@@ -165,12 +165,18 @@ const AdminUsuarios = () => {
         const cargoObj = allCargos?.find(c => c.id === value);
         if (cargoObj) {
             next.cargo = cargoObj.nome;
-            const nomeStr = cargoObj.nome.toLowerCase();
-            if (nomeStr.includes('supervisor') || nomeStr.includes('gerente') || nomeStr.includes('diretor')) {
+            // Verifica requirements do cargo ou usa fallback compatível
+            const isManagerOrDirector = cargoObj.nome.toLowerCase().includes('gerente') || cargoObj.nome.toLowerCase().includes('diretor');
+            const requiresLeader = cargoObj.requires_leader !== false;
+
+            if (!requiresLeader) {
                 next.supervisor_id = 'none';
-            }
-            if (nomeStr.includes('gerente') || nomeStr.includes('diretor')) {
                 next.gerente_id = 'none';
+            } else if (isManagerOrDirector) {
+                next.supervisor_id = 'none';
+                if (cargoObj.nome.toLowerCase().includes('diretor')) {
+                   next.gerente_id = 'none';
+                }
             }
         }
       }
@@ -609,7 +615,11 @@ const AdminUsuarios = () => {
                   <Select
                     value={form.supervisor_id}
                     onValueChange={(v) => setField('supervisor_id', v)}
-                    disabled={form.cargo?.toLowerCase().includes('supervisor') || form.cargo?.toLowerCase().includes('gerente') || form.cargo?.toLowerCase().includes('diretor')}
+                    disabled={(() => {
+                        const cargoObj = allCargos?.find(c => c.id === form.cargo_id);
+                        if (cargoObj && cargoObj.requires_leader === false) return true;
+                        return form.cargo?.toLowerCase().includes('supervisor') || form.cargo?.toLowerCase().includes('gerente') || form.cargo?.toLowerCase().includes('diretor');
+                    })()}
                   >
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                     <SelectContent>
@@ -622,7 +632,11 @@ const AdminUsuarios = () => {
                   <Select
                     value={form.gerente_id}
                     onValueChange={(v) => setField('gerente_id', v)}
-                    disabled={form.cargo?.toLowerCase().includes('gerente') || form.cargo?.toLowerCase().includes('diretor')}
+                    disabled={(() => {
+                        const cargoObj = allCargos?.find(c => c.id === form.cargo_id);
+                        if (cargoObj && cargoObj.requires_leader === false) return true;
+                        return form.cargo?.toLowerCase().includes('gerente') || form.cargo?.toLowerCase().includes('diretor');
+                    })()}
                   >
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecionar" /></SelectTrigger>
                     <SelectContent>

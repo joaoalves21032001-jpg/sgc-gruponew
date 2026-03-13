@@ -20,7 +20,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Shield, Search, CheckCircle2, Clock, Undo2, Pencil,
   ClipboardList, ShoppingCart, Users, UserPlus, Eye, XCircle, Trash2,
-  Download, FileText, MessageSquareQuote, GitCompareArrows, KeyRound
+  Download, FileText, MessageSquareQuote, GitCompareArrows, KeyRound,
+  CheckSquare, Square
 } from 'lucide-react';
 import { useCompanhias, useProdutos, useModalidades } from '@/hooks/useInventario';
 import { Switch } from '@/components/ui/switch';
@@ -83,6 +84,17 @@ const statusLabel: Record<string, string> = {
 };
 
 /* ─── Hooks ─── */
+function useCargosList() {
+  return useQuery({
+    queryKey: ['cargos-list'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('cargos').select('id, nome, requires_leader');
+      if (error) throw error;
+      return (data || []) as { id: string, nome: string, requires_leader: boolean }[];
+    }
+  });
+}
+
 function useAccessRequests() {
   return useQuery({
     queryKey: ['access-requests'],
@@ -126,10 +138,11 @@ function useCorrectionRequests() {
 }
 
 /* ─── Venda Detail Dialog with docs ─── */
-function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, setJustificativa, onAction, canEdit, canDelete, onDelete }: {
+function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, setJustificativa, onAction, onReject, canEdit, canDelete, onDelete }: {
   venda: Venda | null; onClose: () => void; getConsultorName: (id: string) => string;
   justificativa: string; setJustificativa: (v: string) => void;
   onAction: (v: Venda, action: 'aprovado' | 'devolvido') => void;
+  onReject: (v: Venda) => void;
   canEdit: boolean; canDelete: boolean;
   onDelete: (venda: Venda) => void;
 }) {
@@ -229,14 +242,15 @@ function VendaDetailDialog({ venda, onClose, getConsultorName, justificativa, se
             )}
           </div>
           <div className="space-y-3 pt-2 border-t border-border/20">
-            <div className="space-y-1.5"><label className="text-xs font-semibold text-muted-foreground uppercase">Justificativa da Devolução <span className="text-destructive">*</span></label>
-              <Textarea value={justificativa} onChange={e => setJustificativa(e.target.value)} placeholder="Obrigatório para devolver..." rows={3} className="border-border/40" /></div>
+            <div className="space-y-1.5"><label className="text-xs font-semibold text-muted-foreground uppercase">Justificativa (Devolução/Rejeição) <span className="text-destructive">*</span></label>
+              <Textarea value={justificativa} onChange={e => setJustificativa(e.target.value)} placeholder="Obrigatório para devolver ou rejeitar..." rows={3} className="border-border/40" /></div>
             <div className="flex gap-2 flex-wrap">
               {canEdit && (
                 <>
                   <Button onClick={() => onAction(venda, 'aprovado')} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg"><CheckCircle2 className="w-5 h-5" /> Aprovar</Button>
                   <Button onClick={() => onAction(venda, 'devolvido')} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg"><Undo2 className="w-5 h-5" /> Devolver</Button>
-                  <Button onClick={() => toast.info('Edição detalhada será implementada em breve.')} variant="outline" className="flex-1 font-semibold gap-1.5 border-muted-foreground text-foreground hover:bg-muted" size="lg"><Pencil className="w-5 h-5" /> Editar</Button>
+                  <Button onClick={() => onReject(venda)} variant="outline" className="flex-1 font-semibold gap-1.5 border-orange-500 text-orange-500 hover:bg-orange-500/10" size="lg"><XCircle className="w-5 h-5" /> Rejeitar</Button>
+                  <Button onClick={() => toast.info('Use o botão Editar no card para editar.')} variant="outline" className="flex-1 font-semibold gap-1.5 border-muted-foreground text-foreground hover:bg-muted" size="lg"><Pencil className="w-5 h-5" /> Editar</Button>
                 </>
               )}
               {canDelete && (
@@ -267,6 +281,7 @@ const Aprovacoes = () => {
   const logAction = useLogAction();
   const { data: myPermissions } = useMyPermissions();
   const { data: myCargoPerms } = useMyCargoPermissions();
+  const { data: cargos = [] } = useCargosList();
 
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('todos');
@@ -277,6 +292,35 @@ const Aprovacoes = () => {
   const [selectedVenda, setSelectedVenda] = useState<Venda | null>(null);
   const [obs, setObs] = useState('');
   const [justificativa, setJustificativa] = useState('');
+
+  // Bulk Actions
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const toggleItemSelection = (id: string, tab: string) => {
+    if (bulkActionTab !== tab) {
+      setBulkActionTab(tab as any);
+      setSelectedItems(new Set([id]));
+      return;
+    }
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const handleSelectAll = (ids: string[], tab: string) => {
+    setBulkActionTab(tab as any);
+    if (selectedItems.size === ids.length && ids.length > 0) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(ids));
+    }
+  };
+
+  // Bulk Modals
+  const [bulkActionType, setBulkActionType] = useState<null | 'aprovar' | 'devolver' | 'rejeitar' | 'excluir'>(null);
+  const [bulkActionTab, setBulkActionTab] = useState<null | 'atividades' | 'vendas' | 'cotacoes' | 'acesso' | 'alteracoes' | 'mfa' | 'senhas'>(null);
+  const [bulkMotivo, setBulkMotivo] = useState('');
+  const [isProcessingBulk, setIsProcessingBulk] = useState(false);
 
   // Atividade dialog
   const [selectedAtiv, setSelectedAtiv] = useState<Atividade | null>(null);
@@ -339,6 +383,7 @@ const Aprovacoes = () => {
   const [rejectMfaReq, setRejectMfaReq] = useState<MfaResetRequest | null>(null);
   const [rejectMfaReason, setRejectMfaReason] = useState('');
   const [savingMfaReset, setSavingMfaReset] = useState(false);
+  const [viewMfaReq, setViewMfaReq] = useState<MfaResetRequest | null>(null);
 
   // Password Reset Requests
   const pwdQuery = usePasswordResetRequests();
@@ -347,6 +392,7 @@ const Aprovacoes = () => {
   const [rejectPwdReq, setRejectPwdReq] = useState<PasswordResetRequest | null>(null);
   const [rejectPwdReason, setRejectPwdReason] = useState('');
   const [savingPwdReset, setSavingPwdReset] = useState(false);
+  const [viewPwdReq, setViewPwdReq] = useState<PasswordResetRequest | null>(null);
 
   // Check base permission (has ANY permission in aprovacoes.*)
   const canViewAnyAprovacao =
@@ -781,6 +827,21 @@ const Aprovacoes = () => {
   };
 
   // ─── Correction Request Actions ───
+  const handleViewAlteracao = async (cr: CorrectionRequest) => {
+    try {
+      const table = cr.tipo === 'atividade' ? 'atividades' : 'vendas';
+      const { data, error } = await supabase.from(table).select('*').eq('id', cr.registro_id).single();
+      if (error || !data) throw new Error('Registro original não encontrado no banco.');
+      if (cr.tipo === 'venda') {
+        setSelectedVenda(data as Venda);
+      } else {
+        setSelectedAtiv(data as Atividade);
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
+
   const handleApproveCR = async (cr: CorrectionRequest) => {
     setSavingCR(true);
     try {
@@ -857,6 +918,296 @@ const Aprovacoes = () => {
   const filteredMfa = mfaResetReqs;
   const filteredPwd = pwdResetReqs;
 
+  const handleBulkActionExecute = async () => {
+    if (!bulkActionType || !bulkActionTab || selectedItems.size === 0) return;
+    if ((bulkActionType === 'devolver' || bulkActionType === 'rejeitar') && !bulkMotivo.trim()) {
+      toast.error('Informe o motivo para continuar.');
+      return;
+    }
+
+    setIsProcessingBulk(true);
+    const ids = Array.from(selectedItems);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      if (bulkActionTab === 'atividades') {
+        const selectedDatas = filteredAtividades.filter(a => ids.includes(a.id));
+        for (const ativ of selectedDatas) {
+          try {
+            if (bulkActionType === 'aprovar' || bulkActionType === 'devolver' || bulkActionType === 'rejeitar') {
+              const status = bulkActionType === 'devolver' ? 'devolvido' : bulkActionType === 'rejeitar' ? 'rejeitado' : 'aprovado';
+              const { error } = await supabase.from('atividades')
+                .update({ status, motivo_recusa: (bulkActionType === 'devolver' || bulkActionType === 'rejeitar') ? bulkMotivo.trim() : null } as any)
+                .eq('id', ativ.id);
+              if (error) throw error;
+              logAction(`bulk_${bulkActionType}_atividade`, 'atividade', ativ.id, { user_id: ativ.user_id });
+              
+              if (status !== 'aprovado') {
+                dispatchNotification(`atividade_${status}`, ativ.user_id, `Atividade ${status === 'rejeitado' ? 'Rejeitada' : 'Devolvida'}`, `Sua atividade foi ${status === 'rejeitado' ? 'rejeitada' : 'devolvida'}: ${bulkMotivo.trim()}`, 'atividade', '/minhas-acoes');
+              } else {
+                dispatchNotification('atividade_aprovada', ativ.user_id, 'Atividade Aprovada', `Sua atividade foi aprovada!`, 'atividade', '/minhas-acoes');
+              }
+              successCount++;
+            } else if (bulkActionType === 'excluir') {
+              const { error } = await supabase.from('atividades').delete().eq('id', ativ.id);
+              if (error) throw error;
+              successCount++;
+            }
+          } catch { failCount++; }
+        }
+        queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
+        queryClient.invalidateQueries({ queryKey: ['atividades'] });
+      }
+
+      if (bulkActionTab === 'vendas') {
+        const selectedDatas = filteredVendas.filter(v => ids.includes(v.id));
+        for (const venda of selectedDatas) {
+          try {
+            if (bulkActionType === 'aprovar' || bulkActionType === 'devolver' || bulkActionType === 'rejeitar') {
+              const status = bulkActionType === 'devolver' ? 'devolvido' : bulkActionType === 'rejeitar' ? 'rejeitado' : 'aprovado';
+              await updateStatus.mutateAsync({ id: venda.id, status, observacoes: venda.observacoes, motivo_recusa: (bulkActionType === 'devolver' || bulkActionType === 'rejeitar') ? bulkMotivo.trim() : null });
+              logAction(`bulk_${bulkActionType}_venda`, 'venda', venda.id, { user_id: venda.user_id });
+              
+              if (status !== 'aprovado') {
+                dispatchNotification(`venda_${status}`, venda.user_id, `Venda ${status === 'rejeitado' ? 'Rejeitada' : 'Devolvida'}`, `Sua venda de "${venda.nome_titular}" foi ${status === 'rejeitado' ? 'rejeitada' : 'devolvida'}: ${bulkMotivo.trim()}`, 'venda', '/minhas-acoes');
+              } else {
+                dispatchNotification('venda_aprovada', venda.user_id, 'Venda Aprovada', `Sua venda de "${venda.nome_titular}" foi aprovada!`, 'venda', '/minhas-acoes');
+              }
+              successCount++;
+            } else if (bulkActionType === 'excluir') {
+              const { error } = await supabase.from('vendas').delete().eq('id', venda.id);
+              if (error) throw error;
+              successCount++;
+            }
+          } catch { failCount++; }
+        }
+        queryClient.invalidateQueries({ queryKey: ['team-vendas'] });
+      }
+
+      if (bulkActionTab === 'cotacoes') {
+        const selectedDatas = filteredCotacoes.filter(c => ids.includes(c.id));
+        
+        let firstStageId: string | null = null;
+        if (bulkActionType === 'aprovar') {
+          const { data: firstStage } = await supabase.from('lead_stages').select('id').order('ordem', { ascending: true }).limit(1).maybeSingle();
+          firstStageId = firstStage?.id || null;
+        }
+
+        for (const cotacao of selectedDatas) {
+          try {
+            if (bulkActionType === 'aprovar') {
+              const tipo = cotacao.modalidade || 'PF';
+              const extendedData = JSON.stringify({
+                companhia_nome: cotacao.companhia_nome || null,
+                produto: cotacao.produto_nome || null,
+                quantidade_vidas: cotacao.quantidade_vidas || null,
+                vendaDental: cotacao.com_dental || false,
+                coParticipacao: cotacao.co_participacao || 'sem',
+                plano_anterior: false,
+                origemLandingPage: true,
+              });
+
+              const { data: newLead, error: leadError } = await supabase.from('leads').insert({
+                nome: cotacao.nome,
+                contato: cotacao.contato,
+                email: cotacao.email || null,
+                tipo,
+                origem: extendedData,
+                livre: !cotacao.consultor_recomendado_id,
+                stage_id: firstStageId,
+                created_by: cotacao.consultor_recomendado_id || null,
+              } as any).select('id').single();
+
+              if (leadError) throw leadError;
+
+              const { error } = await supabase.from('cotacoes').update({
+                status: 'aprovado',
+                lead_id: newLead.id,
+              } as any).eq('id', cotacao.id);
+              if (error) throw error;
+
+              logAction('bulk_aprovar_cotacao', 'cotacao', cotacao.id, { nome: cotacao.nome, lead_id: newLead.id });
+              if (cotacao.consultor_recomendado_id) {
+                dispatchNotification('cotacao_aprovada', cotacao.consultor_recomendado_id, 'Novo Lead Atribuído', `A cotação de "${cotacao.nome}" foi aprovada e um lead foi criado para você.`, 'cotacao', '/crm');
+              } else {
+                dispatchNotification('cotacao_aprovada', '', 'Cotação Aprovada — Lead Livre', `A cotação de "${cotacao.nome}" foi aprovada como lead livre.`, 'cotacao', '/crm');
+              }
+              successCount++;
+            } else if (bulkActionType === 'rejeitar') {
+              const { error } = await supabase.from('cotacoes').update({
+                status: 'rejeitado',
+                motivo_recusa: bulkMotivo.trim(),
+              } as any).eq('id', cotacao.id);
+              if (error) throw error;
+              logAction('bulk_rejeitar_cotacao', 'cotacao', cotacao.id, { nome: cotacao.nome });
+              if (cotacao.consultor_recomendado_id) {
+                dispatchNotification('cotacao_reprovada', cotacao.consultor_recomendado_id, 'Cotação Recusada', `A cotação de "${cotacao.nome}" foi recusada: ${bulkMotivo.trim()}`, 'cotacao', '/aprovacoes');
+              }
+              successCount++;
+            } else if (bulkActionType === 'excluir') {
+              const { error } = await supabase.from('cotacoes').delete().eq('id', cotacao.id);
+              if (error) throw error;
+              successCount++;
+            }
+          } catch { failCount++; }
+        }
+        queryClient.invalidateQueries({ queryKey: ['cotacoes'] });
+        queryClient.invalidateQueries({ queryKey: ['leads'] });
+      }
+
+      if (bulkActionTab === 'acesso') {
+        const selectedDatas = filteredAccess.filter(r => ids.includes(r.id));
+        for (const req of selectedDatas) {
+          try {
+            if (bulkActionType === 'aprovar') {
+              const { data: createResult, error: createError } = await supabase.functions.invoke('admin-create-user', {
+                body: {
+                  email: req.email, nome_completo: req.nome, celular: req.telefone, cpf: req.cpf, rg: req.rg,
+                  endereco: req.endereco, cargo: req.cargo, role: req.nivel_acesso, supervisor_id: req.supervisor_id,
+                  gerente_id: req.gerente_id, numero_emergencia_1: req.numero_emergencia_1, numero_emergencia_2: req.numero_emergencia_2,
+                  data_admissao: req.data_admissao, data_nascimento: req.data_nascimento, encrypted_password: req.encrypted_password,
+                }
+              });
+              if (createError) throw new Error(createError.message);
+              if (createResult?.error) throw new Error(createResult.error);
+              
+              const { error } = await supabase.from('access_requests').update({ status: 'aprovado' } as any).eq('id', req.id);
+              if (error) throw error;
+
+              logAction('bulk_aprovar_acesso', 'access_request', req.id, { nome: req.nome, email: req.email });
+              if (createResult.user_id) {
+                dispatchNotification('acesso_aprovado', createResult.user_id, 'Acesso Aprovado', `Bem-vindo(a) ${req.nome}! Seu acesso ao sistema foi aprovado. Seu código é ${createResult.codigo}.`, 'acesso');
+              }
+              successCount++;
+            } else if (bulkActionType === 'rejeitar') {
+              const { error } = await supabase.from('access_requests').update({ status: 'rejeitado', motivo_recusa: bulkMotivo.trim() } as any).eq('id', req.id);
+              if (error) throw error;
+              logAction('bulk_rejeitar_acesso', 'access_request', req.id, { nome: req.nome, email: req.email });
+              successCount++;
+            } else if (bulkActionType === 'excluir') {
+              const { error } = await supabase.from('access_requests').delete().eq('id', req.id);
+              if (error) throw error;
+              successCount++;
+            }
+          } catch { failCount++; }
+        }
+        queryClient.invalidateQueries({ queryKey: ['access-requests'] });
+        queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
+      }
+
+      if (bulkActionTab === 'alteracoes') {
+        const selectedDatas = filteredCR.filter(c => ids.includes(c.id));
+        for (const cr of selectedDatas) {
+          try {
+            if (bulkActionType === 'aprovar') {
+              const payload = JSON.parse(cr.motivo);
+              const alteracoes = payload.alteracoesPropostas || [];
+              const updateObj: Record<string, any> = {};
+              const ativCols = ['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'data', 'observacoes'];
+              const vendaCols = ['nome_titular', 'modalidade', 'vidas', 'valor', 'observacoes', 'data_lancamento', 'justificativa_retroativo'];
+              const validCols = cr.tipo === 'atividade' ? ativCols : vendaCols;
+              
+              for (const a of alteracoes) {
+                if (!validCols.includes(a.campo)) continue;
+                let val: any = a.valorNovo;
+                if (['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'follow_up', 'vidas'].includes(a.campo)) val = parseInt(val) || 0;
+                if (a.campo === 'valor') val = parseFloat(val) || 0;
+                updateObj[a.campo] = val;
+              }
+              
+              const resetStatus = cr.tipo === 'atividade' ? 'pendente' : 'analise';
+              updateObj.status = resetStatus;
+              
+              const table = cr.tipo === 'atividade' ? 'atividades' : 'vendas';
+              if (Object.keys(updateObj).length > 0) {
+                const { error: updateError } = await supabase.from(table).update(updateObj as any).eq('id', cr.registro_id);
+                if (updateError) throw updateError;
+              }
+              
+              const { error } = await supabase.from('correction_requests').update({ status: 'resolvido' } as any).eq('id', cr.id);
+              if (error) throw error;
+              
+              dispatchNotification('alteracao_aprovada', cr.user_id, 'Alteração Aprovada', `Sua solicitação de alteração de ${cr.tipo} foi aprovada e aplicada.`, cr.tipo, '/minhas-acoes');
+              successCount++;
+            } else if (bulkActionType === 'rejeitar') {
+              const { error } = await supabase.from('correction_requests').update({ status: 'rejeitado', admin_resposta: bulkMotivo.trim() } as any).eq('id', cr.id);
+              if (error) throw error;
+              dispatchNotification('alteracao_recusada', cr.user_id, 'Alteração Recusada', `Sua solicitação de alteração de ${cr.tipo} foi recusada: ${bulkMotivo.trim()}`, cr.tipo, '/minhas-acoes');
+              successCount++;
+            } else if (bulkActionType === 'excluir') {
+              const { error } = await supabase.from('correction_requests').delete().eq('id', cr.id);
+              if (error) throw error;
+              successCount++;
+            }
+          } catch { failCount++; }
+        }
+        queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
+        queryClient.invalidateQueries({ queryKey: ['atividades', 'vendas', 'team-atividades', 'team-vendas'] });
+      }
+
+      if (bulkActionTab === 'mfa') {
+        const selectedDatas = filteredMfa.filter(m => ids.includes(m.id));
+        const { user } = (await supabase.auth.getUser()).data;
+        for (const req of selectedDatas) {
+          try {
+            if (bulkActionType === 'aprovar') {
+              await approveMfaReset(req.id, user!.id);
+              dispatchNotification('mfa_resetado', req.user_id, 'MFA Resetado', 'Seu MFA foi resetado. Configure novamente no próximo login.', 'mfa', '/');
+              successCount++;
+            } else if (bulkActionType === 'rejeitar') {
+              const { error } = await supabase.from('mfa_reset_requests' as any).update({ status: 'rejeitado', admin_resposta: bulkMotivo.trim(), handled_by: user!.id, handled_at: new Date().toISOString() } as any).eq('id', req.id);
+              if (error) throw error;
+              dispatchNotification('mfa_rejeitado', req.user_id, 'MFA Recusado', `Sua solicitação de reset de MFA foi recusada: ${bulkMotivo.trim()}`, 'mfa', '/');
+              successCount++;
+            } else if (bulkActionType === 'excluir') {
+              const { error } = await supabase.from('mfa_reset_requests' as any).delete().eq('id', req.id);
+              if (error) throw error;
+              successCount++;
+            }
+          } catch { failCount++; }
+        }
+        queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
+      }
+
+      if (bulkActionTab === 'senhas') {
+        const selectedDatas = filteredPwd.filter(p => ids.includes(p.id));
+        for (const req of selectedDatas) {
+          try {
+            if (bulkActionType === 'aprovar') {
+              await resolvePasswordResetRequest(req.id, 'aprovado');
+              dispatchNotification('senha_resetada', req.user_id, 'Senha Atualizada', 'Sua nova senha foi aprovada e já pode ser utilizada.', 'seguranca', '/');
+              successCount++;
+            } else if (bulkActionType === 'devolver') {
+              const { error } = await supabase.from('password_reset_requests' as any).update({ status: 'devolvido' } as any).eq('id', req.id);
+              if (error) throw error;
+              dispatchNotification('senha_devolvida', req.user_id, 'Solicitação Devolvida', 'Sua solicitação de reset de senha foi devolvida para revisão.', 'seguranca', '/');
+              successCount++;
+            } else if (bulkActionType === 'rejeitar') {
+              const { error } = await supabase.from('password_reset_requests' as any).update({ status: 'rejeitado' } as any).eq('id', req.id);
+              if (error) throw error;
+              successCount++;
+            } else if (bulkActionType === 'excluir') {
+              const { error } = await supabase.from('password_reset_requests' as any).delete().eq('id', req.id);
+              if (error) throw error;
+              successCount++;
+            }
+          } catch { failCount++; }
+        }
+        queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
+      }
+
+      if (successCount > 0) toast.success(`Ação concluída: ${successCount} sucesso(s)${failCount > 0 ? `, ${failCount} falha(s)` : ''}`);
+      else toast.error(`Ação falhou para todos os ${failCount} registros.`);
+
+      setSelectedItems(new Set());
+      setBulkActionType(null);
+      setBulkMotivo('');
+    } finally {
+      setIsProcessingBulk(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="flex items-start justify-between flex-wrap gap-3">
@@ -925,6 +1276,34 @@ const Aprovacoes = () => {
 
         {/* ── Atividades Tab ── */}
         <TabsContent value="atividades">
+          {selectedItems.size > 0 && bulkActionTab === 'atividades' && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
+              <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
+                  <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-primary hover:bg-primary/10 border-primary/30" onClick={() => {setBulkActionType('devolver'); setBulkMotivo('');}}>
+                  <Undo2 className="w-4 h-4" /> Devolver
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-orange-500 hover:bg-orange-500/10 border-orange-500/30" onClick={() => {setBulkActionType('rejeitar'); setBulkMotivo('');}}>
+                  <XCircle className="w-4 h-4" /> Rejeitar
+                </Button>
+                {hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_atividade') && (
+                  <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
+                    <Trash2 className="w-4 h-4" /> Excluir
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <button onClick={() => handleSelectAll(filteredAtividades.map(a => a.id), 'atividades')} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              {selectedItems.size === filteredAtividades.length && filteredAtividades.length > 0 && bulkActionTab === 'atividades' ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
+              <span>Selecionar Todos</span>
+            </button>
+          </div>
           <div className="grid gap-3">
             {loadingAtiv ? (
               <div className="text-center py-12 text-muted-foreground">Carregando...</div>
@@ -938,8 +1317,13 @@ const Aprovacoes = () => {
                 const ativStatus = (a as any).status || 'pendente';
                 const sc = statusColors[ativStatus] || statusColors.pendente;
                 return (
-                  <div key={a.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
+                  <div key={a.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3 relative">
+                    <div className="absolute top-4 left-4 z-10">
+                      <button onClick={() => toggleItemSelection(a.id, 'atividades')} className="text-muted-foreground hover:text-primary transition-colors">
+                        {selectedItems.has(a.id) && bulkActionTab === 'atividades' ? <CheckSquare className="w-5 h-5 text-primary" /> : <Square className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    <div className="flex items-start justify-between gap-3 pl-8">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-foreground">{getConsultorName(a.user_id)}</p>
@@ -989,6 +1373,34 @@ const Aprovacoes = () => {
 
         {/* ── Vendas Tab ── */}
         <TabsContent value="vendas">
+          {selectedItems.size > 0 && bulkActionTab === 'vendas' && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
+              <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
+                  <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-primary hover:bg-primary/10 border-primary/30" onClick={() => {setBulkActionType('devolver'); setBulkMotivo('');}}>
+                  <Undo2 className="w-4 h-4" /> Devolver
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-orange-500 hover:bg-orange-500/10 border-orange-500/30" onClick={() => {setBulkActionType('rejeitar'); setBulkMotivo('');}}>
+                  <XCircle className="w-4 h-4" /> Rejeitar
+                </Button>
+                {hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_venda') && (
+                  <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
+                    <Trash2 className="w-4 h-4" /> Excluir
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <button onClick={() => handleSelectAll(filteredVendas.map(v => v.id), 'vendas')} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              {selectedItems.size === filteredVendas.length && filteredVendas.length > 0 && bulkActionTab === 'vendas' ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
+              <span>Selecionar Todos</span>
+            </button>
+          </div>
           <div className="grid gap-3">
             {loadingVendas ? (
               <div className="text-center py-12 text-muted-foreground">Carregando...</div>
@@ -1002,8 +1414,13 @@ const Aprovacoes = () => {
                 const sc = statusColors[v.status] || statusColors.analise;
                 const isPending = v.status === 'analise' || v.status === 'pendente';
                 return (
-                  <div key={v.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
+                  <div key={v.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3 relative">
+                    <div className="absolute top-4 left-4 z-10">
+                      <button onClick={() => toggleItemSelection(v.id, 'vendas')} className="text-muted-foreground hover:text-primary transition-colors">
+                        {selectedItems.has(v.id) && bulkActionTab === 'vendas' ? <CheckSquare className="w-5 h-5 text-primary" /> : <Square className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    <div className="flex items-start justify-between gap-3 pl-8">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-foreground">{v.nome_titular}</p>
@@ -1057,6 +1474,31 @@ const Aprovacoes = () => {
 
         {/* ── Cotações Tab ── */}
         <TabsContent value="cotacoes">
+          {selectedItems.size > 0 && bulkActionTab === 'cotacoes' && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
+              <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
+                  <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-orange-500 hover:bg-orange-500/10 border-orange-500/30" onClick={() => {setBulkActionType('rejeitar'); setBulkMotivo('');}}>
+                  <XCircle className="w-4 h-4" /> Rejeitar
+                </Button>
+                {hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_cotacao') && (
+                  <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
+                    <Trash2 className="w-4 h-4" /> Excluir
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <button onClick={() => handleSelectAll(filteredCotacoes.map(c => c.id), 'cotacoes')} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              {selectedItems.size === filteredCotacoes.length && filteredCotacoes.length > 0 && bulkActionTab === 'cotacoes' ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
+              <span>Selecionar Todos</span>
+            </button>
+          </div>
           <div className="grid gap-3">
             {loadingCotacoes ? (
               <div className="text-center py-12 text-muted-foreground">Carregando...</div>
@@ -1070,8 +1512,13 @@ const Aprovacoes = () => {
                 const sc = statusColors[c.status] || statusColors.pendente;
                 const consultorName = c.consultor_recomendado_id ? (profiles.find(p => p.id === c.consultor_recomendado_id)?.nome_completo || '—') : null;
                 return (
-                  <div key={c.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
+                  <div key={c.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3 relative">
+                    <div className="absolute top-4 left-4 z-10">
+                      <button onClick={() => toggleItemSelection(c.id, 'cotacoes')} className="text-muted-foreground hover:text-primary transition-colors">
+                        {selectedItems.has(c.id) && bulkActionTab === 'cotacoes' ? <CheckSquare className="w-5 h-5 text-primary" /> : <Square className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    <div className="flex items-start justify-between gap-3 pl-8">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-foreground">{c.nome}</p>
@@ -1099,8 +1546,11 @@ const Aprovacoes = () => {
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleApproveCotacao(c)} disabled={savingCotacao}>
                               <CheckCircle2 className="w-4 h-4" /> Aprovar
                             </Button>
-                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => { setRejectCotacao(c); setRejectCotacaoReason(''); }}>
-                              <XCircle className="w-4 h-4" /> Recusar
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => openEditCotacao(c)}>
+                              <Pencil className="w-4 h-4" /> Editar
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-orange-500 hover:bg-orange-500/10 border-orange-500/30" onClick={() => { setRejectCotacao(c); setRejectCotacaoReason(''); }}>
+                              <XCircle className="w-4 h-4" /> Rejeitar
                             </Button>
                           </>
                         )}
@@ -1128,6 +1578,29 @@ const Aprovacoes = () => {
         {/* ── Acesso Tab (Supervisor+) ── */}
         {isSuperAdmin && (
           <TabsContent value="acesso">
+            {selectedItems.size > 0 && bulkActionTab === 'acesso' && (
+              <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
+                <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
+                    <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
+                  </Button>
+                  <Button size="sm" variant="outline" className="gap-1.5 text-orange-500 hover:bg-orange-500/10 border-orange-500/30" onClick={() => {setBulkActionType('rejeitar'); setBulkMotivo('');}}>
+                    <XCircle className="w-4 h-4" /> Rejeitar
+                  </Button>
+                  <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
+                    <Trash2 className="w-4 h-4" /> Excluir
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())}>Cancelar</Button>
+                </div>
+              </div>
+            )}
+            <div className="flex items-center gap-2 mb-3 px-1">
+              <button onClick={() => handleSelectAll(filteredAccess.map(r => r.id), 'acesso')} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                {selectedItems.size === filteredAccess.length && filteredAccess.length > 0 && bulkActionTab === 'acesso' ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
+                <span>Selecionar Todos</span>
+              </button>
+            </div>
             <div className="grid gap-3">
               {loadingAccess ? (
                 <div className="text-center py-12 text-muted-foreground">Carregando...</div>
@@ -1140,8 +1613,13 @@ const Aprovacoes = () => {
                 filteredAccess.map((req) => {
                   const sc = statusColors[req.status] || statusColors.pendente;
                   return (
-                    <div key={req.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
+                    <div key={req.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3 relative">
+                      <div className="absolute top-4 left-4 z-10">
+                        <button onClick={() => toggleItemSelection(req.id, 'acesso')} className="text-muted-foreground hover:text-primary transition-colors">
+                          {selectedItems.has(req.id) && bulkActionTab === 'acesso' ? <CheckSquare className="w-5 h-5 text-primary" /> : <Square className="w-5 h-5" />}
+                        </button>
+                      </div>
+                      <div className="flex items-start justify-between gap-3 pl-8">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-sm font-semibold text-foreground">{req.nome}</p>
@@ -1163,8 +1641,11 @@ const Aprovacoes = () => {
                               <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleApproveAccess(req)} disabled={savingAccess}>
                                 <CheckCircle2 className="w-4 h-4" /> Aprovar
                               </Button>
-                              <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => { setRejectAccess(req); setRejectReason(''); }}>
-                                <XCircle className="w-4 h-4" /> Recusar
+                              <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => openEditAccess(req)}>
+                                <Pencil className="w-4 h-4" /> Editar
+                              </Button>
+                              <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-orange-500 hover:bg-orange-500/10 border-orange-500/30" onClick={() => { setRejectAccess(req); setRejectReason(''); }}>
+                                <XCircle className="w-4 h-4" /> Rejeitar
                               </Button>
                             </>
                           )}
@@ -1197,6 +1678,29 @@ const Aprovacoes = () => {
 
         {/* ── Alterações Tab ── */}
         <TabsContent value="alteracoes">
+          {selectedItems.size > 0 && bulkActionTab === 'alteracoes' && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
+              <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
+                  <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-orange-500 hover:bg-orange-500/10 border-orange-500/30" onClick={() => {setBulkActionType('rejeitar'); setBulkMotivo('');}}>
+                  <XCircle className="w-4 h-4" /> Rejeitar
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
+                  <Trash2 className="w-4 h-4" /> Excluir
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <button onClick={() => handleSelectAll(filteredCR.map(c => c.id), 'alteracoes')} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              {selectedItems.size === filteredCR.length && filteredCR.length > 0 && bulkActionTab === 'alteracoes' ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
+              <span>Selecionar Todos</span>
+            </button>
+          </div>
           <div className="grid gap-3">
             {loadingCR ? (
               <div className="text-center py-12 text-muted-foreground">Carregando...</div>
@@ -1212,8 +1716,13 @@ const Aprovacoes = () => {
                 try { parsed = JSON.parse(cr.motivo); } catch { }
                 const alteracoes = parsed.alteracoesPropostas || [];
                 return (
-                  <div key={cr.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
+                  <div key={cr.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3 relative">
+                    <div className="absolute top-4 left-4 z-10">
+                      <button onClick={() => toggleItemSelection(cr.id, 'alteracoes')} className="text-muted-foreground hover:text-primary transition-colors">
+                        {selectedItems.has(cr.id) && bulkActionTab === 'alteracoes' ? <CheckSquare className="w-5 h-5 text-primary" /> : <Square className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    <div className="flex items-start justify-between gap-3 pl-8">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-foreground">{getConsultorName(cr.user_id)}</p>
@@ -1235,7 +1744,7 @@ const Aprovacoes = () => {
                         {cr.admin_resposta && <p className="text-xs text-muted-foreground mt-1">Resposta: {cr.admin_resposta}</p>}
                       </div>
                       <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => toast.info('Análise detalhada apenas via card principal para alterações por enquanto.')}>
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => handleViewAlteracao(cr)}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
                         {cr.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'avaliar_correcao') && (
@@ -1243,8 +1752,20 @@ const Aprovacoes = () => {
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleApproveCR(cr)} disabled={savingCR}>
                               <CheckCircle2 className="w-4 h-4" /> Aprovar
                             </Button>
-                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => { setRejectCR(cr); setRejectCRReason(''); }}>
-                              <XCircle className="w-4 h-4" /> Recusar
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30" onClick={async () => {
+                              const motivo = window.prompt('Motivo da devolução:');
+                              if (!motivo) return;
+                              try {
+                                await supabase.from('correction_requests').update({ status: 'pendente', admin_resposta: motivo } as any).eq('id', cr.id);
+                                toast.success('Alteração devolvida!');
+                                dispatchNotification('alteracao_devolvida', cr.user_id, 'Alteração Devolvida', `Sua solicitação de alteração de ${cr.tipo} foi devolvida: ${motivo}`, cr.tipo, '/minhas-acoes');
+                                queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
+                              } catch (err: any) { toast.error(err.message); }
+                            }} disabled={savingCR}>
+                              <Undo2 className="w-4 h-4" /> Devolver
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-orange-500 hover:bg-orange-500/10 border-orange-500/30" onClick={() => { setRejectCR(cr); setRejectCRReason(''); }}>
+                              <XCircle className="w-4 h-4" /> Rejeitar
                             </Button>
                           </>
                         )}
@@ -1272,6 +1793,31 @@ const Aprovacoes = () => {
 
         {/* ── MFA Tab Content ── */}
         <TabsContent value="mfa">
+          {selectedItems.size > 0 && bulkActionTab === 'mfa' && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
+              <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
+                  <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-orange-500 hover:bg-orange-500/10 border-orange-500/30" onClick={() => {setBulkActionType('rejeitar'); setBulkMotivo('');}}>
+                  <XCircle className="w-4 h-4" /> Rejeitar
+                </Button>
+                {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_mfa') && (
+                  <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
+                    <Trash2 className="w-4 h-4" /> Excluir
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <button onClick={() => handleSelectAll(filteredMfa.map(m => m.id), 'mfa')} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              {selectedItems.size === filteredMfa.length && filteredMfa.length > 0 && bulkActionTab === 'mfa' ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
+              <span>Selecionar Todos</span>
+            </button>
+          </div>
           <div className="grid gap-3">
             {loadingMfaReset ? (
               <div className="text-center py-12 text-muted-foreground">Carregando...</div>
@@ -1284,8 +1830,13 @@ const Aprovacoes = () => {
               filteredMfa.map((req) => {
                 const sc = req.status === 'pendente' ? statusColors.pendente : req.status === 'aprovado' ? statusColors.aprovado : statusColors.devolvido;
                 return (
-                  <div key={req.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
+                  <div key={req.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3 relative">
+                    <div className="absolute top-4 left-4 z-10">
+                      <button onClick={() => toggleItemSelection(req.id, 'mfa')} className="text-muted-foreground hover:text-primary transition-colors">
+                        {selectedItems.has(req.id) && bulkActionTab === 'mfa' ? <CheckSquare className="w-5 h-5 text-primary" /> : <Square className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    <div className="flex items-start justify-between gap-3 pl-8">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-foreground">{getConsultorName(req.user_id)}</p>
@@ -1306,7 +1857,7 @@ const Aprovacoes = () => {
                       </div>
                     )}
                     <div className="flex gap-1.5 shrink-0 flex-wrap justify-end mt-2">
-                      <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => toast.info('Análise detalhada apenas via card principal para MFA por enquanto.')}>
+                      <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => setViewMfaReq(req)}>
                         <Eye className="w-4 h-4" /> Analisar
                       </Button>
                       {req.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_mfa') && (
@@ -1363,6 +1914,34 @@ const Aprovacoes = () => {
 
         {/* ── Senhas Tab Content ── */}
         <TabsContent value="senhas">
+          {selectedItems.size > 0 && bulkActionTab === 'senhas' && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
+              <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
+                  <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-primary hover:bg-primary/10 border-primary/30" onClick={() => {setBulkActionType('devolver'); setBulkMotivo('');}}>
+                  <Undo2 className="w-4 h-4" /> Devolver
+                </Button>
+                <Button size="sm" variant="outline" className="gap-1.5 text-orange-500 hover:bg-orange-500/10 border-orange-500/30" onClick={() => {setBulkActionType('rejeitar'); setBulkMotivo('');}}>
+                  <XCircle className="w-4 h-4" /> Rejeitar
+                </Button>
+                {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_senha') && (
+                  <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
+                    <Trash2 className="w-4 h-4" /> Excluir
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())}>Cancelar</Button>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center gap-2 mb-3 px-1">
+            <button onClick={() => handleSelectAll(filteredPwd.map(p => p.id), 'senhas')} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+              {selectedItems.size === filteredPwd.length && filteredPwd.length > 0 && bulkActionTab === 'senhas' ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
+              <span>Selecionar Todos</span>
+            </button>
+          </div>
           <div className="grid gap-3">
             {loadingPwdReset ? (
               <div className="text-center py-12 text-muted-foreground">Carregando...</div>
@@ -1376,8 +1955,13 @@ const Aprovacoes = () => {
                 const sc = req.status === 'pendente' ? statusColors.pendente : req.status === 'aprovado' ? statusColors.aprovado : statusColors.devolvido;
                 const reqName = req.profiles?.nome_completo || getConsultorName(req.user_id);
                 return (
-                  <div key={req.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
+                  <div key={req.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3 relative">
+                    <div className="absolute top-4 left-4 z-10">
+                      <button onClick={() => toggleItemSelection(req.id, 'senhas')} className="text-muted-foreground hover:text-primary transition-colors">
+                        {selectedItems.has(req.id) && bulkActionTab === 'senhas' ? <CheckSquare className="w-5 h-5 text-primary" /> : <Square className="w-5 h-5" />}
+                      </button>
+                    </div>
+                    <div className="flex items-start justify-between gap-3 pl-8">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-sm font-semibold text-foreground">{reqName}</p>
@@ -1400,7 +1984,7 @@ const Aprovacoes = () => {
                     
                     <div className="flex gap-1.5 shrink-0 flex-wrap justify-end mt-2">
                       {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_senha') && (
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => toast.info('Análise detalhada apenas via card principal.')}>
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => setViewPwdReq(req)}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
                       )}
@@ -1447,10 +2031,10 @@ const Aprovacoes = () => {
                           )}
 
                           {hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_senha') && (
-                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30"
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-orange-500 hover:bg-orange-500/10 border-orange-500/30"
                               onClick={() => { setRejectPwdReq(req); setRejectPwdReason(''); }}
                             >
-                             <XCircle className="w-4 h-4" /> Recusar
+                             <XCircle className="w-4 h-4" /> Rejeitar
                             </Button>
                           )}
                         </>
@@ -1486,6 +2070,7 @@ const Aprovacoes = () => {
         justificativa={justificativa}
         setJustificativa={setJustificativa}
         onAction={handleVendaAction}
+        onReject={(v: Venda) => { setSelectedVenda(null); setIsRejectingVenda(true); setDevolverVenda(v); setDevolverVendaMotivo(justificativa); }}
         canEdit={hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_venda')}
         canDelete={hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_venda')}
         onDelete={async (v: Venda) => {
@@ -1534,6 +2119,9 @@ const Aprovacoes = () => {
                     <Button onClick={() => handleAtivAction(selectedAtiv, 'devolvido')} disabled={savingAtiv} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
                       <Undo2 className="w-5 h-5" /> Devolver
                     </Button>
+                    <Button onClick={() => { setIsRejectingAtiv(true); setDevolverAtiv(selectedAtiv); setDevolverAtivMotivo(ativJustificativa); setSelectedAtiv(null); }} disabled={savingAtiv} variant="outline" className="flex-1 font-semibold gap-1.5 border-orange-500 text-orange-500 hover:bg-orange-500/10" size="lg">
+                      <XCircle className="w-5 h-5" /> Rejeitar
+                    </Button>
                     <Button onClick={() => {
                         setEditAtiv(selectedAtiv);
                         setEditForm({
@@ -1544,7 +2132,7 @@ const Aprovacoes = () => {
                           cotacoes_nao_respondidas: String((selectedAtiv as any).cotacoes_nao_respondidas ?? 0),
                           follow_up: String(selectedAtiv.follow_up),
                         });
-                      }} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
+                      }} variant="outline" className="flex-1 font-semibold gap-1.5 border-muted-foreground text-foreground hover:bg-muted" size="lg">
                       <Pencil className="w-5 h-5" /> Editar
                     </Button>
                   </>
@@ -1602,36 +2190,90 @@ const Aprovacoes = () => {
 
       {/* ── View Access Dialog ── */}
       <Dialog open={!!viewAccess} onOpenChange={(v) => { if (!v) setViewAccess(null); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display text-lg">Detalhes da Solicitação</DialogTitle>
+            <DialogTitle className="font-display text-lg">Detalhes da Solicitação de Acesso</DialogTitle>
           </DialogHeader>
           {viewAccess && (
-            <div className="grid grid-cols-2 gap-3 text-sm py-2">
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Nome</span><p className="font-semibold mt-0.5">{viewAccess.nome}</p></div>
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">E-mail</span><p className="font-semibold mt-0.5">{viewAccess.email}</p></div>
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Celular</span><p className="font-semibold mt-0.5">{viewAccess.telefone || '—'}</p></div>
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">CPF</span><p className="font-semibold mt-0.5">{viewAccess.cpf || '—'}</p></div>
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">RG</span><p className="font-semibold mt-0.5">{viewAccess.rg || '—'}</p></div>
-              <div className="col-span-2"><span className="text-[10px] text-muted-foreground uppercase font-semibold">Endereço</span><p className="font-semibold mt-0.5">{viewAccess.endereco || '—'}</p></div>
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Cargo</span><p className="font-semibold mt-0.5">{viewAccess.cargo || '—'}</p></div>
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Supervisor</span><p className="font-semibold mt-0.5">{viewAccess.supervisor_id ? (profiles.find(p => p.id === viewAccess.supervisor_id)?.nome_completo || viewAccess.supervisor_id.slice(0, 8)) : 'Nenhum'}</p></div>
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Gerente</span><p className="font-semibold mt-0.5">{viewAccess.gerente_id ? (profiles.find(p => p.id === viewAccess.gerente_id)?.nome_completo || viewAccess.gerente_id.slice(0, 8)) : '—'}</p></div>
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Data de Nascimento</span><p className="font-semibold mt-0.5">{viewAccess.data_nascimento ? new Date(viewAccess.data_nascimento + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</p></div>
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Data de Admissão</span><p className="font-semibold mt-0.5">{viewAccess.data_admissao ? new Date(viewAccess.data_admissao + 'T12:00:00').toLocaleDateString('pt-BR') : '—'}</p></div>
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Emergência 1</span><p className="font-semibold mt-0.5">{viewAccess.numero_emergencia_1 || '—'}</p></div>
-              <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Emergência 2</span><p className="font-semibold mt-0.5">{viewAccess.numero_emergencia_2 || '—'}</p></div>
+            <div className="space-y-3 py-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Nome da equipe ou consultor</label>
+                  <Input value={viewAccess.nome || ''} disabled className="h-10 bg-muted/50" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">E-mail corporativo</label>
+                  <Input value={viewAccess.email || ''} disabled className="h-10 bg-muted/50" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Celular com WhatsApp</label>
+                  <Input value={viewAccess.telefone || ''} disabled className="h-10 bg-muted/50" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">CPF</label>
+                  <Input value={viewAccess.cpf || ''} disabled className="h-10 bg-muted/50" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">RG</label>
+                  <Input value={viewAccess.rg || ''} disabled className="h-10 bg-muted/50" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Cargo Oficial</label>
+                  <Input value={viewAccess.cargo || ''} disabled className="h-10 bg-muted/50" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Endereço Completo</label>
+                <Input value={viewAccess.endereco || ''} disabled className="h-10 bg-muted/50" />
+              </div>
+              <div className="grid grid-cols-1 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Nome do seu Supervisor Diário</label>
+                  <Input value={viewAccess.supervisor_id ? (profiles.find(p => p.id === viewAccess.supervisor_id)?.nome_completo || viewAccess.supervisor_id) : 'Nenhum'} disabled className="h-10 bg-muted/50" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Nome do seu Gerente Comercial</label>
+                  <Input value={viewAccess.gerente_id ? (profiles.find(p => p.id === viewAccess.gerente_id)?.nome_completo || viewAccess.gerente_id) : 'Nenhum'} disabled className="h-10 bg-muted/50" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Data de Nascimento</label>
+                  <Input type="date" value={viewAccess.data_nascimento || ''} disabled className="h-10 bg-muted/50" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Data de Admissão na Corretora</label>
+                  <Input type="date" value={viewAccess.data_admissao || ''} disabled className="h-10 bg-muted/50" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Telefone de Emergência 1</label>
+                  <Input value={viewAccess.numero_emergencia_1 || ''} disabled className="h-10 bg-muted/50" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Telefone de Emergência 2</label>
+                <Input value={viewAccess.numero_emergencia_2 || ''} disabled className="h-10 bg-muted/50" />
+              </div>
               {viewAccess.mensagem && (
-                <div className="col-span-2"><span className="text-[10px] text-muted-foreground uppercase font-semibold">Mensagem Adicional</span><p className="font-semibold mt-0.5 whitespace-pre-wrap bg-muted/30 p-3 rounded-lg border border-border/40 mt-1">{viewAccess.mensagem}</p></div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Adicione suas observações abaixo</label>
+                  <Textarea value={viewAccess.mensagem || ''} disabled rows={3} className="bg-muted/50" />
+                </div>
               )}
-              <div className="col-span-2 flex gap-2 flex-wrap border-t border-border/20 pt-4 mt-2">
+              <div className="flex gap-2 flex-wrap pt-4">
                 {viewAccess.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_acesso') && (
                   <>
                     <Button onClick={() => { handleApproveAccess(viewAccess); setViewAccess(null); }} disabled={savingAccess} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
                       <CheckCircle2 className="w-5 h-5" /> Aprovar
                     </Button>
-                    <Button onClick={() => { setRejectAccess(viewAccess); setRejectReason(''); setViewAccess(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
-                      <Undo2 className="w-5 h-5" /> Recusar
+                    <Button onClick={() => { setRejectAccess(viewAccess); setRejectReason(''); setViewAccess(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-orange-500 text-orange-500 hover:bg-orange-500/10" size="lg">
+                      <XCircle className="w-5 h-5" /> Rejeitar
                     </Button>
                     <Button onClick={() => { openEditAccess(viewAccess); setViewAccess(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-muted-foreground text-foreground hover:bg-muted" size="lg">
                       <Pencil className="w-5 h-5" /> Editar
@@ -1653,14 +2295,14 @@ const Aprovacoes = () => {
       <Dialog open={!!rejectAccess} onOpenChange={(v) => { if (!v) setRejectAccess(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="font-display text-lg text-destructive">Recusar Solicitação</DialogTitle>
-            <DialogDescription>Informe o motivo da recusa. Um e-mail será enviado para {rejectAccess?.nome}.</DialogDescription>
+            <DialogTitle className="font-display text-lg text-orange-500">Rejeitar Solicitação</DialogTitle>
+            <DialogDescription>Informe o motivo da rejeição. O solicitante será notificado: {rejectAccess?.nome}.</DialogDescription>
           </DialogHeader>
           <Textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Motivo da recusa (obrigatório)..." rows={3} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setRejectAccess(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleRejectAccess} disabled={savingAccess} className="gap-1">
-              {savingAccess ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><XCircle className="w-4 h-4" /> Recusar</>}
+              {savingAccess ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><XCircle className="w-4 h-4" /> Rejeitar</>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1697,14 +2339,14 @@ const Aprovacoes = () => {
       <Dialog open={!!rejectCotacao} onOpenChange={(v) => { if (!v) setRejectCotacao(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle className="font-display text-lg text-destructive">Recusar Cotação</DialogTitle>
-            <DialogDescription>Informe o motivo da recusa para a cotação de {rejectCotacao?.nome}.</DialogDescription>
+            <DialogTitle className="font-display text-lg text-orange-500">Rejeitar Cotação</DialogTitle>
+            <DialogDescription>Informe o motivo da rejeição para a cotação de {rejectCotacao?.nome}.</DialogDescription>
           </DialogHeader>
-          <Textarea value={rejectCotacaoReason} onChange={(e) => setRejectCotacaoReason(e.target.value)} placeholder="Motivo da recusa (obrigatório)..." rows={3} />
+          <Textarea value={rejectCotacaoReason} onChange={(e) => setRejectCotacaoReason(e.target.value)} placeholder="Motivo da rejeição (obrigatório)..." rows={3} />
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setRejectCotacao(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={handleRejectCotacao} disabled={savingCotacao} className="gap-1">
-              {savingCotacao ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><XCircle className="w-4 h-4" /> Recusar</>}
+              {savingCotacao ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><XCircle className="w-4 h-4" /> Rejeitar</>}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1798,30 +2440,69 @@ const Aprovacoes = () => {
         </DialogContent>
       </Dialog>
 
-      {/* ── View Cotação Dialog ── */}
+      {/* ── View Cotação Dialog (Identical to New Lead Form) ── */}
       <Dialog open={!!viewCotacao} onOpenChange={(v) => { if (!v) setViewCotacao(null); }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display text-lg">Detalhes da Cotação</DialogTitle>
+            <DialogTitle className="font-display text-lg">Analisar Cotação</DialogTitle>
           </DialogHeader>
           {viewCotacao && (
-            <div className="space-y-4 py-2">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Nome</span><p className="font-semibold mt-0.5">{viewCotacao.nome}</p></div>
-                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Contato</span><p className="font-semibold mt-0.5">{viewCotacao.contato}</p></div>
-                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">E-mail</span><p className="font-semibold mt-0.5">{viewCotacao.email || '—'}</p></div>
-                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Modalidade</span><p className="font-semibold mt-0.5">{viewCotacao.modalidade || '—'}</p></div>
-                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Companhia</span><p className="font-semibold mt-0.5">{viewCotacao.companhia_nome || '—'}</p></div>
-                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Vidas</span><p className="font-semibold mt-0.5">{viewCotacao.quantidade_vidas}</p></div>
+            <div className="space-y-3 py-2">
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Nome <span className="text-destructive">*</span></label>
+                <Input value={viewCotacao.nome} disabled className="h-10 bg-muted/50" />
               </div>
-              <div className="flex gap-2 flex-wrap border-t border-border/20 pt-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Telefone</label>
+                  <Input value={viewCotacao.contato || ''} disabled className="h-10 bg-muted/50" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">E-mail</label>
+                  <Input value={viewCotacao.email || ''} disabled className="h-10 bg-muted/50" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Modalidade</label>
+                <Input value={viewCotacao.modalidade || '—'} disabled className="h-10 bg-muted/50" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Companhia</label>
+                  <Input value={viewCotacao.companhia_nome || '—'} disabled className="h-10 bg-muted/50" />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Produto</label>
+                  <Input value={viewCotacao.produto_nome || '—'} disabled className="h-10 bg-muted/50" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Quantidade de Vidas</label>
+                <Input value={viewCotacao.quantidade_vidas || ''} disabled className="h-10 bg-muted/50" />
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
+                <Switch checked={viewCotacao.com_dental} disabled />
+                <Label className="text-sm text-foreground">Venda c/ Dental</Label>
+                <span className="text-xs text-muted-foreground ml-auto">{viewCotacao.com_dental ? 'Sim' : 'Não'}</span>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground">Co-Participação</label>
+                <Input value={viewCotacao.co_participacao === 'sem' ? 'Sem Co-Participação' : viewCotacao.co_participacao === 'parcial' ? 'Parcial' : viewCotacao.co_participacao === 'completa' ? 'Completa' : (viewCotacao.co_participacao || '—')} disabled className="h-10 bg-muted/50" />
+              </div>
+              {viewCotacao.consultor_recomendado_id && (
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground">Consultor Recomendado</label>
+                  <Input value={profiles.find(p => p.id === viewCotacao.consultor_recomendado_id)?.nome_completo || '—'} disabled className="h-10 bg-muted/50" />
+                </div>
+              )}
+              <div className="flex gap-2 flex-wrap pt-4">
                 {viewCotacao.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_cotacao') && (
                   <>
                     <Button onClick={() => { handleApproveCotacao(viewCotacao); setViewCotacao(null); }} disabled={savingCotacao} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
                       <CheckCircle2 className="w-5 h-5" /> Aprovar
                     </Button>
-                    <Button onClick={() => { setRejectCotacao(viewCotacao); setRejectCotacaoReason(''); setViewCotacao(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
-                      <Undo2 className="w-5 h-5" /> Recusar
+                    <Button onClick={() => { setRejectCotacao(viewCotacao); setRejectCotacaoReason(''); setViewCotacao(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-orange-500 text-orange-500 hover:bg-orange-500/10" size="lg">
+                      <XCircle className="w-5 h-5" /> Rejeitar
                     </Button>
                     <Button onClick={() => { openEditCotacao(viewCotacao); setViewCotacao(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-muted-foreground text-foreground hover:bg-muted" size="lg">
                       <Pencil className="w-5 h-5" /> Editar
@@ -1862,86 +2543,123 @@ const Aprovacoes = () => {
             <DialogTitle className="font-display text-lg">Editar Solicitação de Acesso</DialogTitle>
             <DialogDescription>Edite os dados antes de aprovar ou recusar.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-3 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">Nome <span className="text-destructive">*</span></label>
-                <Input value={editAccessForm.nome || ''} onChange={e => setEditAccessForm(p => ({ ...p, nome: e.target.value }))} className="h-10" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">E-mail <span className="text-destructive">*</span></label>
-                <Input value={editAccessForm.email || ''} onChange={e => setEditAccessForm(p => ({ ...p, email: e.target.value }))} className="h-10" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">Telefone</label>
-                <Input value={editAccessForm.telefone || ''} onChange={e => setEditAccessForm(p => ({ ...p, telefone: e.target.value }))} className="h-10" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">CPF</label>
-                <Input value={editAccessForm.cpf || ''} onChange={e => setEditAccessForm(p => ({ ...p, cpf: e.target.value }))} className="h-10" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">RG</label>
-                <Input value={editAccessForm.rg || ''} onChange={e => setEditAccessForm(p => ({ ...p, rg: e.target.value }))} className="h-10" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">Cargo</label>
-                <Input value={editAccessForm.cargo || ''} onChange={e => setEditAccessForm(p => ({ ...p, cargo: e.target.value }))} className="h-10" />
-              </div>
-            </div>
+          <div className="space-y-5 py-2">
+            {/* Dados Pessoais */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Endereço</label>
-              <Input value={editAccessForm.endereco || ''} onChange={e => setEditAccessForm(p => ({ ...p, endereco: e.target.value }))} className="h-10" />
-            </div>
-            <div className="grid grid-cols-1 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">Supervisor</label>
-                <Select value={editAccessForm.supervisor_id || '__none__'} onValueChange={v => setEditAccessForm(p => ({ ...p, supervisor_id: v === '__none__' ? '' : v }))}>
-                  <SelectTrigger className="h-10"><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Nenhum</SelectItem>
-                    {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome_completo || p.apelido}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Dados Pessoais</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome Completo <span className="text-destructive">*</span></label>
+                  <Input value={editAccessForm.nome || ''} onChange={e => setEditAccessForm(p => ({ ...p, nome: e.target.value }))} placeholder="Seu nome completo" className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail <span className="text-destructive">*</span></label>
+                  <Input type="email" value={editAccessForm.email || ''} onChange={e => setEditAccessForm(p => ({ ...p, email: e.target.value }))} placeholder="seu.email@gmail.com" className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Celular</label>
+                  <Input value={editAccessForm.telefone || ''} onChange={e => setEditAccessForm(p => ({ ...p, telefone: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CPF</label>
+                  <Input value={editAccessForm.cpf || ''} onChange={e => setEditAccessForm(p => ({ ...p, cpf: maskCPF(e.target.value) }))} placeholder="000.000.000-00" className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">RG</label>
+                  <Input value={editAccessForm.rg || ''} onChange={e => setEditAccessForm(p => ({ ...p, rg: maskRG(e.target.value) }))} placeholder="00.000.000-0" className="h-10" />
+                </div>
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Endereço</label>
+                  <Input value={editAccessForm.endereco || ''} onChange={e => setEditAccessForm(p => ({ ...p, endereco: e.target.value }))} placeholder="Rua, número, bairro, cidade - UF" className="h-10" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data de Nascimento</label>
+                  <Input type="date" value={editAccessForm.data_nascimento || ''} onChange={e => setEditAccessForm(p => ({ ...p, data_nascimento: e.target.value }))} className="h-10" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data de Admissão</label>
+                  <Input type="date" value={editAccessForm.data_admissao || ''} onChange={e => setEditAccessForm(p => ({ ...p, data_admissao: e.target.value }))} className="h-10" />
+                </div>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">Gerente</label>
-                <Select value={editAccessForm.gerente_id || '__none__'} onValueChange={v => setEditAccessForm(p => ({ ...p, gerente_id: v === '__none__' ? '' : v }))}>
-                  <SelectTrigger className="h-10"><SelectValue placeholder="Nenhum" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">Nenhum</SelectItem>
-                    {profiles.map(p => <SelectItem key={p.id} value={p.id}>{p.nome_completo || p.apelido}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">Data de Nascimento</label>
-                <Input type="date" value={editAccessForm.data_nascimento || ''} onChange={e => setEditAccessForm(p => ({ ...p, data_nascimento: e.target.value }))} className="h-10" />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">Data de Admissão</label>
-                <Input type="date" value={editAccessForm.data_admissao || ''} onChange={e => setEditAccessForm(p => ({ ...p, data_admissao: e.target.value }))} className="h-10" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">Emergência 1</label>
-                <Input value={editAccessForm.numero_emergencia_1 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} className="h-10" />
-              </div>
-            </div>
+
+            {/* Contatos de Emergência */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Emergência 2</label>
-              <Input value={editAccessForm.numero_emergencia_2 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} className="h-10" />
+              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Contatos de Emergência</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Emergência 1 (Opcional)</label>
+                    <Input value={editAccessForm.numero_emergencia_1 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Emergência 2 (Opcional)</label>
+                    <Input value={editAccessForm.numero_emergencia_2 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                  </div>
+                </div>
+              </div>
             </div>
+
+            {/* Cargo & Acesso */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground">Mensagem</label>
-              <Textarea value={editAccessForm.mensagem || ''} onChange={e => setEditAccessForm(p => ({ ...p, mensagem: e.target.value }))} rows={3} />
+              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Cargo & Acesso</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cargo</label>
+                  <Select value={editAccessForm.cargo || '__none__'} onValueChange={v => setEditAccessForm(p => ({ ...p, cargo: v === '__none__' ? '' : v }))}>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione um cargo..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Nenhum</SelectItem>
+                      {cargos.map(c => <SelectItem key={c.id} value={c.nome}>{c.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* Líderes */}
+            {(() => {
+                const selectedObj = cargos.find(c => c.nome === editAccessForm.cargo);
+                const requiresLeader = selectedObj ? selectedObj.requires_leader !== false : true;
+                const isManagerOrDirector = (editAccessForm.cargo || '').toLowerCase().includes('gerente') || (editAccessForm.cargo || '').toLowerCase().includes('diretor');
+                return requiresLeader && !isManagerOrDirector;
+            })() && (
+              <div>
+                <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Líderes</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {!['Supervisor'].includes(editAccessForm.cargo || '') && (
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Supervisor</label>
+                      <Select value={editAccessForm.supervisor_id || '__none__'} onValueChange={v => setEditAccessForm(p => ({ ...p, supervisor_id: v === '__none__' ? null : v }))}>
+                        <SelectTrigger className="h-10"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__none__">Nenhum (responde ao Gerente)</SelectItem>
+                          {supervisores.map(p => <SelectItem key={p.id} value={p.id}>{p.nome_completo || p.apelido}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Gerente</label>
+                    <Select value={editAccessForm.gerente_id || '__none__'} onValueChange={v => setEditAccessForm(p => ({ ...p, gerente_id: v === '__none__' ? null : v }))}>
+                      <SelectTrigger className="h-10"><SelectValue placeholder="Nenhum" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Nenhum</SelectItem>
+                        {gerentes.map(p => <SelectItem key={p.id} value={p.id}>{p.nome_completo || p.apelido}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Mensagem (Opcional)</label>
+              <Textarea value={editAccessForm.mensagem || ''} onChange={e => setEditAccessForm(p => ({ ...p, mensagem: e.target.value }))} placeholder="Informações adicionais..." rows={2} />
             </div>
           </div>
           <DialogFooter className="gap-2">
@@ -2085,7 +2803,7 @@ const Aprovacoes = () => {
               onClick={async () => {
                 if (!devolverVenda || !devolverVendaMotivo.trim()) return;
                 try {
-                  const status = isRejectingVenda ? 'devolvido' : 'devolvido';
+                  const status = isRejectingVenda ? 'rejeitado' : 'devolvido';
                   await updateStatus.mutateAsync({ id: devolverVenda.id, status, observacoes: devolverVenda.observacoes, motivo_recusa: devolverVendaMotivo.trim() });
                   toast.success(`Venda ${isRejectingVenda ? 'rejeitada' : 'devolvida'}!`);
                   dispatchNotification(
@@ -2156,6 +2874,167 @@ const Aprovacoes = () => {
               finally { setDeletingVenda(false); }
             }}>
               {deletingVenda ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Trash2 className="w-4 h-4" /> Excluir</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── View MFA Reset Dialog (Analisar) ── */}
+      <Dialog open={!!viewMfaReq} onOpenChange={(v) => { if (!v) setViewMfaReq(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Analisar Reset MFA</DialogTitle>
+            <DialogDescription>Detalhes completos da solicitação de reset de MFA.</DialogDescription>
+          </DialogHeader>
+          {viewMfaReq && (
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Usuário</span><p className="font-semibold mt-0.5">{getConsultorName(viewMfaReq.user_id)}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Status</span><p className="font-semibold mt-0.5">{statusLabel[viewMfaReq.status] || viewMfaReq.status}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Solicitado em</span><p className="font-semibold mt-0.5">{new Date(viewMfaReq.created_at).toLocaleString('pt-BR')}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">ID</span><p className="font-semibold mt-0.5 font-mono text-xs">{viewMfaReq.id.slice(0, 12)}...</p></div>
+              </div>
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">Motivo</p>
+                <p className="text-sm whitespace-pre-wrap">{viewMfaReq.motivo}</p>
+              </div>
+              {viewMfaReq.admin_resposta && (
+                <div className="p-3 bg-destructive/5 rounded-lg border border-destructive/10">
+                  <p className="text-[10px] text-destructive uppercase font-semibold mb-1">Resposta do Aprovador</p>
+                  <p className="text-sm whitespace-pre-wrap">{viewMfaReq.admin_resposta}</p>
+                </div>
+              )}
+              <div className="flex gap-2 flex-wrap pt-2">
+                {viewMfaReq.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_mfa') && (
+                  <>
+                    <Button onClick={async () => {
+                      setSavingMfaReset(true);
+                      try {
+                        const { user } = (await supabase.auth.getUser()).data;
+                        await approveMfaReset(viewMfaReq.id, user!.id);
+                        toast.success('MFA resetado! O usuário verá o QR Code no próximo login.');
+                        dispatchNotification('mfa_resetado', viewMfaReq.user_id, 'MFA Resetado', 'Seu MFA foi resetado. Configure novamente no próximo login.', 'mfa', '/');
+                        queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
+                        setViewMfaReq(null);
+                      } catch (err: any) { toast.error(err.message); }
+                      finally { setSavingMfaReset(false); }
+                    }} disabled={savingMfaReset} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
+                      <CheckCircle2 className="w-5 h-5" /> Aprovar
+                    </Button>
+                    <Button onClick={() => { setRejectMfaReq(viewMfaReq); setRejectMfaReason(''); setViewMfaReq(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-orange-500 text-orange-500 hover:bg-orange-500/10" size="lg">
+                      <XCircle className="w-5 h-5" /> Rejeitar
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── View Password Reset Dialog (Analisar) ── */}
+      <Dialog open={!!viewPwdReq} onOpenChange={(v) => { if (!v) setViewPwdReq(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Analisar Reset de Senha</DialogTitle>
+            <DialogDescription>Detalhes completos da solicitação de troca de senha.</DialogDescription>
+          </DialogHeader>
+          {viewPwdReq && (
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Usuário</span><p className="font-semibold mt-0.5">{viewPwdReq.profiles?.nome_completo || getConsultorName(viewPwdReq.user_id)}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Status</span><p className="font-semibold mt-0.5">{statusLabel[viewPwdReq.status] || viewPwdReq.status}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">Solicitado em</span><p className="font-semibold mt-0.5">{new Date(viewPwdReq.requested_at).toLocaleString('pt-BR')}</p></div>
+                <div><span className="text-[10px] text-muted-foreground uppercase font-semibold">ID</span><p className="font-semibold mt-0.5 font-mono text-xs">{viewPwdReq.id.slice(0, 12)}...</p></div>
+              </div>
+              <div className="p-3 bg-muted/30 rounded-lg">
+                <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">Motivo</p>
+                <p className="text-sm whitespace-pre-wrap">{viewPwdReq.motivo}</p>
+              </div>
+              <div className="p-3 bg-muted/30 rounded-lg flex items-center justify-between">
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase font-semibold mb-1">Nova Senha Solicitada</p>
+                  <p className="text-sm text-foreground font-mono">•••••••• (Criptografada)</p>
+                </div>
+              </div>
+              <div className="flex gap-2 flex-wrap pt-2">
+                {viewPwdReq.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin', 'aprovar_senha') && (
+                  <>
+                    <Button onClick={async () => {
+                      setSavingPwdReset(true);
+                      try {
+                        await resolvePasswordResetRequest(viewPwdReq.id, 'aprovado');
+                        toast.success('Senha atualizada com sucesso!');
+                        dispatchNotification('senha_resetada', viewPwdReq.user_id, 'Senha Atualizada', 'Sua nova senha foi aprovada e já pode ser utilizada.', 'seguranca', '/');
+                        queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
+                        setViewPwdReq(null);
+                      } catch (err: any) { toast.error(err.message); }
+                      finally { setSavingPwdReset(false); }
+                    }} disabled={savingPwdReset} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
+                      <CheckCircle2 className="w-5 h-5" /> Aprovar e Aplicar
+                    </Button>
+                    <Button onClick={async () => {
+                      setSavingPwdReset(true);
+                      try {
+                        const { error } = await supabase.from('password_reset_requests' as any).update({ status: 'devolvido' } as any).eq('id', viewPwdReq.id);
+                        if (error) throw error;
+                        toast.success('Solicitação devolvida ao usuário.');
+                        dispatchNotification('senha_devolvida', viewPwdReq.user_id, 'Solicitação Devolvida', 'Sua solicitação de reset de senha foi devolvida para revisão.', 'seguranca', '/');
+                        queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
+                        setViewPwdReq(null);
+                      } catch (err: any) { toast.error(err.message); }
+                      finally { setSavingPwdReset(false); }
+                    }} disabled={savingPwdReset} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
+                      <Undo2 className="w-5 h-5" /> Devolver
+                    </Button>
+                    <Button onClick={() => { setRejectPwdReq(viewPwdReq); setRejectPwdReason(''); setViewPwdReq(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-orange-500 text-orange-500 hover:bg-orange-500/10" size="lg">
+                      <XCircle className="w-5 h-5" /> Rejeitar
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Bulk Action Motivo Confirmation Modal ── */}
+      <Dialog open={!!bulkActionType && (bulkActionType === 'devolver' || bulkActionType === 'rejeitar' || bulkActionType === 'excluir' || bulkActionType === 'aprovar')} onOpenChange={(v) => { if (!v) { setBulkActionType(null); setBulkMotivo(''); } }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className={`font-display text-lg ${bulkActionType === 'excluir' ? 'text-destructive' : bulkActionType === 'rejeitar' ? 'text-orange-500' : bulkActionType === 'devolver' ? 'text-primary' : 'text-success'}`}>
+              {bulkActionType === 'aprovar' ? 'Aprovar Selecionados' : bulkActionType === 'devolver' ? 'Devolver Selecionados' : bulkActionType === 'rejeitar' ? 'Rejeitar Selecionados' : 'Excluir Selecionados'}
+            </DialogTitle>
+            <DialogDescription>
+              {bulkActionType === 'excluir'
+                ? `Tem certeza que deseja excluir ${selectedItems.size} registro(s)? Esta ação é irreversível.`
+                : bulkActionType === 'aprovar'
+                  ? `Aprovar ${selectedItems.size} registro(s) selecionados?`
+                  : `Informe o motivo para ${bulkActionType === 'devolver' ? 'devolver' : 'rejeitar'} ${selectedItems.size} registro(s).`}
+            </DialogDescription>
+          </DialogHeader>
+          {(bulkActionType === 'devolver' || bulkActionType === 'rejeitar') && (
+            <Textarea
+              value={bulkMotivo}
+              onChange={(e) => setBulkMotivo(e.target.value)}
+              placeholder="Motivo obrigatório..."
+              rows={3}
+            />
+          )}
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => { setBulkActionType(null); setBulkMotivo(''); }}>Cancelar</Button>
+            <Button
+              variant={bulkActionType === 'excluir' || bulkActionType === 'rejeitar' ? 'destructive' : 'default'}
+              disabled={isProcessingBulk || ((bulkActionType === 'devolver' || bulkActionType === 'rejeitar') && !bulkMotivo.trim())}
+              onClick={handleBulkActionExecute}
+              className="gap-1.5"
+            >
+              {isProcessingBulk ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : (
+                bulkActionType === 'aprovar' ? <><CheckCircle2 className="w-4 h-4" /> Confirmar Aprovação</> :
+                bulkActionType === 'devolver' ? <><Undo2 className="w-4 h-4" /> Confirmar Devolução</> :
+                bulkActionType === 'rejeitar' ? <><XCircle className="w-4 h-4" /> Confirmar Rejeição</> :
+                <><Trash2 className="w-4 h-4" /> Confirmar Exclusão</>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -76,7 +76,8 @@ export function AppSidebar() {
     if (item.to === '/admin/configuracoes' && role === 'administrador') return true;
     // Map the nav item path to the resource key
     // Note: /comercial → 'atividades', /gestao → 'dashboard'
-    const resourceKey = item.to === '/comercial' ? 'atividades'
+    const resourceKey = item.to === '/' ? 'meu_progresso'
+      : item.to === '/comercial' ? 'atividades'
       : item.to === '/gestao' ? 'dashboard'
       : item.to === '/admin/usuarios' ? 'configuracoes'
       : item.to === '/admin/logs' ? 'logs_auditoria'
