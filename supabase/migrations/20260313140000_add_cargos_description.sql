@@ -59,6 +59,13 @@ ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS cargo_id UUID REFERENCES pu
 
 -- 8. Fix security_profile_permissions upsert: ensure the unique constraint has the right name
 -- The upsert uses onConflict: 'profile_id,resource,action' which relies on a named unique constraint
-ALTER TABLE public.security_profile_permissions DROP CONSTRAINT IF EXISTS security_profile_permissions_profile_id_resource_action_key;
-ALTER TABLE public.security_profile_permissions ADD CONSTRAINT IF NOT EXISTS security_profile_permissions_profile_id_resource_action_key
-  UNIQUE (profile_id, resource, action);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'security_profile_permissions_profile_id_resource_action_key'
+  ) THEN
+    ALTER TABLE public.security_profile_permissions
+      ADD CONSTRAINT security_profile_permissions_profile_id_resource_action_key
+      UNIQUE (profile_id, resource, action);
+  END IF;
+END $$;
