@@ -288,6 +288,18 @@ const Aprovacoes = () => {
   const [editForm, setEditForm] = useState({ ligacoes: '', mensagens: '', cotacoes_enviadas: '', cotacoes_fechadas: '', cotacoes_nao_respondidas: '', follow_up: '' });
   const [editSaving, setEditSaving] = useState(false);
 
+  // Devolver/Delete dialogs (no window.prompt)
+  const [devolverAtiv, setDevolverAtiv] = useState<Atividade | null>(null);
+  const [devolverAtivMotivo, setDevolverAtivMotivo] = useState('');
+  const [isRejectingAtiv, setIsRejectingAtiv] = useState(false);
+  const [devolverVenda, setDevolverVenda] = useState<Venda | null>(null);
+  const [devolverVendaMotivo, setDevolverVendaMotivo] = useState('');
+  const [isRejectingVenda, setIsRejectingVenda] = useState(false);
+  const [confirmDeleteAtiv, setConfirmDeleteAtiv] = useState<Atividade | null>(null);
+  const [confirmDeleteVenda, setConfirmDeleteVenda] = useState<Venda | null>(null);
+  const [deletingAtiv, setDeletingAtiv] = useState(false);
+  const [deletingVenda, setDeletingVenda] = useState(false);
+
   // Access dialog
   const [viewAccess, setViewAccess] = useState<AccessRequest | null>(null);
   const [rejectAccess, setRejectAccess] = useState<AccessRequest | null>(null);
@@ -951,33 +963,21 @@ const Aprovacoes = () => {
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedAtiv(a); setAtivJustificativa(''); }}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
-                        {(ativStatus === 'pendente') && hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_atividade') && (
-                          <>
-                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleAtivAction(a, 'aprovado')}>
-                              <CheckCircle2 className="w-4 h-4" /> Aprovar
-                            </Button>
-                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {
-                              const just = window.prompt('Motivo da devolução:');
-                              if (just !== null) { setAtivJustificativa(just); handleAtivAction(a, 'devolvido'); }
-                            }}>
-                              <XCircle className="w-4 h-4" /> Recusar
-                            </Button>
-                          </>
-                        )}
-                        {hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_atividade') && (
-                          <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={async () => {
-                            if (!confirm('Excluir esta atividade?')) return;
-                            try {
-                              const { error, data } = await supabase.from('atividades').delete().eq('id', a.id).select();
-                              if (error) throw error;
-                              if (!data || data.length === 0) throw new Error('Não foi possível excluir. Sem permissão no banco de dados ou registro inexistente.');
-                              toast.success('Atividade excluída!');
-                              queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
-                            } catch (err: any) { toast.error(err.message); }
-                          }}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" disabled={ativStatus !== 'pendente'} onClick={() => handleAtivAction(a, 'aprovado')}>
+                          <CheckCircle2 className="w-4 h-4" /> Aprovar
+                        </Button>
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30" disabled={ativStatus !== 'pendente'} onClick={() => { setIsRejectingAtiv(false); setDevolverAtiv(a); setDevolverAtivMotivo(''); }}>
+                          <Undo2 className="w-4 h-4" /> Devolver
+                        </Button>
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setEditAtiv(a); setEditForm({ ligacoes: String(a.ligacoes), mensagens: String(a.mensagens), cotacoes_enviadas: String(a.cotacoes_enviadas), cotacoes_fechadas: String(a.cotacoes_fechadas), cotacoes_nao_respondidas: String((a as any).cotacoes_nao_respondidas ?? 0), follow_up: String(a.follow_up) }); }}>
+                          <Pencil className="w-4 h-4" /> Editar
+                        </Button>
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-orange-500 hover:bg-orange-500/10 border-orange-500/30" disabled={ativStatus !== 'pendente'} onClick={() => { setIsRejectingAtiv(true); setDevolverAtiv(a); setDevolverAtivMotivo(''); }}>
+                          <XCircle className="w-4 h-4" /> Rejeitar
+                        </Button>
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => setConfirmDeleteAtiv(a)}>
+                          <Trash2 className="w-4 h-4" /> Excluir
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -1025,33 +1025,21 @@ const Aprovacoes = () => {
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedVenda(v); setObs(v.observacoes || ''); setJustificativa(''); }}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
-                        {isPending && hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_venda') && (
-                          <>
-                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleVendaAction(v, 'aprovado')}>
-                              <CheckCircle2 className="w-4 h-4" /> Aprovar
-                            </Button>
-                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {
-                              const just = window.prompt('Motivo da devolução:');
-                              if (just !== null) { setJustificativa(just); handleVendaAction(v, 'devolvido'); }
-                            }}>
-                              <XCircle className="w-4 h-4" /> Recusar
-                            </Button>
-                          </>
-                        )}
-                        {hasCargoPermission(myCargoPerms, 'aprovacao_comercial', 'aprovar_venda') && (
-                          <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={async () => {
-                            if (!confirm('Excluir esta venda?')) return;
-                            try {
-                              const { error, data } = await supabase.from('vendas').delete().eq('id', v.id).select();
-                              if (error) throw error;
-                              if (!data || data.length === 0) throw new Error('Não foi possível excluir a venda. Valide suas permissões.');
-                              toast.success('Venda excluída!');
-                              queryClient.invalidateQueries({ queryKey: ['team-vendas'] });
-                            } catch (err: any) { toast.error(err.message); }
-                          }}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" disabled={!isPending} onClick={() => handleVendaAction(v, 'aprovado')}>
+                          <CheckCircle2 className="w-4 h-4" /> Aprovar
+                        </Button>
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30" disabled={!isPending} onClick={() => { setIsRejectingVenda(false); setDevolverVenda(v); setDevolverVendaMotivo(''); }}>
+                          <Undo2 className="w-4 h-4" /> Devolver
+                        </Button>
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedVenda(v); setObs(v.observacoes || ''); setJustificativa(''); }}>
+                          <Pencil className="w-4 h-4" /> Editar
+                        </Button>
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-orange-500 hover:bg-orange-500/10 border-orange-500/30" disabled={!isPending} onClick={() => { setIsRejectingVenda(true); setDevolverVenda(v); setDevolverVendaMotivo(''); }}>
+                          <XCircle className="w-4 h-4" /> Rejeitar
+                        </Button>
+                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => setConfirmDeleteVenda(v)}>
+                          <Trash2 className="w-4 h-4" /> Excluir
+                        </Button>
                       </div>
                     </div>
                     {v.observacoes && (
