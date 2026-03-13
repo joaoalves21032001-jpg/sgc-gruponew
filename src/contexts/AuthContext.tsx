@@ -201,8 +201,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setMfaVerified(true);
           setNeedsMfa(false);
         } else {
-          setNeedsMfa(false);
-          setMfaVerified(false);
+          const { data: factors } = await supabase.auth.mfa.listFactors();
+          if (!factors?.totp || factors.totp.length === 0) {
+             setNeedsMfa(true);
+             setMfaVerified(false);
+          } else {
+             const unverified = factors.totp.find(f => f.status === 'unverified');
+             if (unverified) {
+               await supabase.auth.mfa.unenroll({ factorId: unverified.id });
+               setNeedsMfa(true);
+               setMfaVerified(false);
+             } else {
+               setNeedsMfa(true);
+               setMfaVerified(false);
+             }
+          }
         }
         setMfaChecked(true);
       } catch {

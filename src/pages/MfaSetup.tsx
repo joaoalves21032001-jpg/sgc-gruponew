@@ -113,15 +113,23 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
       });
       if (error) {
         console.error('MFA enroll error:', error);
-        // If enrollment fails, try refreshing the session and retrying once
-        await supabase.auth.refreshSession();
+        
+        // If there's an error on the very first enroll try, refresh session
+        const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession();
+        if (refreshError || !sessionData.session) {
+           toast.error('Sessão expirada. Redirecionando para login...');
+           setTimeout(() => window.location.href = '/login', 2000);
+           return;
+        }
+
         const retry = await supabase.auth.mfa.enroll({
           factorType: 'totp',
           friendlyName: 'Google Authenticator',
         });
+        
         if (retry.error) {
           console.error('MFA enroll retry error:', retry.error);
-          toast.error('Erro ao configurar MFA. Tente fazer logout e login novamente.');
+          toast.error('Sessão inválida para gerar MFA. Por favor, faça logout e entre novamente.');
           return;
         }
         setQrCode(retry.data.totp.qr_code);
@@ -136,7 +144,7 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
       setStep('enroll');
     } catch (err) {
       console.error('MFA enroll exception:', err);
-      toast.error('Erro ao configurar MFA. Tente fazer logout e login novamente.');
+      toast.error('Sessão de MFA inválida. Tente fazer logout e login novamente.');
     }
   };
 

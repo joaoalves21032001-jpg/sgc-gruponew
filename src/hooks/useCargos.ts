@@ -112,15 +112,50 @@ export const CARGO_MODULES_DEF: CargoResourceGroupDef[] = [
         groupLabel: 'Aprovações de Registros',
         resources: [
             {
-                key: 'aprovacao_comercial',
-                label: 'Gestão de Vendas e Atividades',
+                key: 'aprovacao_atividades',
+                label: 'Atividades',
                 actions: [
-                    { key: 'analisar_venda', label: 'Analisar (Venda/Ativ)' },
-                    { key: 'aprovar_venda', label: 'Aprovar (Venda/Ativ)' },
-                    { key: 'editar_venda', label: 'Editar (Venda/Ativ)' },
-                    { key: 'devolver_venda', label: 'Devolver (Venda/Ativ)' },
-                    { key: 'rejeitar_venda', label: 'Rejeitar (Venda/Ativ)' },
-                    { key: 'excluir_venda', label: 'Excluir (Venda/Ativ)' },
+                    { key: 'analisar', label: 'Analisar' },
+                    { key: 'aprovar', label: 'Aprovar' },
+                    { key: 'editar', label: 'Editar' },
+                    { key: 'devolver', label: 'Devolver' },
+                    { key: 'rejeitar', label: 'Rejeitar' },
+                    { key: 'excluir', label: 'Excluir' },
+                ]
+            },
+            {
+                key: 'aprovacao_vendas',
+                label: 'Vendas',
+                actions: [
+                    { key: 'analisar', label: 'Analisar' },
+                    { key: 'aprovar', label: 'Aprovar' },
+                    { key: 'editar', label: 'Editar' },
+                    { key: 'devolver', label: 'Devolver' },
+                    { key: 'rejeitar', label: 'Rejeitar' },
+                    { key: 'excluir', label: 'Excluir' },
+                ]
+            },
+            {
+                key: 'aprovacao_cotacoes',
+                label: 'Cotações',
+                actions: [
+                    { key: 'analisar', label: 'Analisar' },
+                    { key: 'aprovar', label: 'Aprovar' },
+                    { key: 'editar', label: 'Editar' },
+                    { key: 'rejeitar', label: 'Rejeitar' },
+                    { key: 'excluir', label: 'Excluir' },
+                ]
+            },
+            {
+                key: 'aprovacao_alteracoes',
+                label: 'Alterações',
+                actions: [
+                    { key: 'analisar', label: 'Analisar' },
+                    { key: 'aprovar', label: 'Aprovar' },
+                    { key: 'editar', label: 'Editar' },
+                    { key: 'devolver', label: 'Devolver' },
+                    { key: 'rejeitar', label: 'Rejeitar' },
+                    { key: 'excluir', label: 'Excluir' },
                 ]
             }
         ]
@@ -129,13 +164,34 @@ export const CARGO_MODULES_DEF: CargoResourceGroupDef[] = [
         groupLabel: 'Aprovações Administrativas',
         resources: [
             {
-                key: 'aprovacao_admin',
-                label: 'Controle de Acesso e Correções',
+                key: 'aprovacao_admin_acesso',
+                label: 'Acesso',
                 actions: [
-                    { key: 'aprovar_acesso', label: 'Aprovar Acesso' },
-                    { key: 'aprovar_mfa', label: 'Aprovar Reset MFA' },
-                    { key: 'aprovar_senha', label: 'Aprovar Reset Senha' },
-                    { key: 'avaliar_correcao', label: 'Avaliar Correções' },
+                    { key: 'analisar', label: 'Analisar' },
+                    { key: 'aprovar', label: 'Aprovar' },
+                    { key: 'editar', label: 'Editar' },
+                    { key: 'rejeitar', label: 'Rejeitar' },
+                    { key: 'excluir', label: 'Excluir' },
+                ]
+            },
+            {
+                key: 'aprovacao_admin_mfa',
+                label: 'MFA',
+                actions: [
+                    { key: 'analisar', label: 'Analisar' },
+                    { key: 'aprovar', label: 'Aprovar' },
+                    { key: 'rejeitar', label: 'Rejeitar' },
+                    { key: 'excluir', label: 'Excluir' },
+                ]
+            },
+            {
+                key: 'aprovacao_admin_senha',
+                label: 'Senha',
+                actions: [
+                    { key: 'analisar', label: 'Analisar' },
+                    { key: 'aprovar', label: 'Aprovar' },
+                    { key: 'rejeitar', label: 'Rejeitar' },
+                    { key: 'excluir', label: 'Excluir' },
                 ]
             }
         ]
