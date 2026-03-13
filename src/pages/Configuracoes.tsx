@@ -76,13 +76,7 @@ const Configuracoes = () => {
     const logAction = useLogAction();
     const queryClient = useQueryClient();
     const { data: myPagePermissions } = useMyPermissions();
-    const [isMainAdmin, setIsMainAdmin] = useState(false);
 
-    useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setIsMainAdmin(session?.user?.email === 'admin@sgc.com');
-        });
-    }, []);
     // Log Retention
     const [retentionMonths, setRetentionMonths] = useState('6');
     const [autoDeleteReadNotifs, setAutoDeleteReadNotifs] = useState(false);
@@ -600,7 +594,7 @@ const Configuracoes = () => {
                                     ))}
                                 </div>
                             </div>
-                            {isMainAdmin && (
+                            {hasPermission(myPagePermissions, 'configuracoes', 'edit') && (
                             <Button
                                 size="sm"
                                 className="shrink-0 gap-2 font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-brand"
@@ -634,7 +628,7 @@ const Configuracoes = () => {
                                 <BrainCircuit className="w-6 h-6 text-primary" />
                                 <h2 className="text-lg font-bold font-display text-foreground">Inteligência Artificial (Stark)</h2>
                             </div>
-                            {isMainAdmin && (
+                            {hasPermission(myPagePermissions, 'configuracoes', 'edit') && (
                             <Button size="sm" className="gap-1.5 font-semibold shadow-brand" onClick={() => setNewKbOpen(true)}>
                                 <Plus className="w-3.5 h-3.5" /> Ensinar a IA
                             </Button>

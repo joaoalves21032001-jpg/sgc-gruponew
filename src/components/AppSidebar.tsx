@@ -71,21 +71,17 @@ export function AppSidebar() {
   const borderClass = patente?.borderClass ?? 'border-sidebar-border';
 
   const canAccess = (item: NavItem) => {
-    // Rely completely on security profile matrix (Macro level)
-    // Admins always see Configurações
-    if (item.to === '/admin/configuracoes' && role === 'administrador') return true;
-    // Map the nav item path to the resource key
-    // Note: /comercial → 'atividades', /gestao → 'dashboard'
-    const resourceKey = item.to === '/' ? 'meu_progresso'
+    // Map the nav item path to the resource key (must match keys in MODULES_DEF)
+    const resourceKey = item.to === '/' ? 'progresso'
       : item.to === '/comercial' ? 'atividades'
       : item.to === '/gestao' ? 'dashboard'
       : item.to === '/admin/usuarios' ? 'configuracoes'
       : item.to === '/admin/logs' ? 'logs_auditoria'
       : PATH_TO_RESOURCE[item.to];
-    if (resourceKey) {
-      return hasPermission(myPermissions, resourceKey, 'view');
-    }
-    return false;
+    if (!resourceKey) return false;
+    // While permissions are loading (myPermissions is undefined), show nothing — avoids flicker
+    // When permissions loaded but empty → deny
+    return hasPermission(myPermissions, resourceKey, 'view');
   };
 
   const filteredItems = useMemo(() => {

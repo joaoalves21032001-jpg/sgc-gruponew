@@ -298,19 +298,16 @@ export function useUpdateCargo() {
     const queryClient = useQueryClient();
     return useMutation({
         mutationFn: async ({ id, nome, description, requires_leader }: { id: string; nome: string; description?: string; requires_leader?: boolean }) => {
-            const updateProps: any = { nome, updated_at: new Date().toISOString() };
+            const updateProps: any = { nome };
             if (description !== undefined) updateProps.description = description;
-            // requires_leader is sent only if the column exists in the schema
-            // (avoids 'column not found in schema cache' error if migration hasn't run)
-            try {
-                if (requires_leader !== undefined) updateProps.requires_leader = requires_leader;
-            } catch { /* ignore */ }
+            if (requires_leader !== undefined) updateProps.requires_leader = requires_leader;
             const { error } = await supabase
                 .from('cargos' as any)
                 .update(updateProps)
                 .eq('id', id);
             if (error) throw error;
         },
+
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['cargos'] });
         },

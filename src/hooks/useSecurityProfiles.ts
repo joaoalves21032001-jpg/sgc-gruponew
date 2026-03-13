@@ -210,7 +210,26 @@ export function hasPermission(
     resource: string,
     action: string = 'view'
 ): boolean {
-    return true; // Bypass all security profile permissions for testing
+    // If permissions array is null/undefined it means we haven't loaded yet — default deny
+    if (permissions === undefined || permissions === null) return false;
+
+    // Empty array = no permissions configured = deny all
+    if (permissions.length === 0) return false;
+
+    // Direct match: exact resource + action
+    const direct = permissions.find(p => p.resource === resource && p.action === action);
+    if (direct) return direct.allowed;
+
+    // Parent-level match: if resource is 'crm.leads', also check parent 'crm'
+    const dot = resource.lastIndexOf('.');
+    if (dot !== -1) {
+        const parent = resource.substring(0, dot);
+        const parentPerm = permissions.find(p => p.resource === parent && p.action === action);
+        if (parentPerm) return parentPerm.allowed;
+    }
+
+    // No match found → deny
+    return false;
 }
 
 /** Fetch cargos assigned to a specific security profile */
