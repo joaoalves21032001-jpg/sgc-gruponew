@@ -309,7 +309,8 @@ const Login = () => {
                 <label className="text-sm font-medium text-foreground">Senha</label>
                 <button
                   type="button"
-                  onClick={() => setShowForgotPassword(true)}
+                  onClick={() => { setForgotForm(f => ({ ...f, email })); setShowForgotPassword(true); }}
+
                   className="text-xs text-primary hover:text-primary/80 font-medium transition-colors"
                 >
                   Esqueci minha senha
