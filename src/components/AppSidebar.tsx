@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useUnreadCount } from '@/hooks/useNotifications';
 import { useSidebarOrder } from '@/hooks/useSidebarOrder';
 import { useMyPermissions, hasPermission, PATH_TO_RESOURCE } from '@/hooks/useSecurityProfiles';
+import { useMyCargoPermissions } from '@/hooks/useCargos';
 import { usePendingApprovals, useMyPendingActions } from '@/hooks/usePendingCounts';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 
@@ -53,6 +54,7 @@ export function AppSidebar() {
   const unreadNotifications = useUnreadCount();
   const { sortItems, setOrder, togglePin, isPinned } = useSidebarOrder();
   const { data: myPermissions } = useMyPermissions();
+  const { data: myCargoPermissions } = useMyCargoPermissions();
   const { data: pendingApprovals = 0 } = usePendingApprovals();
   const { data: pendingActions = 0 } = useMyPendingActions();
 
@@ -70,6 +72,34 @@ export function AppSidebar() {
   const frase = getFraseMotivacional(percentMeta);
   const borderClass = patente?.borderClass ?? 'border-sidebar-border';
 
+  // Map sidebar page key to cargo resource prefixes
+  const PAGE_TO_CARGO_PREFIX: Record<string, string> = {
+    progresso: 'progresso',
+    atividades: 'atividades.',
+    minhas_acoes: 'minhas_acoes',
+    crm: 'crm.',
+    aprovacoes: 'aprovacao',
+    dashboard: 'dashboard',
+    inventario: 'inventario.',
+    equipe: 'equipe',
+    configuracoes: 'configuracoes',
+    logs_auditoria: 'logs_auditoria',
+    notificacoes: 'notificacoes',
+  };
+
+  const cargoAllowsPage = (pageKey: string): boolean => {
+    // If cargo permissions not loaded yet or no cargo set, don't block
+    if (myCargoPermissions === undefined || myCargoPermissions === null) return true;
+    // If cargo has NO permissions at all configured, allow (backwards compatible)
+    if (myCargoPermissions.length === 0) return true;
+    const prefix = PAGE_TO_CARGO_PREFIX[pageKey];
+    if (!prefix) return true;
+    // Check if there's at least one allowed 'view' permission for this page
+    const relevant = myCargoPermissions.filter(p => p.resource.startsWith(prefix) || p.resource === prefix);
+    if (relevant.length === 0) return true; // no cargo rule for this page, don't restrict
+    return relevant.some(p => p.action === 'view' && p.allowed);
+  };
+
   const canAccess = (item: NavItem) => {
     // Map the nav item path to the resource key (must match keys in MODULES_DEF)
     const resourceKey = item.to === '/' ? 'progresso'
@@ -79,9 +109,11 @@ export function AppSidebar() {
       : item.to === '/admin/logs' ? 'logs_auditoria'
       : PATH_TO_RESOURCE[item.to];
     if (!resourceKey) return false;
-    // While permissions are loading (myPermissions is undefined), show nothing — avoids flicker
-    // When permissions loaded but empty → deny
-    return hasPermission(myPermissions, resourceKey, 'view');
+    // Gate 1: Security profile (macro) — controls which pages are accessible at all
+    const profileAllows = hasPermission(myPermissions, resourceKey, 'view');
+    if (!profileAllows) return false;
+    // Gate 2: Cargo (micro) — further restricts based on fine-grained cargo permissions
+    return cargoAllowsPage(resourceKey);
   };
 
   const filteredItems = useMemo(() => {
