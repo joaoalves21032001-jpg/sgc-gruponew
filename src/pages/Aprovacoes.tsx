@@ -2005,6 +2005,162 @@ const Aprovacoes = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Devolver Atividade Dialog ── */}
+      <Dialog open={!!devolverAtiv} onOpenChange={(v) => { if (!v) setDevolverAtiv(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className={`font-display text-lg ${isRejectingAtiv ? 'text-orange-500' : 'text-primary'}`}>
+              {isRejectingAtiv ? 'Rejeitar Atividade' : 'Devolver Atividade'}
+            </DialogTitle>
+            <DialogDescription>
+              {isRejectingAtiv ? 'Informe o motivo da rejeição desta atividade.' : 'Informe o motivo da devolução para correção.'}
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={devolverAtivMotivo}
+            onChange={(e) => setDevolverAtivMotivo(e.target.value)}
+            placeholder="Motivo obrigatório..."
+            rows={3}
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDevolverAtiv(null)}>Cancelar</Button>
+            <Button
+              variant={isRejectingAtiv ? 'destructive' : 'default'}
+              className="gap-1.5"
+              disabled={!devolverAtivMotivo.trim() || savingAtiv}
+              onClick={async () => {
+                if (!devolverAtiv || !devolverAtivMotivo.trim()) return;
+                setSavingAtiv(true);
+                try {
+                  const status = isRejectingAtiv ? 'rejeitado' : 'devolvido';
+                  const { error } = await supabase.from('atividades')
+                    .update({ status, motivo_recusa: devolverAtivMotivo.trim() } as any)
+                    .eq('id', devolverAtiv.id);
+                  if (error) throw error;
+                  toast.success(`Atividade ${isRejectingAtiv ? 'rejeitada' : 'devolvida'} com sucesso!`);
+                  dispatchNotification(
+                    isRejectingAtiv ? 'atividade_rejeitada' : 'atividade_devolvida',
+                    devolverAtiv.user_id,
+                    isRejectingAtiv ? 'Atividade Rejeitada' : 'Atividade Devolvida',
+                    `Sua atividade de ${devolverAtiv.data} foi ${isRejectingAtiv ? 'rejeitada' : 'devolvida'}: ${devolverAtivMotivo.trim()}`,
+                    'atividade', '/minhas-acoes'
+                  );
+                  queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
+                  queryClient.invalidateQueries({ queryKey: ['atividades'] });
+                  setDevolverAtiv(null);
+                } catch (err: any) { toast.error(err.message); }
+                finally { setSavingAtiv(false); }
+              }}
+            >
+              {isRejectingAtiv ? <><XCircle className="w-4 h-4" /> Rejeitar</> : <><Undo2 className="w-4 h-4" /> Devolver</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Devolver Venda Dialog ── */}
+      <Dialog open={!!devolverVenda} onOpenChange={(v) => { if (!v) setDevolverVenda(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className={`font-display text-lg ${isRejectingVenda ? 'text-orange-500' : 'text-primary'}`}>
+              {isRejectingVenda ? 'Rejeitar Venda' : 'Devolver Venda'}
+            </DialogTitle>
+            <DialogDescription>
+              {isRejectingVenda ? 'Informe o motivo da rejeição desta venda.' : 'Informe o motivo da devolução para correção.'}
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={devolverVendaMotivo}
+            onChange={(e) => setDevolverVendaMotivo(e.target.value)}
+            placeholder="Motivo obrigatório..."
+            rows={3}
+          />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDevolverVenda(null)}>Cancelar</Button>
+            <Button
+              variant={isRejectingVenda ? 'destructive' : 'default'}
+              className="gap-1.5"
+              disabled={!devolverVendaMotivo.trim()}
+              onClick={async () => {
+                if (!devolverVenda || !devolverVendaMotivo.trim()) return;
+                try {
+                  const status = isRejectingVenda ? 'devolvido' : 'devolvido';
+                  await updateStatus.mutateAsync({ id: devolverVenda.id, status, observacoes: devolverVenda.observacoes, motivo_recusa: devolverVendaMotivo.trim() });
+                  toast.success(`Venda ${isRejectingVenda ? 'rejeitada' : 'devolvida'}!`);
+                  dispatchNotification(
+                    'venda_devolvida',
+                    devolverVenda.user_id,
+                    isRejectingVenda ? 'Venda Rejeitada' : 'Venda Devolvida',
+                    `Sua venda de "${devolverVenda.nome_titular}" foi ${isRejectingVenda ? 'rejeitada' : 'devolvida'}: ${devolverVendaMotivo.trim()}`,
+                    'venda', '/minhas-acoes'
+                  );
+                  setDevolverVenda(null);
+                } catch (err: any) { toast.error(err.message); }
+              }}
+            >
+              {isRejectingVenda ? <><XCircle className="w-4 h-4" /> Rejeitar</> : <><Undo2 className="w-4 h-4" /> Devolver</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Confirm Delete Atividade ── */}
+      <Dialog open={!!confirmDeleteAtiv} onOpenChange={(v) => { if (!v) setConfirmDeleteAtiv(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg text-destructive">Excluir Atividade</DialogTitle>
+            <DialogDescription>Esta ação é irreversível. A atividade será permanentemente removida.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmDeleteAtiv(null)}>Cancelar</Button>
+            <Button variant="destructive" disabled={deletingAtiv} className="gap-1.5" onClick={async () => {
+              if (!confirmDeleteAtiv) return;
+              setDeletingAtiv(true);
+              try {
+                const { error, data } = await supabase.from('atividades').delete().eq('id', confirmDeleteAtiv.id).select();
+                if (error) throw error;
+                if (!data || data.length === 0) throw new Error('Sem permissão para excluir.');
+                toast.success('Atividade excluída!');
+                queryClient.invalidateQueries({ queryKey: ['team-atividades'] });
+                setConfirmDeleteAtiv(null);
+              } catch (err: any) { toast.error(err.message); }
+              finally { setDeletingAtiv(false); }
+            }}>
+              {deletingAtiv ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Trash2 className="w-4 h-4" /> Excluir</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Confirm Delete Venda ── */}
+      <Dialog open={!!confirmDeleteVenda} onOpenChange={(v) => { if (!v) setConfirmDeleteVenda(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg text-destructive">Excluir Venda</DialogTitle>
+            <DialogDescription>Esta ação é irreversível. A venda será permanentemente removida.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setConfirmDeleteVenda(null)}>Cancelar</Button>
+            <Button variant="destructive" disabled={deletingVenda} className="gap-1.5" onClick={async () => {
+              if (!confirmDeleteVenda) return;
+              setDeletingVenda(true);
+              try {
+                const { error, data } = await supabase.from('vendas').delete().eq('id', confirmDeleteVenda.id).select();
+                if (error) throw error;
+                if (!data || data.length === 0) throw new Error('Sem permissão para excluir.');
+                toast.success('Venda excluída!');
+                queryClient.invalidateQueries({ queryKey: ['team-vendas'] });
+                setConfirmDeleteVenda(null);
+              } catch (err: any) { toast.error(err.message); }
+              finally { setDeletingVenda(false); }
+            }}>
+              {deletingVenda ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Trash2 className="w-4 h-4" /> Excluir</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 };
