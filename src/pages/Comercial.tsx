@@ -105,7 +105,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const logAction = useLogAction();
   const navigate = useNavigate();
   const { data: myPermissions } = useMyPermissions();
-  const canEdit = hasPermission(myPermissions, 'comercial.atividades', 'edit');
+  const canEdit = hasPermission(myPermissions, 'atividades', 'edit');
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const submitCR = useSubmitCorrectionRequest();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -467,8 +467,9 @@ const Comercial = () => {
   const editAtividade = (location.state as any)?.editAtividade;
   const defaultTab = (editVenda || prefillLead) ? 'nova-venda' : 'atividades';
   const { data: myPermissions } = useMyPermissions();
-  const canViewAtividades = hasPermission(myPermissions, 'comercial.atividades', 'view');
-  const canViewNovaVenda = hasPermission(myPermissions, 'comercial.vendas', 'view');
+  const canViewAtividades = hasPermission(myPermissions, 'atividades', 'view');
+  const canViewNovaVenda = hasPermission(myPermissions, 'atividades', 'view'); // same page, controlled by atividades key
+  const canEditAtividades = hasPermission(myPermissions, 'atividades', 'edit');
 
 
   return (
