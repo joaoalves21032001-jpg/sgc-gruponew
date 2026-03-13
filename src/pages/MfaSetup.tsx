@@ -93,12 +93,12 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
     const unverifiedFactor = totp.find(f => (f as any).status === 'unverified');
 
     if (verifiedFactor) {
-      // Already enrolled, need to verify
+      // Already enrolled with a verified factor — go straight to code entry
       setFactorId(verifiedFactor.id);
       setStep('verify');
     } else if (unverifiedFactor) {
-      // Unenroll the unverified factor and start fresh
-      await supabase.auth.mfa.unenroll({ factorId: unverifiedFactor.id });
+      // There's already an unverified factor (e.g. user pressed back after QR appeared).
+      // Re-enroll to get a fresh QR code — the SDK replaces the old unverified one.
       await enrollMfa();
     } else {
       await enrollMfa();
@@ -113,23 +113,23 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
       });
       if (error) {
         console.error('MFA enroll error:', error);
-        
-        // If there's an error on the very first enroll try, refresh session
+
+        // Refresh session and retry once
         const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError || !sessionData.session) {
-           toast.error('Sessão expirada. Redirecionando para login...');
-           setTimeout(() => window.location.href = '/login', 2000);
-           return;
+          toast.error('Sessão expirada. Por favor, faça logout e entre novamente.');
+          return;
         }
 
         const retry = await supabase.auth.mfa.enroll({
           factorType: 'totp',
           friendlyName: 'Google Authenticator',
         });
-        
+
         if (retry.error) {
           console.error('MFA enroll retry error:', retry.error);
-          toast.error('Sessão inválida para gerar MFA. Por favor, faça logout e entre novamente.');
+          // Show a friendly message with sign-out option (avoid dead-end)
+          toast.error('Não foi possível gerar o QR Code. Faça logout e entre novamente para tentar de novo.');
           return;
         }
         setQrCode(retry.data.totp.qr_code);
@@ -144,9 +144,10 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
       setStep('enroll');
     } catch (err) {
       console.error('MFA enroll exception:', err);
-      toast.error('Sessão de MFA inválida. Tente fazer logout e login novamente.');
+      toast.error('Não foi possível iniciar MFA. Tente fazer logout e login novamente.');
     }
   };
+
 
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -502,7 +502,8 @@ const Configuracoes = () => {
     const activeProfiles = profiles.filter(p => !p.disabled).length;
     const disabledProfiles = profiles.filter(p => p.disabled).length;
 
-    const userProfileSecurityId = profileCargos.length > 0 ? profileCargos[0].id : null;   // this is just to check superadmin below
+    const userProfileSecurityId = profileCargos.length > 0 ? (profileCargos[0] as any).id : null;   // check superadmin below
+
     const isCurrentUserSuperadmin = securityProfiles.find(sp => sp.id === (profile as any)?.security_profile_id)?.name.toLowerCase().includes('superadmin');
 
     if (role !== 'administrador' && !hasPermission(myPagePermissions, 'configuracoes', 'view') && !isCurrentUserSuperadmin) {

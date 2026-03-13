@@ -11,6 +11,7 @@ export interface Cargo {
     is_system: boolean;
     requires_leader: boolean;
     security_profile_id: string | null;
+    is_protected?: boolean;
     created_at: string;
     updated_at: string;
 }
