@@ -28,8 +28,8 @@ import {
     useUpdateSecurityProfile,
     useDeleteSecurityProfile,
     useTogglePermission,
-    useAssignSecurityProfile,
-    useProfileUsers,
+    useAssignSecurityProfileToCargo,
+    useProfileCargos,
     useMyPermissions,
     hasPermission,
     MODULES_DEF,
@@ -92,12 +92,12 @@ const Configuracoes = () => {
     const { data: securityProfiles = [], isLoading: spLoading } = useSecurityProfiles();
     const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
     const { data: profilePerms = [] } = useProfilePermissions(selectedProfileId);
-    const { data: profileUsers = [] } = useProfileUsers(selectedProfileId);
+    const { data: profileCargos = [] } = useProfileCargos(selectedProfileId);
     const createProfile = useCreateSecurityProfile();
     const updateProfile = useUpdateSecurityProfile();
     const deleteProfile = useDeleteSecurityProfile();
     const togglePerm = useTogglePermission();
-    const assignProfile = useAssignSecurityProfile();
+    const assignProfileToCargo = useAssignSecurityProfileToCargo();
 
     // Cargos
     const { data: cargos = [], isLoading: cargosLoading } = useCargos();
@@ -154,7 +154,7 @@ const Configuracoes = () => {
     const [newProfileName, setNewProfileName] = useState('');
     const [newProfileDesc, setNewProfileDesc] = useState('');
     const [editingProfile, setEditingProfile] = useState<{ id: string; name: string; description: string } | null>(null);
-    const [assignUserOpen, setAssignUserOpen] = useState(false);
+    const [assignCargoOpen, setAssignCargoOpen] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
 
@@ -465,24 +465,24 @@ const Configuracoes = () => {
         return perm?.allowed ?? false;
     };
 
-    const handleAssignUser = (userId: string) => {
+    const handleAssignCargo = (cargoId: string) => {
         if (!selectedProfileId) return;
-        assignProfile.mutate({ userId, profileId: selectedProfileId }, {
+        assignProfileToCargo.mutate({ cargoId, profileId: selectedProfileId }, {
             onSuccess: () => {
-                const userName = profiles.find(p => p.id === userId)?.nome_completo;
-                logAction('vincular_perfil_seguranca', 'security_profiles', selectedProfileId, { user: userName });
-                toast.success('Usuário vinculado!');
-                setAssignUserOpen(false);
-                queryClient.invalidateQueries({ queryKey: ['security-profile-users', selectedProfileId] });
+                const cargoName = cargos.find((c: any) => c.id === cargoId)?.nome;
+                logAction('vincular_perfil_seguranca', 'security_profiles', selectedProfileId, { cargo: cargoName });
+                toast.success('Cargo vinculado!');
+                setAssignCargoOpen(false);
+                queryClient.invalidateQueries({ queryKey: ['security-profile-cargos', selectedProfileId] });
             },
         });
     };
 
-    const handleRemoveUser = (userId: string) => {
-        assignProfile.mutate({ userId, profileId: null }, {
+    const handleRemoveCargo = (cargoId: string) => {
+        assignProfileToCargo.mutate({ cargoId, profileId: null }, {
             onSuccess: () => {
-                toast.success('Usuário removido do perfil.');
-                queryClient.invalidateQueries({ queryKey: ['security-profile-users', selectedProfileId] });
+                toast.success('Cargo removido do perfil.');
+                queryClient.invalidateQueries({ queryKey: ['security-profile-cargos', selectedProfileId] });
             },
         });
     };
@@ -490,8 +490,8 @@ const Configuracoes = () => {
     const activeProfiles = profiles.filter(p => !p.disabled).length;
     const disabledProfiles = profiles.filter(p => p.disabled).length;
 
-    const userProfileSecurityId = (profile as any)?.security_profile_id;
-    const isCurrentUserSuperadmin = securityProfiles.find(sp => sp.id === userProfileSecurityId)?.name.toLowerCase().includes('superadmin');
+    const userProfileSecurityId = profileCargos.length > 0 ? profileCargos[0].id : null;   // this is just to check superadmin below
+    const isCurrentUserSuperadmin = securityProfiles.find(sp => sp.id === (profile as any)?.security_profile_id)?.name.toLowerCase().includes('superadmin');
 
     if (role !== 'administrador' && !hasPermission(myPagePermissions, 'configuracoes', 'view') && !isCurrentUserSuperadmin) {
         return (
@@ -505,7 +505,7 @@ const Configuracoes = () => {
         );
     }
 
-    const unassignedUsers = profiles.filter(p => !p.disabled && !profileUsers.some(u => (u as any).id === p.id));
+    const unassignedCargos = cargos.filter((c: any) => !profileCargos.some((pc: any) => pc.id === c.id));
 
     return (
         <div className="space-y-6 animate-fade-in-up">
@@ -944,29 +944,29 @@ const Configuracoes = () => {
 
                             <Separator className="bg-border/20" />
 
-                            {/* ── Users assigned ── */}
+                            {/* ── Cargos assigned ── */}
                             <div className="space-y-3">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         <Users className="w-4 h-4 text-primary" />
-                                        <h4 className="text-sm font-bold text-foreground">Usuários Vinculados ({profileUsers.length})</h4>
+                                        <h4 className="text-sm font-bold text-foreground">Cargos Vinculados ({profileCargos.length})</h4>
                                     </div>
-                                    <Button variant="outline" size="sm" className="gap-1" onClick={() => setAssignUserOpen(true)}>
-                                        <UserPlus className="w-3 h-3" /> Vincular Usuário
+                                    <Button variant="outline" size="sm" className="gap-1" onClick={() => setAssignCargoOpen(true)}>
+                                        <UserPlus className="w-3 h-3" /> Vincular Cargo
                                     </Button>
                                 </div>
 
-                                {profileUsers.length === 0 ? (
-                                    <p className="text-xs text-muted-foreground py-3 text-center">Nenhum usuário vinculado a este perfil.</p>
+                                {profileCargos.length === 0 ? (
+                                    <p className="text-xs text-muted-foreground py-3 text-center">Nenhum cargo vinculado a este perfil.</p>
                                 ) : (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        {profileUsers.map((u: any) => (
-                                            <div key={u.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/20">
+                                        {profileCargos.map((c: any) => (
+                                            <div key={c.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/20">
                                                 <div>
-                                                    <p className="text-sm font-medium text-foreground">{u.nome_completo}</p>
-                                                    <p className="text-[10px] text-muted-foreground">{u.cargo} · {u.email}</p>
+                                                    <p className="text-sm font-medium text-foreground">{c.nome}</p>
+                                                    <p className="text-[10px] text-muted-foreground">{c.description || 'Sem descrição'}</p>
                                                 </div>
-                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/60 hover:text-destructive" onClick={() => handleRemoveUser(u.id)}>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/60 hover:text-destructive" onClick={() => handleRemoveCargo(c.id)}>
                                                     <X className="w-3.5 h-3.5" />
                                                 </Button>
                                             </div>
@@ -1551,23 +1551,23 @@ const Configuracoes = () => {
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={assignUserOpen} onOpenChange={setAssignUserOpen}>
+            <Dialog open={assignCargoOpen} onOpenChange={setAssignCargoOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle className="font-display text-lg">Vincular Usuário</DialogTitle>
-                        <DialogDescription>Selecione um usuário para vincular ao perfil "{selectedProfile?.name}".</DialogDescription>
+                        <DialogTitle className="font-display text-lg">Vincular Cargo</DialogTitle>
+                        <DialogDescription>Selecione um cargo para vincular ao perfil "{selectedProfile?.name}".</DialogDescription>
                     </DialogHeader>
                     <div className="space-y-2 py-2 max-h-[50vh] overflow-y-auto">
-                        {unassignedUsers.length === 0 ? (
-                            <p className="text-xs text-muted-foreground text-center py-4">Todos os usuários já estão vinculados.</p>
+                        {unassignedCargos.length === 0 ? (
+                            <p className="text-xs text-muted-foreground text-center py-4">Todos os cargos já estão vinculados a este perfil.</p>
                         ) : (
-                            unassignedUsers.map(p => (
-                                <div key={p.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/20 hover:bg-muted/50 transition-colors">
+                            unassignedCargos.map((c: any) => (
+                                <div key={c.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/20 hover:bg-muted/50 transition-colors">
                                     <div>
-                                        <p className="text-sm font-medium text-foreground">{p.nome_completo}</p>
-                                        <p className="text-[10px] text-muted-foreground">{p.cargo} · {p.email}</p>
+                                        <p className="text-sm font-medium text-foreground">{c.nome}</p>
+                                        <p className="text-[10px] text-muted-foreground">{c.description || 'Sem descrição'}</p>
                                     </div>
-                                    <Button size="sm" variant="outline" className="gap-1 h-8" onClick={() => handleAssignUser(p.id)}>
+                                    <Button size="sm" variant="outline" className="gap-1 h-8" onClick={() => handleAssignCargo(c.id)}>
                                         <UserPlus className="w-3 h-3" /> Vincular
                                     </Button>
                                 </div>

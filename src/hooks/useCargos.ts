@@ -10,6 +10,7 @@ export interface Cargo {
     description: string | null;
     is_system: boolean;
     requires_leader: boolean;
+    security_profile_id: string | null;
     created_at: string;
     updated_at: string;
 }

@@ -167,12 +167,26 @@ export function useMyPermissions() {
     const { data: profile } = useProfile();
 
     return useQuery({
-        queryKey: ['my-permissions', user?.id, (profile as any)?.security_profile_id],
+        queryKey: ['my-permissions', user?.id, profile?.cargo_id],
         queryFn: async () => {
-            const profileId = (profile as any)?.security_profile_id as string | undefined;
-            if (!profileId) {
-                return null; // No profile → backward compat
+            const cargoId = profile?.cargo_id;
+            if (!cargoId) {
+                return null;
             }
+            
+            // fetch cargo to find security_profile_id
+            const result = await supabase
+                .from('cargos' as any)
+                .select('security_profile_id')
+                .eq('id', cargoId)
+                .maybeSingle();
+            const cargoData = result.data as any;
+            const cargoError = result.error;
+                
+            if (cargoError) throw cargoError;
+            const profileId = cargoData?.security_profile_id;
+            if (!profileId) return null;
+
             const { data, error } = await supabase
                 .from('security_profile_permissions' as any)
                 .select('*')
@@ -199,15 +213,15 @@ export function hasPermission(
     return true; // Bypass all security profile permissions for testing
 }
 
-/** Fetch users assigned to a specific security profile */
-export function useProfileUsers(profileId: string | null) {
+/** Fetch cargos assigned to a specific security profile */
+export function useProfileCargos(profileId: string | null) {
     return useQuery({
-        queryKey: ['security-profile-users', profileId],
+        queryKey: ['security-profile-cargos', profileId],
         queryFn: async () => {
             if (!profileId) return [];
-            const result = await (supabase
-                .from('profiles')
-                .select('id, nome_completo, email, cargo, disabled') as any)
+            const result = await supabase
+                .from('cargos' as any)
+                .select('id, nome, description')
                 .eq('security_profile_id', profileId);
             if (result.error) {
                 if (result.error.message?.includes('schema cache')) return [];
@@ -325,22 +339,21 @@ export function useBulkSetPermissions() {
     });
 }
 
-/** Assign a security profile to a user */
-export function useAssignSecurityProfile() {
+/** Assign a security profile to a cargo */
+export function useAssignSecurityProfileToCargo() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ userId, profileId }: { userId: string; profileId: string | null }) => {
+        mutationFn: async ({ cargoId, profileId }: { cargoId: string; profileId: string | null }) => {
             const { error } = await supabase
-                .from('profiles')
+                .from('cargos')
                 .update({ security_profile_id: profileId } as any)
-                .eq('id', userId);
+                .eq('id', cargoId);
             if (error) throw error;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['security-profile-users'] });
-            queryClient.invalidateQueries({ queryKey: ['profile'] });
+            queryClient.invalidateQueries({ queryKey: ['security-profile-cargos'] });
+            queryClient.invalidateQueries({ queryKey: ['cargos'] });
             queryClient.invalidateQueries({ queryKey: ['my-permissions'] });
-            queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
         },
     });
 }
