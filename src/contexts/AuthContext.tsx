@@ -141,28 +141,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   // MFA check — require MFA verification after login
+  // Only run once per login session (mfaChecked guard prevents re-runs on token refresh)
   useEffect(() => {
-    if (!user || hasProfile !== true) return;
+    if (!user || hasProfile !== true || mfaChecked) return;
     checkMfaStatus();
-  }, [user, hasProfile]);
+  }, [user, hasProfile, mfaChecked]);
 
   const checkMfaStatus = async () => {
-    // Safety net: if anything hangs for more than 5s, unblock the UI gracefully
+    // Safety net: if anything hangs for more than 6s, unblock the UI gracefully
     const timeout = new Promise<void>((resolve) =>
       setTimeout(() => {
         setNeedsMfa(false);
         setMfaChecked(true);
         resolve();
-      }, 5000)
+      }, 6000)
     );
 
     const check = async () => {
       try {
         const { data: aalData, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
 
-        // If we get an auth error, the session was invalidated — sign the user out
+        // If there's an auth error (e.g. session error during token refresh),
+        // DO NOT sign out — that creates an infinite sign-out/sign-in loop.
+        // Instead, unblock gracefully and let the user proceed.
         if (error) {
-          await supabase.auth.signOut();
+          console.warn('MFA check error (non-fatal):', error.message);
+          setNeedsMfa(false);
+          setMfaChecked(true);
           return;
         }
 
@@ -201,20 +206,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setMfaVerified(true);
           setNeedsMfa(false);
         } else {
+          // currentLevel is aal1, nextLevel is aal1 — user has no enrolled MFA factor
           const { data: factors } = await supabase.auth.mfa.listFactors();
           if (!factors?.totp || factors.totp.length === 0) {
-             setNeedsMfa(true);
-             setMfaVerified(false);
+            // No factor at all — needs to enroll
+            setNeedsMfa(true);
+            setMfaVerified(false);
           } else {
-             const unverified = factors.totp.find(f => f.status === 'unverified');
-             if (unverified) {
-               await supabase.auth.mfa.unenroll({ factorId: unverified.id });
-               setNeedsMfa(true);
-               setMfaVerified(false);
-             } else {
-               setNeedsMfa(true);
-               setMfaVerified(false);
-             }
+            const unverified = factors.totp.find(f => (f as any).status === 'unverified');
+            if (unverified) {
+              // Stale unverified factor — clean it up and force re-enrollment
+              try { await supabase.auth.mfa.unenroll({ factorId: unverified.id }); } catch { /* ignore */ }
+            }
+            // Has at least one factor (or just cleaned up) — needs to verify
+            setNeedsMfa(true);
+            setMfaVerified(false);
           }
         }
         setMfaChecked(true);

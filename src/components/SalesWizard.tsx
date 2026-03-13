@@ -1026,11 +1026,8 @@ export default function SalesWizard() {
                   />
                 </FieldWithTooltip>
 
-                <FieldWithTooltip label="Redução de Carência" tooltip="Preenchido automaticamente com base no Aproveitamento de Carência.">
-                  <div className="h-11 flex items-center px-3 rounded-md border border-border/40 bg-muted/50 text-sm font-medium text-foreground">
-                    {possuiAproveitamento ? 'Sim' : 'Não'}
-                  </div>
-                </FieldWithTooltip>
+
+
               </div>
             </div>
 
