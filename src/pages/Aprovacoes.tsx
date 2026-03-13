@@ -283,6 +283,9 @@ const Aprovacoes = () => {
   const { data: myCargoPerms } = useMyCargoPermissions();
   const { data: cargos = [] } = useCargosList();
 
+  const supervisores = useMemo(() => profiles.filter(p => p.cargo === 'Supervisor'), [profiles]);
+  const gerentes = useMemo(() => profiles.filter(p => ['Gerente', 'Diretor'].includes(p.cargo || '')), [profiles]);
+
   const [search, setSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('todos');
   const [filterConsultor, setFilterConsultor] = useState('todos');
