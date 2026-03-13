@@ -6,7 +6,7 @@ import { useProfile } from './useProfile';
 // ─── Types ───────────────────────────────────────────────────────
 export interface Cargo {
     id: string;
-    name: string;
+    nome: string;
     description: string | null;
     is_system: boolean;
     created_at: string;
@@ -220,10 +220,10 @@ export function hasCargoPermission(
 export function useCreateCargo() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ name, description }: { name: string; description?: string }) => {
+        mutationFn: async ({ nome, description }: { nome: string; description?: string }) => {
             const { data, error } = await supabase
                 .from('cargos' as any)
-                .insert({ name } as any)
+                .insert({ nome, description } as any)
                 .select()
                 .single();
             if (error) throw error;
@@ -238,10 +238,10 @@ export function useCreateCargo() {
 export function useUpdateCargo() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ id, name, description }: { id: string; name: string; description?: string }) => {
+        mutationFn: async ({ id, nome, description }: { id: string; nome: string; description?: string }) => {
             const { error } = await supabase
                 .from('cargos' as any)
-                .update({ name, updated_at: new Date().toISOString() } as any)
+                .update({ nome, description, updated_at: new Date().toISOString() } as any)
                 .eq('id', id);
             if (error) throw error;
         },

@@ -164,8 +164,8 @@ const AdminUsuarios = () => {
       if (key === 'cargo_id') {
         const cargoObj = allCargos?.find(c => c.id === value);
         if (cargoObj) {
-            next.cargo = cargoObj.name;
-            const nomeStr = cargoObj.name.toLowerCase();
+            next.cargo = cargoObj.nome;
+            const nomeStr = cargoObj.nome.toLowerCase();
             if (nomeStr.includes('supervisor') || nomeStr.includes('gerente') || nomeStr.includes('diretor')) {
                 next.supervisor_id = 'none';
             }
@@ -431,7 +431,7 @@ const AdminUsuarios = () => {
                     <p className="text-xs text-muted-foreground truncate">{p.email}</p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className="text-xs font-medium text-foreground">{allCargos?.find(c => c.id === p.cargo_id)?.name || p.cargo}</p>
+                    <p className="text-xs font-medium text-foreground">{allCargos?.find(c => c.id === p.cargo_id)?.nome || p.cargo}</p>
                     {p.codigo && <p className="text-[10px] text-muted-foreground font-mono">ID {p.codigo}</p>}
                   </div>
                 </div>
@@ -530,7 +530,7 @@ const AdminUsuarios = () => {
                 <FieldWithTooltip label="Apelido" tooltip="Nome pelo qual o colaborador é conhecido no dia a dia." required>
                   <Input value={form.apelido} onChange={(e) => setField('apelido', e.target.value)} className="h-10" />
                 </FieldWithTooltip>
-                <FieldWithTooltip label="E-mail (Google)" tooltip="Conta Google que será usada para login no sistema. Não pode ser alterada após o cadastro." required>
+                <FieldWithTooltip label="E-mail" tooltip="E-mail que será usado para login no sistema. Não pode ser alterado após o cadastro." required>
                   <Input type="email" value={form.email} onChange={(e) => setField('email', e.target.value)} disabled={!!editingId} className="h-10" />
                 </FieldWithTooltip>
                 <FieldWithTooltip label="Celular" tooltip="Número de celular pessoal com DDD. Formato: +55 (11) 90000-0000." required>
@@ -598,7 +598,7 @@ const AdminUsuarios = () => {
                   <Select value={form.cargo_id} onValueChange={(v) => setField('cargo_id', v)}>
                     <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {allCargos?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                      {allCargos?.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </FieldWithTooltip>
@@ -713,10 +713,7 @@ const AdminUsuarios = () => {
                 if (!deleteConfirm) return;
                 setDeleting(true);
                 try {
-                  // Delete profile and role data first to prevent trigger recreation
-                  await supabase.from('user_roles').delete().eq('user_id', deleteConfirm.id);
-                  await supabase.from('profiles').delete().eq('id', deleteConfirm.id);
-                  // Then delete auth user
+                  // Edge function handles all cleanup (user_roles, profiles, notifications, etc.)
                   const { data: delResult, error: delError } = await supabase.functions.invoke('admin-delete-user', {
                     body: { user_id: deleteConfirm.id },
                   });

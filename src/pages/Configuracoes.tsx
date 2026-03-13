@@ -108,11 +108,10 @@ const Configuracoes = () => {
     const deleteCargo = useDeleteCargo();
     const toggleCargoPerm = useToggleCargoPermission();
 
-    // Cargo Dialogs
     const [newCargoOpen, setNewCargoOpen] = useState(false);
-    const [newCargoName, setNewCargoName] = useState('');
+    const [newCargoNome, setNewCargoNome] = useState('');
     const [newCargoDesc, setNewCargoDesc] = useState('');
-    const [editingCargo, setEditingCargo] = useState<{ id: string; name: string; description: string } | null>(null);
+    const [editingCargo, setEditingCargo] = useState<{ id: string; nome: string; description: string } | null>(null);
     const [confirmDeleteCargoId, setConfirmDeleteCargoId] = useState<string | null>(null);
     const [expandedCargoResources, setExpandedCargoResources] = useState<Set<string>>(new Set());
 
@@ -396,13 +395,13 @@ const Configuracoes = () => {
     };
 
     const handleCreateCargo = async () => {
-        if (!newCargoName.trim()) { toast.error('Nome obrigatório.'); return; }
+        if (!newCargoNome.trim()) { toast.error('Nome obrigatório.'); return; }
         try {
-            const result = await createCargo.mutateAsync({ name: newCargoName.trim(), description: newCargoDesc.trim() || undefined });
-            logAction('criar_cargo', 'cargos', undefined, { name: newCargoName });
-            toast.success(`Cargo "${newCargoName}" criado!`);
+            const result = await createCargo.mutateAsync({ nome: newCargoNome.trim(), description: newCargoDesc.trim() || undefined });
+            logAction('criar_cargo', 'cargos', undefined, { nome: newCargoNome });
+            toast.success(`Cargo "${newCargoNome}" criado!`);
             setNewCargoOpen(false);
-            setNewCargoName('');
+            setNewCargoNome('');
             setNewCargoDesc('');
             setSelectedCargoId(result.id);
         } catch (err: any) {
@@ -413,7 +412,7 @@ const Configuracoes = () => {
     const handleUpdateCargo = async () => {
         if (!editingCargo) return;
         try {
-            await updateCargo.mutateAsync({ id: editingCargo.id, name: editingCargo.name, description: editingCargo.description });
+            await updateCargo.mutateAsync({ id: editingCargo.id, nome: editingCargo.nome, description: editingCargo.description });
             logAction('editar_cargo', 'cargos', editingCargo.id);
             toast.success('Cargo atualizado!');
             setEditingCargo(null);
@@ -998,7 +997,7 @@ const Configuracoes = () => {
                                             <div className="flex items-center justify-between mb-1">
                                                 <div className="flex items-center gap-2">
                                                     <ShieldCheck className={`w-4 h-4 ${selectedCargoId === cargo.id ? 'text-primary' : 'text-muted-foreground'}`} />
-                                                    <h3 className="text-sm font-bold text-foreground">{cargo.name}</h3>
+                                                    <h3 className="text-sm font-bold text-foreground">{cargo.nome}</h3>
                                                 </div>
                                             </div>
                                             <p className="text-[11px] text-muted-foreground line-clamp-2">{cargo.description || 'Sem descrição'}</p>
@@ -1022,13 +1021,13 @@ const Configuracoes = () => {
                                     <div className="flex items-center gap-3">
                                         <Users className="w-5 h-5 text-primary" />
                                         <div>
-                                            <h3 className="text-base font-bold text-foreground">{selectedCargo.name}</h3>
+                                            <h3 className="text-base font-bold text-foreground">{selectedCargo.nome}</h3>
                                             {selectedCargo.description && <p className="text-xs text-muted-foreground">{selectedCargo.description}</p>}
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Button variant="outline" size="sm" className="gap-1" onClick={() => setEditingCargo({
-                                            id: selectedCargo.id, name: selectedCargo.name, description: selectedCargo.description || '',
+                                            id: selectedCargo.id, nome: selectedCargo.nome, description: selectedCargo.description || '',
                                         })}>
                                             <Pencil className="w-3 h-3" /> Editar
                                         </Button>
@@ -1120,79 +1119,6 @@ const Configuracoes = () => {
                             </div>
                         );
                     })()}
-
-                    {/* Create Cargo Dialog */}
-                    <Dialog open={newCargoOpen} onOpenChange={setNewCargoOpen}>
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                                <DialogTitle className="font-display text-lg">Novo Cargo</DialogTitle>
-                                <DialogDescription>Defina o nome e descrição. As permissões granulares podem ser configuradas depois.</DialogDescription>
-                            </DialogHeader>
-                            <div className="space-y-3 py-2">
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-semibold text-muted-foreground">Nome *</Label>
-                                    <Input value={newCargoName} onChange={e => setNewCargoName(e.target.value)} placeholder="Ex: Gerente Comercial" className="h-10" />
-                                </div>
-                                <div className="space-y-1.5">
-                                    <Label className="text-xs font-semibold text-muted-foreground">Descrição (opcional)</Label>
-                                    <Textarea value={newCargoDesc} onChange={e => setNewCargoDesc(e.target.value)} placeholder="Descreva as responsabilidades..." rows={2} />
-                                </div>
-                            </div>
-                            <DialogFooter className="gap-2">
-                                <Button variant="outline" onClick={() => setNewCargoOpen(false)}>Cancelar</Button>
-                                <Button onClick={handleCreateCargo} disabled={createCargo.isPending} className="gap-1.5">
-                                    {createCargo.isPending ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
-                                    Criar Cargo
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-
-                    {/* Edit Cargo Dialog */}
-                    <Dialog open={!!editingCargo} onOpenChange={() => setEditingCargo(null)}>
-                        <DialogContent className="sm:max-w-md">
-                            <DialogHeader>
-                                <DialogTitle className="font-display text-lg">Editar Cargo</DialogTitle>
-                                <DialogDescription>Altere o nome e descrição do cargo.</DialogDescription>
-                            </DialogHeader>
-                            {editingCargo && (
-                                <div className="space-y-3 py-2">
-                                    <div className="space-y-1.5">
-                                        <Label className="text-xs font-semibold text-muted-foreground">Nome *</Label>
-                                        <Input value={editingCargo.name} onChange={e => setEditingCargo({ ...editingCargo, name: e.target.value })} className="h-10" />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
-                                        <Textarea value={editingCargo.description} onChange={e => setEditingCargo({ ...editingCargo, description: e.target.value })} rows={2} />
-                                    </div>
-                                </div>
-                            )}
-                            <DialogFooter className="gap-2">
-                                <Button variant="outline" onClick={() => setEditingCargo(null)}>Cancelar</Button>
-                                <Button onClick={handleUpdateCargo} disabled={updateCargo.isPending} className="gap-1.5">
-                                    <Save className="w-4 h-4" /> Salvar
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
-
-                    {/* Delete Cargo Confirm */}
-                    <Dialog open={!!confirmDeleteCargoId} onOpenChange={() => setConfirmDeleteCargoId(null)}>
-                        <DialogContent className="sm:max-w-sm">
-                            <DialogHeader>
-                                <DialogTitle className="font-display text-lg text-destructive flex items-center gap-2">
-                                    <Trash2 className="w-5 h-5" /> Excluir Cargo
-                                </DialogTitle>
-                                <DialogDescription>Esta ação é irreversível. O cargo será removido e todos os usuários vinculados perderão suas permissões específicas.</DialogDescription>
-                            </DialogHeader>
-                            <DialogFooter className="gap-2">
-                                <Button variant="outline" onClick={() => setConfirmDeleteCargoId(null)}>Cancelar</Button>
-                                <Button variant="destructive" onClick={handleDeleteCargo} disabled={deleteCargo.isPending} className="gap-1.5">
-                                    <Trash2 className="w-4 h-4" /> Excluir
-                                </Button>
-                            </DialogFooter>
-                        </DialogContent>
-                    </Dialog>
                 </TabsContent>
 
                 {/* ═══════════ TAB: SISTEMA ═══════════ */}
@@ -1858,7 +1784,7 @@ const Configuracoes = () => {
                     <div className="space-y-3 py-2">
                         <div className="space-y-1.5">
                             <Label className="text-xs font-semibold text-muted-foreground">Nome do Cargo *</Label>
-                            <Input value={newCargoName} onChange={e => setNewCargoName(e.target.value)} placeholder="Ex: Diretor Comercial" className="h-9 text-sm" />
+                            <Input value={newCargoNome} onChange={e => setNewCargoNome(e.target.value)} placeholder="Ex: Diretor Comercial" className="h-9 text-sm" />
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs font-semibold text-muted-foreground">Descrição (Opcional)</Label>
@@ -1867,7 +1793,7 @@ const Configuracoes = () => {
                     </div>
                     <DialogFooter className="gap-2">
                         <Button variant="outline" onClick={() => setNewCargoOpen(false)}>Cancelar</Button>
-                        <Button onClick={handleCreateCargo} disabled={createCargo.isPending || !newCargoName.trim()} className="gap-1.5">
+                        <Button onClick={handleCreateCargo} disabled={createCargo.isPending || !newCargoNome.trim()} className="gap-1.5">
                             {createCargo.isPending ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
                             Criar Cargo
                         </Button>
@@ -1885,7 +1811,7 @@ const Configuracoes = () => {
                         <div className="space-y-3 py-2">
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-semibold text-muted-foreground">Nome do Cargo *</Label>
-                                <Input value={editingCargo.name} onChange={e => setEditingCargo({ ...editingCargo, name: e.target.value })} className="h-9 text-sm" />
+                                <Input value={editingCargo.nome} onChange={e => setEditingCargo({ ...editingCargo, nome: e.target.value })} className="h-9 text-sm" />
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>

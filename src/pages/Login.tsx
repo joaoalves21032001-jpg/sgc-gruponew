@@ -9,12 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
 import { Shield, UserPlus, Info } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { maskCPF, maskRG, maskPhone } from '@/lib/masks';
 import { AuthService } from '@/services/authService';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 import logo from '@/assets/logo-grupo-new.png';
-
-const CARGOS = ['Consultor de Vendas', 'Supervisor', 'Gerente', 'Diretor'];
 
 interface LeaderOption {
   id: string;
@@ -26,18 +25,21 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [showRequest, setShowRequest] = useState(false);
   const [requestForm, setRequestForm] = useState({
     nome: '', email: '', telefone: '', mensagem: '',
-    cpf: '', rg: '', endereco: '', cargo: 'Consultor de Vendas',
-    nivel_acesso: 'consultor', numero_emergencia_1: '', numero_emergencia_2: '',
-    nome_emergencia_1: '', nome_emergencia_2: '',
+    cpf: '', rg: '', endereco: '', cargo: '',
+    nivel_acesso: '', numero_emergencia_1: '', numero_emergencia_2: '',
+    nome_emergencia_1: '', vinculo_emergencia_1: '', 
+    nome_emergencia_2: '', vinculo_emergencia_2: '',
     data_admissao: '', data_nascimento: '',
     senha: '', confirmacao_senha: ''
   });
   const [submitting, setSubmitting] = useState(false);
   const [supervisores, setSupervisores] = useState<LeaderOption[]>([]);
   const [gerentes, setGerentes] = useState<LeaderOption[]>([]);
+  const [cargosData, setCargosData] = useState<{ id: string, nome: string }[]>([]);
   const [selectedSupervisor, setSelectedSupervisor] = useState('');
   const [selectedGerente, setSelectedGerente] = useState('');
   
@@ -46,19 +48,37 @@ const Login = () => {
   const [submittingForgot, setSubmittingForgot] = useState(false);
 
   useEffect(() => {
+    const savedEmail = localStorage.getItem('rememberedEmail');
+    const savedPassword = localStorage.getItem('rememberedPassword');
+    if (savedEmail && savedPassword) {
+      setEmail(savedEmail);
+      setPassword(savedPassword);
+      setRememberMe(true);
+    }
+  }, []);
+
+  useEffect(() => {
     if (!showRequest) return;
-    const fetchLeaders = async () => {
+    const fetchData = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('get-leaders');
-        if (error) throw error;
-        const leaders = data as LeaderOption[];
+        const [leadersRes, cargosRes] = await Promise.all([
+          supabase.functions.invoke('get-leaders'),
+          supabase.from('cargos').select('id, nome')
+        ]);
+        
+        if (leadersRes.error) throw leadersRes.error;
+        if (cargosRes.error) throw cargosRes.error;
+
+        const leaders = (leadersRes.data || []) as LeaderOption[];
         setSupervisores(leaders.filter(p => p.cargo === 'Supervisor'));
         setGerentes(leaders.filter(p => p.cargo === 'Gerente' || p.cargo === 'Diretor'));
+        
+        setCargosData(cargosRes.data || []);
       } catch (err) {
-        console.error('Error fetching leaders:', err);
+        console.error('Error fetching data for request access form:', err);
       }
     };
-    fetchLeaders();
+    fetchData();
   }, [showRequest]);
 
   const handleEmailLogin = async (e: React.FormEvent) => {
@@ -70,6 +90,14 @@ const Login = () => {
     setLoading(true);
     try {
       await AuthService.login(email, password);
+      // Salvar credenciais se remember me estiver marcado
+      if (rememberMe) {
+        localStorage.setItem('rememberedEmail', email);
+        localStorage.setItem('rememberedPassword', password);
+      } else {
+        localStorage.removeItem('rememberedEmail');
+        localStorage.removeItem('rememberedPassword');
+      }
     } catch (err: any) {
       toast.error(err.message || 'Erro inesperado. Tente novamente.');
       console.error(err);
@@ -121,6 +149,10 @@ const Login = () => {
     }
     // Validate supervisor/gerente based on cargo
     const cargo = requestForm.cargo;
+    if (!cargo) {
+      toast.error('Selecione um cargo.');
+      return;
+    }
     if (!['Supervisor', 'Gerente', 'Diretor'].includes(cargo) && !selectedSupervisor) {
       toast.error('Selecione o Supervisor ou "Nenhum".');
       return;
@@ -131,6 +163,9 @@ const Login = () => {
     }
     setSubmitting(true);
     try {
+      const nomeEmergencia1Concat = requestForm.vinculo_emergencia_1 ? `${requestForm.nome_emergencia_1} (${requestForm.vinculo_emergencia_1})` : requestForm.nome_emergencia_1;
+      const nomeEmergencia2Concat = requestForm.vinculo_emergencia_2 ? `${requestForm.nome_emergencia_2} (${requestForm.vinculo_emergencia_2})` : requestForm.nome_emergencia_2;
+
       const { data, error } = await supabase.functions.invoke('request-access', {
         body: {
           nome: requestForm.nome, email: requestForm.email, telefone: requestForm.telefone,
@@ -139,6 +174,8 @@ const Login = () => {
           nivel_acesso: requestForm.nivel_acesso,
           numero_emergencia_1: requestForm.numero_emergencia_1 || null,
           numero_emergencia_2: requestForm.numero_emergencia_2 || null,
+          nome_emergencia_1: nomeEmergencia1Concat || null,
+          nome_emergencia_2: nomeEmergencia2Concat || null,
           supervisor_id: selectedSupervisor === 'nenhum' ? null : selectedSupervisor || null,
           gerente_id: selectedGerente || null,
           data_admissao: requestForm.data_admissao || null,
@@ -152,9 +189,10 @@ const Login = () => {
       setShowRequest(false);
       setRequestForm({
         nome: '', email: '', telefone: '', mensagem: '',
-        cpf: '', rg: '', endereco: '', cargo: 'Consultor de Vendas',
-        nivel_acesso: 'consultor', numero_emergencia_1: '', numero_emergencia_2: '',
-        nome_emergencia_1: '', nome_emergencia_2: '',
+        cpf: '', rg: '', endereco: '', cargo: '',
+        nivel_acesso: '', numero_emergencia_1: '', numero_emergencia_2: '',
+        nome_emergencia_1: '', vinculo_emergencia_1: '', 
+        nome_emergencia_2: '', vinculo_emergencia_2: '',
         data_admissao: '', data_nascimento: '',
         senha: '', confirmacao_senha: ''
       });
@@ -276,6 +314,21 @@ const Login = () => {
                 required
               />
             </div>
+            
+            <div className="flex items-center space-x-2 mt-2">
+              <Checkbox 
+                id="rememberMe" 
+                checked={rememberMe} 
+                onCheckedChange={(checked) => setRememberMe(checked as boolean)}
+                className="border-primary/50 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              />
+              <label 
+                htmlFor="rememberMe" 
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-foreground cursor-pointer"
+              >
+                Lembrar-me
+              </label>
+            </div>
 
             <Button
               type="submit"
@@ -339,7 +392,7 @@ const Login = () => {
                   <Input value={requestForm.nome} onChange={(e) => setField('nome', e.target.value)} placeholder="Seu nome completo" className="h-10" />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail (Google) *</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail *</label>
                   <Input type="email" value={requestForm.email} onChange={(e) => setField('email', e.target.value)} placeholder="seu.email@gmail.com" className="h-10" />
                 </div>
                 <div className="space-y-1.5">
@@ -381,9 +434,15 @@ const Login = () => {
                     <Input value={requestForm.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
                   </div>
                   {requestForm.numero_emergencia_1.trim() && (
-                    <div className="space-y-1.5 animate-fade-in-up">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome do Contato 1</label>
-                      <Input value={requestForm.nome_emergencia_1} onChange={(e) => setField('nome_emergencia_1', e.target.value)} placeholder="Nome do contato..." className="h-10" />
+                    <div className="space-y-3 animate-fade-in-up">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome do Contato 1</label>
+                        <Input value={requestForm.nome_emergencia_1} onChange={(e) => setField('nome_emergencia_1', e.target.value)} placeholder="Nome do contato..." className="h-10" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vínculo</label>
+                        <Input value={requestForm.vinculo_emergencia_1} onChange={(e) => setField('vinculo_emergencia_1', e.target.value)} placeholder="Ex: Mãe, Pai..." className="h-10" />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -393,9 +452,15 @@ const Login = () => {
                     <Input value={requestForm.numero_emergencia_2} onChange={(e) => setField('numero_emergencia_2', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
                   </div>
                   {requestForm.numero_emergencia_2.trim() && (
-                    <div className="space-y-1.5 animate-fade-in-up">
-                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome do Contato 2</label>
-                      <Input value={requestForm.nome_emergencia_2} onChange={(e) => setField('nome_emergencia_2', e.target.value)} placeholder="Nome do contato..." className="h-10" />
+                    <div className="space-y-3 animate-fade-in-up">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome do Contato 2</label>
+                        <Input value={requestForm.nome_emergencia_2} onChange={(e) => setField('nome_emergencia_2', e.target.value)} placeholder="Nome do contato..." className="h-10" />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vínculo</label>
+                        <Input value={requestForm.vinculo_emergencia_2} onChange={(e) => setField('vinculo_emergencia_2', e.target.value)} placeholder="Ex: Irmão, Tio..." className="h-10" />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -407,11 +472,11 @@ const Login = () => {
               <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Cargo & Acesso</h3>
               <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cargo</label>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cargo *</label>
                   <Select value={requestForm.cargo} onValueChange={(v) => setField('cargo', v)}>
-                    <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Selecione um cargo..." /></SelectTrigger>
                     <SelectContent>
-                      {CARGOS.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                      {cargosData.map(c => <SelectItem key={c.id} value={c.nome}>{c.nome}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
