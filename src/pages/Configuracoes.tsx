@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import {
     Settings, Shield, Database, Bell, Clock, Save,
     Trash2, Users, Activity, Eye, Lock, Plus, Pencil,
-    Check, X, UserPlus, ChevronRight, ShieldCheck, ChevronDown, AlertTriangle, BrainCircuit, Sparkles, History, Loader2, RefreshCw, Cpu
+    Check, X, UserPlus, ChevronRight, ShieldCheck, ChevronDown, AlertTriangle, BrainCircuit, Sparkles, History, Loader2, RefreshCw, Cpu, ShieldAlert, ShieldOff
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -67,6 +67,7 @@ import {
 } from '@/hooks/useAuditLogConfig';
 import { useKnowledgeBase, useCreateKnowledge, useDeleteKnowledge, useAnalyzeSystem } from '@/hooks/useKnowledgeBase';
 import { useStarkWatchdog, useUpdateStarkErrorStatus } from '@/hooks/useStarkWatchdog';
+import { AdminProtectionDialog } from '@/components/AdminProtectionDialog';
 
 const Configuracoes = () => {
     const { data: role } = useUserRole();
@@ -112,7 +113,18 @@ const Configuracoes = () => {
     const [newCargoNome, setNewCargoNome] = useState('');
     const [newCargoDesc, setNewCargoDesc] = useState('');
     const [newCargoRequiresLeader, setNewCargoRequiresLeader] = useState(true);
-    const [editingCargo, setEditingCargo] = useState<{ id: string; nome: string; description: string; requires_leader: boolean } | null>(null);
+    const [editingCargo, setEditingCargo] = useState<{ id: string; nome: string; description: string; requires_leader: boolean; is_protected?: boolean } | null>(null);
+
+    // Admin protection dialog state
+    const [adminProtectionDialog, setAdminProtectionDialog] = useState<{
+        open: boolean;
+        targetName?: string;
+        onUnlocked: () => void;
+    }>({ open: false, onUnlocked: () => {} });
+
+    const requireAdminAuth = (targetName: string, onUnlocked: () => void) => {
+        setAdminProtectionDialog({ open: true, targetName, onUnlocked });
+    };
     const [confirmDeleteCargoId, setConfirmDeleteCargoId] = useState<string | null>(null);
     const [expandedCargoResources, setExpandedCargoResources] = useState<Set<string>>(new Set());
 
@@ -365,11 +377,14 @@ const Configuracoes = () => {
         if (!editingProfile) return;
         try {
             await updateProfile.mutateAsync({ id: editingProfile.id, name: editingProfile.name, description: editingProfile.description });
+            // Also save is_protected
+            await supabase.from('security_profiles' as any).update({ is_protected: !!((editingProfile as any).is_protected) } as any).eq('id', editingProfile.id);
             logAction('editar_perfil_seguranca', 'security_profiles', editingProfile.id);
             toast.success('Perfil atualizado!');
             setEditingProfile(null);
         } catch (err: any) { toast.error(err.message); }
     };
+
 
     const handleDeleteProfile = async () => {
         if (!confirmDeleteId) return;
@@ -424,11 +439,14 @@ const Configuracoes = () => {
                 description: editingCargo.description,
                 requires_leader: editingCargo.requires_leader
             });
+            // Also save is_protected (not in hook yet)
+            await supabase.from('cargos' as any).update({ is_protected: !!editingCargo.is_protected } as any).eq('id', editingCargo.id);
             logAction('editar_cargo', 'cargos', editingCargo.id);
             toast.success('Cargo atualizado!');
             setEditingCargo(null);
         } catch (err: any) { toast.error(err.message); }
     };
+
 
     const handleDeleteCargo = async () => {
         if (!confirmDeleteCargoId) return;
@@ -818,6 +836,11 @@ const Configuracoes = () => {
                                                     ? <Badge variant="outline" className="text-[9px] bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" /> Imutável</Badge>
                                                     : <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/20">Sistema</Badge>
                                             )}
+                                            {!sp.is_system && sp.is_protected && (
+                                                <span title="Perfil protegido">
+                                                    <ShieldAlert className="w-3.5 h-3.5 text-destructive" />
+                                                </span>
+                                            )}
                                         </div>
                                         <p className="text-[11px] text-muted-foreground line-clamp-2">{sp.description || 'Sem descrição'}</p>
                                         <div className="flex items-center gap-1 mt-2">
@@ -842,18 +865,34 @@ const Configuracoes = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    {!selectedProfile.is_system && (
-                                        <>
-                                            <Button variant="outline" size="sm" className="gap-1" onClick={() => setEditingProfile({
-                                                id: selectedProfile.id, name: selectedProfile.name, description: selectedProfile.description || '',
-                                            })}>
-                                                <Pencil className="w-3 h-3" /> Editar
-                                            </Button>
-                                            <Button variant="outline" size="sm" className="gap-1 text-destructive hover:bg-destructive/10" onClick={() => setConfirmDeleteId(selectedProfile.id)}>
-                                                <Trash2 className="w-3 h-3" /> Excluir
-                                            </Button>
-                                        </>
-                                    )}
+                                {!selectedProfile.is_system && (
+                                    <>
+                                        {selectedProfile.is_protected && (
+                                            <span title="Protegido — exige senha + MFA para editar" className="flex items-center gap-1 text-[10px] text-destructive font-semibold">
+                                                <ShieldAlert className="w-3.5 h-3.5" /> Protegido
+                                            </span>
+                                        )}
+                                        <Button variant="outline" size="sm" className="gap-1" onClick={() => {
+                                            const openEdit = () => setEditingProfile({ id: selectedProfile.id, name: selectedProfile.name, description: selectedProfile.description || '' });
+                                            if (selectedProfile.is_protected) {
+                                                requireAdminAuth(selectedProfile.name, openEdit);
+                                            } else {
+                                                openEdit();
+                                            }
+                                        }}>
+                                            <Pencil className="w-3 h-3" /> Editar
+                                        </Button>
+                                        <Button variant="outline" size="sm" className="gap-1 text-destructive hover:bg-destructive/10" onClick={() => {
+                                            if (selectedProfile.is_protected) {
+                                                requireAdminAuth(selectedProfile.name, () => setConfirmDeleteId(selectedProfile.id));
+                                            } else {
+                                                setConfirmDeleteId(selectedProfile.id);
+                                            }
+                                        }}>
+                                            <Trash2 className="w-3 h-3" /> Excluir
+                                        </Button>
+                                    </>
+                                )}
                                 </div>
                             </div>
 
@@ -1017,6 +1056,11 @@ const Configuracoes = () => {
                                                     <ShieldCheck className={`w-4 h-4 ${selectedCargoId === cargo.id ? 'text-primary' : 'text-muted-foreground'}`} />
                                                     <h3 className="text-sm font-bold text-foreground">{cargo.nome}</h3>
                                                 </div>
+                                                {cargo.is_protected && (
+                                                    <span title="Cargo protegido">
+                                                        <ShieldAlert className="w-3.5 h-3.5 text-destructive" />
+                                                    </span>
+                                                )}
                                             </div>
                                             <p className="text-[11px] text-muted-foreground line-clamp-2">{cargo.description || 'Sem descrição'}</p>
                                             <div className="flex items-center gap-1 mt-2">
@@ -1044,12 +1088,33 @@ const Configuracoes = () => {
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <Button variant="outline" size="sm" className="gap-1" onClick={() => setEditingCargo({
-                                            id: selectedCargo.id, nome: selectedCargo.nome, description: selectedCargo.description || '', requires_leader: selectedCargo.requires_leader !== false
-                                        })}>
+                                        {selectedCargo.is_protected && (
+                                            <span title="Protegido — exige senha + MFA para editar" className="flex items-center gap-1 text-[10px] text-destructive font-semibold">
+                                                <ShieldAlert className="w-3.5 h-3.5" /> Protegido
+                                            </span>
+                                        )}
+                                        <Button variant="outline" size="sm" className="gap-1" onClick={() => {
+                                            const openEdit = () => setEditingCargo({
+                                                id: selectedCargo.id, nome: selectedCargo.nome,
+                                                description: selectedCargo.description || '',
+                                                requires_leader: selectedCargo.requires_leader !== false,
+                                                is_protected: !!selectedCargo.is_protected,
+                                            });
+                                            if (selectedCargo.is_protected) {
+                                                requireAdminAuth(selectedCargo.nome, openEdit);
+                                            } else {
+                                                openEdit();
+                                            }
+                                        }}>
                                             <Pencil className="w-3 h-3" /> Editar
                                         </Button>
-                                        <Button variant="outline" size="sm" className="gap-1 text-destructive hover:bg-destructive/10" onClick={() => setConfirmDeleteCargoId(selectedCargo.id)}>
+                                        <Button variant="outline" size="sm" className="gap-1 text-destructive hover:bg-destructive/10" onClick={() => {
+                                            if (selectedCargo.is_protected) {
+                                                requireAdminAuth(selectedCargo.nome, () => setConfirmDeleteCargoId(selectedCargo.id));
+                                            } else {
+                                                setConfirmDeleteCargoId(selectedCargo.id);
+                                            }
+                                        }}>
                                             <Trash2 className="w-3 h-3" /> Excluir
                                         </Button>
                                     </div>
@@ -1540,6 +1605,19 @@ const Configuracoes = () => {
                                 <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
                                 <Textarea value={editingProfile.description} onChange={e => setEditingProfile({ ...editingProfile, description: e.target.value })} rows={2} />
                             </div>
+                            <div className="flex items-center justify-between p-3 bg-destructive/5 rounded-lg border border-destructive/20">
+                                <div className="flex items-center gap-2">
+                                    <ShieldAlert className="w-4 h-4 text-destructive" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-foreground">Protegido</p>
+                                        <p className="text-[10px] text-muted-foreground">Exige senha + MFA para editar</p>
+                                    </div>
+                                </div>
+                                <Switch
+                                    checked={!!(editingProfile as any).is_protected}
+                                    onCheckedChange={v => setEditingProfile({ ...editingProfile, is_protected: v } as any)}
+                                />
+                            </div>
                         </div>
                     )}
                     <DialogFooter className="gap-2">
@@ -1835,6 +1913,19 @@ const Configuracoes = () => {
                                 <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
                                 <Input value={editingCargo.description || ''} onChange={e => setEditingCargo({ ...editingCargo, description: e.target.value })} className="h-9 text-sm" />
                             </div>
+                            <div className="flex items-center justify-between p-3 bg-destructive/5 rounded-lg border border-destructive/20">
+                                <div className="flex items-center gap-2">
+                                    <ShieldAlert className="w-4 h-4 text-destructive" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-foreground">Protegido</p>
+                                        <p className="text-[10px] text-muted-foreground">Exige senha + MFA para editar</p>
+                                    </div>
+                                </div>
+                                <Switch
+                                    checked={!!editingCargo.is_protected}
+                                    onCheckedChange={v => setEditingCargo({ ...editingCargo, is_protected: v })}
+                                />
+                            </div>
                         </div>
                     )}
                     <DialogFooter className="gap-2">
@@ -1860,6 +1951,14 @@ const Configuracoes = () => {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Admin Protection Dialog */}
+            <AdminProtectionDialog
+                open={adminProtectionDialog.open}
+                onOpenChange={(open) => setAdminProtectionDialog(prev => ({ ...prev, open }))}
+                onUnlocked={adminProtectionDialog.onUnlocked}
+                targetName={adminProtectionDialog.targetName}
+            />
 
         </div>
     );
