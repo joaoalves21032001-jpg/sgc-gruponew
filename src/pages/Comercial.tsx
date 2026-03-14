@@ -33,6 +33,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { dispatchNotification } from '@/hooks/useNotificationRules';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 import { useMyCargoPermissions, hasCargoPermission } from '@/hooks/useCargos';
+import { getFraseMotivacional, getPerformanceTierInfo } from '@/lib/gamification';
+import confetti from 'canvas-confetti';
 
 /* ─── Shared Components ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
@@ -249,7 +251,30 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
       } as any);
       setShowConfirm(false);
       logAction('criar_atividade', 'atividade', undefined, { data: format(dataLancamento, 'yyyy-MM-dd') });
-      toast.success('Atividades registradas com sucesso!');
+      
+      const metaFaturamento = profile?.meta_faturamento ?? 75000;
+      const faturamentoAtual = (myVendas || []).filter(v => v.status === 'aprovado').reduce((sum, v) => sum + (v.valor ?? 0), 0);
+      const percentMeta = metaFaturamento > 0 ? Math.round((faturamentoAtual / metaFaturamento) * 100) : 0;
+      
+      const frase = getFraseMotivacional(percentMeta);
+      const tierInfo = getPerformanceTierInfo(percentMeta);
+
+      if (percentMeta >= 100) {
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      }
+
+      toast.success(
+        <div className="flex flex-col gap-1.5">
+          <span className="font-bold">Atividades registradas!</span>
+          <div className="flex items-center gap-1.5 mt-1" style={{ color: tierInfo.color }}>
+            <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider" style={{ backgroundColor: tierInfo.color + '20' }}>
+              {tierInfo.name}
+            </span>
+            <span className="text-xs italic leading-tight">{frase}</span>
+          </div>
+        </div>,
+        { duration: 6000 }
+      );
       // Notify hierarchy
       if (user) {
         dispatchNotification(

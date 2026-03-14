@@ -427,16 +427,19 @@ function ProdutosTab() {
             {temIof && (
               <div className="space-y-1.5 animate-fade-in">
                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Porcentagem do IOF (%) <span className="text-destructive">*</span></label>
-                <Input
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="0.01"
-                  value={pctIof}
-                  onChange={e => setPctIof(e.target.value)}
-                  placeholder="Ex: 7.38"
-                  className="h-10"
-                />
+                <div className="relative">
+                  <Input
+                    type="text"
+                    value={pctIof}
+                    onChange={e => {
+                      const val = e.target.value.replace(/[^0-9.,]/g, '').replace(',', '.');
+                      setPctIof(val);
+                    }}
+                    placeholder="Ex: 7.38"
+                    className="h-10 pr-8"
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">%</div>
+                </div>
               </div>
             )}
           </div>
