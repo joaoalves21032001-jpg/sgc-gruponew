@@ -35,205 +35,174 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  
+  // App starts loading
   const [loading, setLoading] = useState(true);
-  const [mfaVerified, setMfaVerified] = useState(false);
-  const [needsMfa, setNeedsMfa] = useState(false);
-  const [mfaChecked, setMfaChecked] = useState(false);
+  
+  // Profile state
   const [hasProfile, setHasProfile] = useState<boolean | null>(null);
   const [cargo, setCargo] = useState<string | null>(null);
   const [perfil, setPerfil] = useState<string | null>(null);
 
+  // MFA state
+  const [mfaChecked, setMfaChecked] = useState(false);
+  const [needsMfa, setNeedsMfa] = useState(false);
+  const [mfaVerified, setMfaVerified] = useState(false);
+
+  // Phase 1: Initialize Auth
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const prevUser = user;
+    let mounted = true;
 
-      if (_event === 'SIGNED_OUT' || !session) {
-        setSession(null);
-        setUser(null);
-        setMfaVerified(false);
-        setNeedsMfa(false);
-        setMfaChecked(false);
-        setHasProfile(null);
-        if (prevUser) {
-          supabase.from('audit_logs').insert({
-            user_id: prevUser.id,
-            user_name: prevUser.email,
-            action: 'logout',
-          } as any).then(() => { });
+    async function initAuth() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+          if (!session) {
+            setLoading(false); // If no user, stop loading immediately
+            setHasProfile(false);
+            setMfaChecked(true);
+          }
         }
-        setLoading(false);
-        return;
+      } catch (err) {
+        if (mounted) setLoading(false);
       }
+    }
 
-      setSession(session);
-      setUser(session.user);
+    initAuth();
 
-      if (!prevUser && _event === 'SIGNED_IN') {
-        supabase.from('audit_logs').insert({
-          user_id: session.user.id,
-          user_name: session.user.email,
-          action: 'login',
-        } as any).then(() => { });
-      }
-
-      if (prevUser && prevUser.id === session.user.id && _event === 'USER_UPDATED') {
-        setMfaChecked(false);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      if (!mounted) return;
+      
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
+      
+      if (event === 'SIGNED_OUT' || !newSession) {
+        setHasProfile(false);
+        setMfaChecked(true);
+        setNeedsMfa(false);
         setMfaVerified(false);
+        setLoading(false);
+      } else if (event === 'SIGNED_IN') {
+        // Reset check states to evaluate the new user
+        setHasProfile(null);
+        setMfaChecked(false);
+        setLoading(true); // Restart loading flow for profile + mfa
       }
-
-      setLoading(false);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
-  // Check if user has a profile (is authorized)
+  // Phase 2: Load Profile (runs only when we have a user but don't know profile status)
   useEffect(() => {
-    if (!user) { setHasProfile(null); return; }
+    if (!user) return;
+    if (hasProfile !== null) return; // Already checked
 
-    const checkProfile = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, disabled')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (error || !data) {
-        setHasProfile(false);
-        setCargo(null);
-        setPerfil(null);
-        return;
-      }
-      if ((data as any).disabled) {
-        setHasProfile(false);
-        setCargo(null);
-        setPerfil(null);
-        return;
-      }
-
-      setHasProfile(true);
-
+    async function checkProfile() {
       try {
-        const { data: extraData } = await supabase
+        const { data, error } = await supabase
           .from('profiles')
-          .select('cargo, perfil')
-          .eq('id', user.id)
+          .select('id, disabled, cargo, perfil')
+          .eq('id', user!.id)
           .maybeSingle();
-        if (extraData) {
-          setCargo((extraData as any).cargo ?? null);
-          setPerfil((extraData as any).perfil ?? null);
+
+        if (error || !data || (data as any).disabled) {
+          setHasProfile(false);
+          setCargo(null);
+          setPerfil(null);
+        } else {
+          setHasProfile(true);
+          setCargo((data as any).cargo ?? null);
+          setPerfil((data as any).perfil ?? null);
         }
       } catch {
-        // cargo/perfil columns may not exist yet — ignore silently
+        setHasProfile(false);
       }
-    };
+    }
+    
     checkProfile();
-  }, [user]);
+  }, [user, hasProfile]);
 
-  // MFA check — run once per login
-  const mfaCheckRef = useRef(false);
+  // Phase 3: MFA Check (runs only when we know user has a profile, but haven't checked MFA)
+  const mfaCheckInProgress = useRef(false);
+  
   useEffect(() => {
-    if (!user || hasProfile !== true || mfaChecked) return;
-    checkMfaStatus();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, hasProfile]);
+    if (!user || hasProfile !== true) return;
+    if (mfaChecked || mfaCheckInProgress.current) return;
 
-  const checkMfaStatus = async () => {
-    if (mfaCheckRef.current) return;
-    mfaCheckRef.current = true;
+    mfaCheckInProgress.current = true;
 
-    let cancelled = false;
-
-    const timeoutId = setTimeout(() => {
-      if (!cancelled) {
-        console.warn('MFA check timed out — unblocking UI');
-        setNeedsMfa(false);
-        setMfaChecked(true);
-      }
-    }, 8000);
-
-    try {
-      const { data: aalData, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      cancelled = true;
-      clearTimeout(timeoutId);
-
-      if (error) {
-        console.warn('MFA AAL check error (non-fatal):', error.message);
-        setNeedsMfa(false);
-        setMfaChecked(true);
-        return;
-      }
-
-      if (!aalData) {
-        setNeedsMfa(false);
-        setMfaChecked(true);
-        return;
-      }
-
-      const { currentLevel, nextLevel } = aalData;
-
-      if (nextLevel === 'aal2' && currentLevel === 'aal1') {
-        const deviceHash = localStorage.getItem('mfa_device_hash');
-        if (deviceHash) {
-          const { data: trusted, error: trustedErr } = await supabase
-            .from('mfa_trusted_devices')
-            .select('trusted_until')
-            .eq('user_id', user!.id)
-            .eq('device_hash', deviceHash)
-            .gte('trusted_until', new Date().toISOString())
-            .maybeSingle();
-
-          if (trustedErr) {
-            console.error('Error fetching trusted device:', trustedErr);
-          }
-
-          if (trusted) {
-            setMfaVerified(true);
-            setNeedsMfa(false);
-            setMfaChecked(true);
-            return;
-          }
+    async function performMfaCheck() {
+      try {
+        const { data: aalData, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        if (error || !aalData) {
+          setNeedsMfa(false);
+          setMfaChecked(true);
+          setLoading(false);
+          return;
         }
+
+        const { currentLevel, nextLevel } = aalData;
+
+        if (nextLevel === 'aal2' && currentLevel === 'aal1') {
+          const deviceHash = localStorage.getItem('mfa_device_hash');
+          if (deviceHash) {
+            const { data: trusted } = await supabase
+              .from('mfa_trusted_devices')
+              .select('trusted_until')
+              .eq('user_id', user!.id)
+              .eq('device_hash', deviceHash)
+              .gte('trusted_until', new Date().toISOString())
+              .maybeSingle();
+
+            if (trusted) {
+              setMfaVerified(true);
+              setNeedsMfa(false);
+              setMfaChecked(true);
+              setLoading(false);
+              return;
+            }
+          }
+          setNeedsMfa(true);
+          setMfaVerified(false);
+          setMfaChecked(true);
+          setLoading(false);
+          return;
+        }
+
+        if (currentLevel === 'aal2') {
+          setMfaVerified(true);
+          setNeedsMfa(false);
+          setMfaChecked(true);
+          setLoading(false);
+          return;
+        }
+
         setNeedsMfa(true);
         setMfaVerified(false);
         setMfaChecked(true);
-        return;
-      }
-
-      if (currentLevel === 'aal2') {
-        setMfaVerified(true);
+        setLoading(false);
+        
+      } catch (err) {
+        console.error('MFA validation error:', err);
         setNeedsMfa(false);
         setMfaChecked(true);
-        return;
+        setLoading(false);
+      } finally {
+        mfaCheckInProgress.current = false;
       }
-
-      setNeedsMfa(true);
-      setMfaVerified(false);
-      setMfaChecked(true);
-
-    } catch (err) {
-      cancelled = true;
-      clearTimeout(timeoutId);
-      console.error('MFA check exception:', err);
-      setNeedsMfa(true);
-      setMfaVerified(false);
-      setMfaChecked(true);
-    } finally {
-      mfaCheckRef.current = false;
     }
-  };
+
+    performMfaCheck();
+  }, [user, hasProfile, mfaChecked]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setMfaVerified(false);
-    setNeedsMfa(false);
-    setHasProfile(null);
   };
 
   return (

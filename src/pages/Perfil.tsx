@@ -7,7 +7,7 @@ import {
 import { useProfile, useUserRole, useSupervisorProfile, useGerenteProfile, useTeamProfiles } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { getPatente, getFraseMotivacional } from '@/lib/gamification';
+import { getPatente } from '@/lib/gamification';
 import { PatenteBadge } from '@/components/PatenteBadge';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -153,7 +153,6 @@ const Perfil = () => {
 
   const percentMeta = 0;
   const patente = getPatente(percentMeta);
-  const frase = getFraseMotivacional(percentMeta);
   const nivelLabel = role === 'administrador' ? 'Administrador' : 'Usuário';
 
   return (
@@ -188,7 +187,6 @@ const Perfil = () => {
             <Award className="w-5 h-5 text-primary shrink-0" />
             <div className="flex-1">
               <PatenteBadge percentMeta={percentMeta} size="sm" />
-              <p className="text-[11px] text-muted-foreground italic mt-1">{frase}</p>
             </div>
           </div>
         )}
