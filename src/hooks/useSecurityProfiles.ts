@@ -130,7 +130,7 @@ export function useSecurityProfiles() {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('security_profiles' as any)
-                .select('*')
+                .select('id, name, description, is_system, is_protected, created_at, updated_at')
                 .order('created_at');
             if (error) {
                 // If table doesn't exist yet, return empty gracefully
@@ -188,15 +188,38 @@ export function useMyPermissions() {
             const profileId = cargoData?.security_profile_id;
             if (!profileId) return null;
 
-            const { data, error } = await supabase
+            const { data: spData, error: spError } = await supabase
                 .from('security_profile_permissions' as any)
                 .select('*')
                 .eq('profile_id', profileId);
-            if (error) {
-                if (error.message?.includes('schema cache') || error.code === '42P01') return null;
-                throw error;
+            if (spError) {
+                if (spError.message?.includes('schema cache') || spError.code === '42P01') return null;
+                throw spError;
             }
-            return (data ?? []) as unknown as SecurityProfilePermission[];
+
+            const { data: cpData, error: cpError } = await supabase
+                .from('cargo_permissions' as any)
+                .select('*')
+                .eq('cargo_id', cargoId);
+
+            if (cpError && cpError.code !== '42P01') {
+                throw cpError;
+            }
+
+            const spPerms = (spData ?? []) as unknown as SecurityProfilePermission[];
+            const cpPerms = (cpData ?? []) as any[];
+
+            // Merge permissions: Cargo permissions further restrict Security Profile permissions.
+            // If a cargo permission is defined, it overrides the SP allowed status (boolean AND).
+            // If not defined, it defaults to true (no restriction).
+            return spPerms.map(sp => {
+                const cp = cpPerms.find(c => c.resource === sp.resource && c.action === sp.action);
+                const cargoAllowed = cp ? cp.allowed : true;
+                return {
+                    ...sp,
+                    allowed: sp.allowed && cargoAllowed
+                };
+            });
         },
         enabled: !!user && !!profile,
     });

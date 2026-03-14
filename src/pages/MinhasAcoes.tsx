@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { maskCurrency, unmaskCurrency, formatCurrencyDisplay } from '@/lib/masks';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
-
+import { useMyCargoPermissions, hasCargoPermission } from '@/hooks/useCargos';
 const statusConfig: Record<string, { label: string; icon: React.ElementType; className: string }> = {
   pendente: { label: 'Pendente', icon: Clock, className: 'bg-warning/10 text-warning border-warning/20' },
   aprovado: { label: 'Aprovado', icon: CheckCircle2, className: 'bg-success/10 text-success border-success/20' },
@@ -39,9 +39,18 @@ const MinhasAcoes = () => {
   const submitCR = useSubmitCorrectionRequest();
 
   const { data: myPermissions } = useMyPermissions();
-  const canEditPendentes = hasPermission(myPermissions, 'minhas_acoes.pendentes', 'edit');
-  const canEditAprovados = hasPermission(myPermissions, 'minhas_acoes.aprovados', 'edit');
-  const canEditDevolvidos = hasPermission(myPermissions, 'minhas_acoes.devolvidos', 'edit');
+  const { data: cargoPermissions } = useMyCargoPermissions();
+
+  const checkPerm = (resource: string, action: string) => {
+    const spAllowed = hasPermission(myPermissions, resource, action);
+    const cargoAllowed = hasCargoPermission(cargoPermissions, resource, action);
+    return spAllowed && cargoAllowed;
+  };
+
+  const canEditPendentes = checkPerm('minhas_acoes.pendentes', 'edit');
+  const canEditAprovados = checkPerm('minhas_acoes.aprovados', 'edit');
+  const canEditDevolvidos = checkPerm('minhas_acoes.devolvidos', 'edit');
+
   const hasEditPerm = (status: string) => {
     if (['pendente', 'analise'].includes(status)) return canEditPendentes;
     if (status === 'aprovado') return canEditAprovados;

@@ -31,6 +31,7 @@ import { useCompanhias, useProdutos, useModalidades, useLeads } from '@/hooks/us
 import { maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
 import { dispatchNotification } from '@/hooks/useNotificationRules';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
+import { useMyCargoPermissions, hasCargoPermission } from '@/hooks/useCargos';
 
 /* ─── Shared ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
@@ -195,7 +196,8 @@ export default function SalesWizard() {
   const location = useLocation();
   const navigate = useNavigate();
   const { data: myPermissions } = useMyPermissions();
-  const canEditVenda = hasPermission(myPermissions, 'comercial.vendas', 'edit');
+  const { data: cargoPermissions } = useMyCargoPermissions();
+  const canEditVenda = hasPermission(myPermissions, 'comercial.vendas', 'edit') && hasCargoPermission(cargoPermissions, 'comercial.vendas', 'edit');
 
   // Edit mode: editing an existing venda from Minhas Ações
   const [editVendaId, setEditVendaId] = useState<string | null>(null);

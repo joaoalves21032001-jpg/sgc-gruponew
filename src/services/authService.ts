@@ -24,10 +24,31 @@ export class AuthService {
 
   /**
    * Envia uma solicitação de troca/reset de senha.
-   * Atualmente, chama uma Edge Function do Supabase. Para o AD,
-   * poderá acionar um endpoint customizado ou o processo do próprio AD.
+   * Se já existir uma solicitação pendente para este e-mail, substitui (upsert).
    */
   static async requestPasswordReset(email: string, nova_senha: string, motivo: string) {
+    // Check for existing pending request to avoid duplicates
+    const { data: existing } = await supabase
+      .from('password_reset_requests' as any)
+      .select('id')
+      .eq('email', email)
+      .eq('status', 'pendente')
+      .limit(1);
+    
+    if (existing && (existing as any[]).length > 0) {
+      // Overwrite the existing pending request
+      const { error } = await supabase
+        .from('password_reset_requests' as any)
+        .update({ nova_senha, motivo, updated_at: new Date().toISOString() } as any)
+        .eq('id', (existing as any[])[0].id);
+      if (error) {
+        // If can't update directly (e.g. no hash column), fall through to edge function
+        console.warn('Could not update existing pending request directly, using edge function:', error.message);
+      } else {
+        return { success: true, updated: true };
+      }
+    }
+    
     const { data, error } = await supabase.functions.invoke('request-password-reset', {
       body: { email, nova_senha, motivo }
     });
@@ -43,3 +64,4 @@ export class AuthService {
     return data;
   }
 }
+

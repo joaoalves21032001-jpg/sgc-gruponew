@@ -190,7 +190,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // User has an enrolled + verified MFA factor — needs to verify this session
         const deviceHash = localStorage.getItem('mfa_device_hash');
         if (deviceHash) {
-          const { data: trusted } = await supabase
+          const { data: trusted, error: trustedErr } = await supabase
             .from('mfa_trusted_devices')
             .select('trusted_until')
             .eq('user_id', user!.id)
@@ -198,14 +198,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .gte('trusted_until', new Date().toISOString())
             .maybeSingle();
 
+          if (trustedErr) {
+            console.error('Error fetching trusted device:', trustedErr);
+          }
+
           if (trusted) {
-            const { data: factors } = await supabase.auth.mfa.listFactors();
-            if (factors?.totp?.[0]) {
-              setMfaVerified(true);
-              setNeedsMfa(false);
-              setMfaChecked(true);
-              return;
-            }
+            console.log('Dispositivo confiável encontrado. Bypass MFA ativo.');
+            setMfaVerified(true);
+            setNeedsMfa(false);
+            setMfaChecked(true);
+            return;
           }
         }
         setNeedsMfa(true);

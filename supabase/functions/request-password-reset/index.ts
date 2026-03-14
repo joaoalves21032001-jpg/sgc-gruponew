@@ -45,18 +45,44 @@ serve(async (req) => {
     // Encoding senha em base64 (precisa converter string em bytes primeiro)
     const encryptedPassword = encode(new TextEncoder().encode(nova_senha));
 
-    // Insere na tabela a solicitação
-    const { error: insertErr } = await supabaseAdmin
+    // Check for existing pending request first
+    const { data: existingPending, error: searchErr } = await supabaseAdmin
       .from('password_reset_requests')
-      .insert({
-        user_id: userId,
-        motivo: motivo,
-        encrypted_password: encryptedPassword,
-        status: 'pendente'
-      });
+      .select('id')
+      .eq('user_id', userId)
+      .eq('status', 'pendente')
+      .limit(1);
 
-    if (insertErr) {
-      throw insertErr;
+    if (searchErr) throw searchErr;
+
+    if (existingPending && existingPending.length > 0) {
+      // Overwrite existing
+      const { error: updateErr } = await supabaseAdmin
+        .from('password_reset_requests')
+        .update({
+          email: email,
+          motivo: motivo,
+          nova_senha: encryptedPassword,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', existingPending[0].id);
+      
+      if (updateErr) throw updateErr;
+    } else {
+      // Insert new
+      const { error: insertErr } = await supabaseAdmin
+        .from('password_reset_requests')
+        .insert({
+          user_id: userId,
+          email: email,
+          motivo: motivo,
+          nova_senha: encryptedPassword,
+          status: 'pendente'
+        });
+
+      if (insertErr) {
+        throw insertErr;
+      }
     }
 
     return new Response(JSON.stringify({ success: true }), {

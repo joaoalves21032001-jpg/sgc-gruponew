@@ -35,12 +35,30 @@ export function useMfaResetRequests() {
     });
 }
 
-/** Submit an MFA reset request (user self-request) */
+/** Submit an MFA reset request (user self-request) — overwrites any existing pending request */
 export async function requestMfaReset(userId: string, motivo: string) {
-    const { error } = await supabase
+    // Check if there's already a pending request for this user
+    const { data: existing } = await supabase
         .from('mfa_reset_requests' as any)
-        .insert({ user_id: userId, motivo } as any);
-    if (error) throw error;
+        .select('id')
+        .eq('user_id', userId)
+        .eq('status', 'pendente')
+        .limit(1);
+    
+    if (existing && (existing as any[]).length > 0) {
+        // Update the existing pending request instead of creating a duplicate
+        const { error } = await supabase
+            .from('mfa_reset_requests' as any)
+            .update({ motivo, updated_at: new Date().toISOString() } as any)
+            .eq('id', (existing as any[])[0].id);
+        if (error) throw error;
+    } else {
+        // No pending request — insert new
+        const { error } = await supabase
+            .from('mfa_reset_requests' as any)
+            .insert({ user_id: userId, motivo } as any);
+        if (error) throw error;
+    }
 }
 
 /** Reset MFA factors using server-side SQL function */

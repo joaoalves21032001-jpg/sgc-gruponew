@@ -208,7 +208,7 @@ export function useCargos() {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('cargos' as any)
-                .select('*')
+                .select('id, nome, description, requires_leader, security_profile_id, is_protected, created_at')
                 .order('created_at');
             if (error) {
                 if (error.message?.includes('relation "public.cargos" does not exist') || error.code === '42P01') return [];
@@ -272,7 +272,9 @@ export function hasCargoPermission(
     resource: string,
     action: string
 ): boolean {
-    return true; // Bypass all cargo permissions for testing
+    if (!permissions || permissions.length === 0) return true; // Default to allow if no cargo permissions are defined for the user yet
+    const p = permissions.find(p => p.resource === resource && p.action === action);
+    return p ? p.allowed : false;
 }
 
 // ─── Mutations ───────────────────────────────────────────────────

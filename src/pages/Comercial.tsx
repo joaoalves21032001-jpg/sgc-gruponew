@@ -32,6 +32,7 @@ import { maskPhone } from '@/lib/masks';
 import { supabase } from '@/integrations/supabase/client';
 import { dispatchNotification } from '@/hooks/useNotificationRules';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
+import { useMyCargoPermissions, hasCargoPermission } from '@/hooks/useCargos';
 
 /* ─── Shared Components ─── */
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
@@ -105,7 +106,8 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const logAction = useLogAction();
   const navigate = useNavigate();
   const { data: myPermissions } = useMyPermissions();
-  const canEdit = hasPermission(myPermissions, 'atividades', 'edit');
+  const { data: cargoPermissions } = useMyCargoPermissions();
+  const canEdit = hasPermission(myPermissions, 'atividades', 'edit') && hasCargoPermission(cargoPermissions, 'atividades', 'edit');
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const submitCR = useSubmitCorrectionRequest();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -468,7 +470,7 @@ const Comercial = () => {
   const defaultTab = (editVenda || prefillLead) ? 'nova-venda' : 'atividades';
   const { data: myPermissions } = useMyPermissions();
   const canViewAtividades = hasPermission(myPermissions, 'atividades', 'view');
-  const canViewNovaVenda = hasPermission(myPermissions, 'atividades', 'view'); // same page, controlled by atividades key
+  const canViewNovaVenda = hasPermission(myPermissions, 'atividades', 'edit'); // Changed from 'view' to 'edit'
   const canEditAtividades = hasPermission(myPermissions, 'atividades', 'edit');
 
 

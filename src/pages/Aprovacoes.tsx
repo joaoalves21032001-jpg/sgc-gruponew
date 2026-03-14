@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+﻿import { useState, useEffect, useMemo } from 'react';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 import { useMyCargoPermissions, hasCargoPermission } from '@/hooks/useCargos';
 import { useAuth } from '@/contexts/AuthContext';
@@ -1266,9 +1266,6 @@ const Aprovacoes = () => {
               <UserPlus className="w-4 h-4" /> Acesso ({filteredAccess.length})
             </TabsTrigger>
           )}
-          <TabsTrigger value="alteracoes" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
-            <GitCompareArrows className="w-4 h-4" /> Alterações ({filteredCR.length})
-          </TabsTrigger>
           <TabsTrigger value="mfa" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
             <KeyRound className="w-4 h-4" /> MFA ({filteredMfa.filter(r => r.status === 'pendente').length})
           </TabsTrigger>
@@ -1678,121 +1675,6 @@ const Aprovacoes = () => {
             </div>
           </TabsContent>
         )}
-
-        {/* ── Alterações Tab ── */}
-        <TabsContent value="alteracoes">
-          {selectedItems.size > 0 && bulkActionTab === 'alteracoes' && (
-            <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
-              <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
-                  <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
-                </Button>
-                <Button size="sm" variant="outline" className="gap-1.5 text-orange-500 hover:bg-orange-500/10 border-orange-500/30" onClick={() => {setBulkActionType('rejeitar'); setBulkMotivo('');}}>
-                  <XCircle className="w-4 h-4" /> Rejeitar
-                </Button>
-                <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
-                  <Trash2 className="w-4 h-4" /> Excluir
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => setSelectedItems(new Set())}>Cancelar</Button>
-              </div>
-            </div>
-          )}
-          <div className="flex items-center gap-2 mb-3 px-1">
-            <button onClick={() => handleSelectAll(filteredCR.map(c => c.id), 'alteracoes')} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
-              {selectedItems.size === filteredCR.length && filteredCR.length > 0 && bulkActionTab === 'alteracoes' ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
-              <span>Selecionar Todos</span>
-            </button>
-          </div>
-          <div className="grid gap-3">
-            {loadingCR ? (
-              <div className="text-center py-12 text-muted-foreground">Carregando...</div>
-            ) : filteredCR.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <GitCompareArrows className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                Nenhuma solicitação de alteração encontrada.
-              </div>
-            ) : (
-              filteredCR.map((cr) => {
-                const sc = statusColors[cr.status] || statusColors.pendente;
-                let parsed: any = {};
-                try { parsed = JSON.parse(cr.motivo); } catch { }
-                const alteracoes = parsed.alteracoesPropostas || [];
-                return (
-                  <div key={cr.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3 relative">
-                    <div className="absolute top-4 left-4 z-10">
-                      <button onClick={() => toggleItemSelection(cr.id, 'alteracoes')} className="text-muted-foreground hover:text-primary transition-colors">
-                        {selectedItems.has(cr.id) && bulkActionTab === 'alteracoes' ? <CheckSquare className="w-5 h-5 text-primary" /> : <Square className="w-5 h-5" />}
-                      </button>
-                    </div>
-                    <div className="flex items-start justify-between gap-3 pl-8">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-foreground">{getConsultorName(cr.user_id)}</p>
-                          <Badge variant="outline" className={`text-[10px] ${sc}`}>{statusLabel[cr.status] || cr.status}</Badge>
-                          <Badge variant="outline" className="text-[10px] uppercase bg-muted/40">{cr.tipo}</Badge>
-                          <Badge variant="outline" className="text-[10px]">📅 {new Date(cr.created_at).toLocaleDateString('pt-BR')}</Badge>
-                        </div>
-                        {parsed.justificativa && <p className="text-xs text-muted-foreground mt-1 italic">📝 {parsed.justificativa}</p>}
-                        <div className="mt-2 space-y-1">
-                          {alteracoes.map((a: any, i: number) => (
-                            <div key={i} className="flex items-center gap-2 text-xs">
-                              <span className="text-muted-foreground font-medium">{a.campo}:</span>
-                              <span className="text-destructive line-through">{String(a.valorAntigo)}</span>
-                              <span>→</span>
-                              <span className="text-primary font-semibold">{String(a.valorNovo)}</span>
-                            </div>
-                          ))}
-                        </div>
-                        {cr.admin_resposta && <p className="text-xs text-muted-foreground mt-1">Resposta: {cr.admin_resposta}</p>}
-                      </div>
-                      <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => handleViewAlteracao(cr)}>
-                          <Eye className="w-4 h-4" /> Analisar
-                        </Button>
-                        {cr.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_alteracoes', 'aprovar') && (
-                          <>
-                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleApproveCR(cr)} disabled={savingCR}>
-                              <CheckCircle2 className="w-4 h-4" /> Aprovar
-                            </Button>
-                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30" onClick={async () => {
-                              const motivo = window.prompt('Motivo da devolução:');
-                              if (!motivo) return;
-                              try {
-                                await supabase.from('correction_requests').update({ status: 'pendente', admin_resposta: motivo } as any).eq('id', cr.id);
-                                toast.success('Alteração devolvida!');
-                                dispatchNotification('alteracao_devolvida', cr.user_id, 'Alteração Devolvida', `Sua solicitação de alteração de ${cr.tipo} foi devolvida: ${motivo}`, cr.tipo, '/minhas-acoes');
-                                queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
-                              } catch (err: any) { toast.error(err.message); }
-                            }} disabled={savingCR}>
-                              <Undo2 className="w-4 h-4" /> Devolver
-                            </Button>
-                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-orange-500 hover:bg-orange-500/10 border-orange-500/30" onClick={() => { setRejectCR(cr); setRejectCRReason(''); }}>
-                              <XCircle className="w-4 h-4" /> Rejeitar
-                            </Button>
-                          </>
-                        )}
-                        {hasCargoPermission(myCargoPerms, 'aprovacao_alteracoes', 'excluir') && (
-<Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
-                            if (!confirm('Excluir esta solicitação?')) return;
-                            try {
-                              const { error } = await supabase.from('correction_requests').delete().eq('id', cr.id);
-                              if (error) throw error;
-                              toast.success('Solicitação excluída!');
-                              queryClient.invalidateQueries({ queryKey: ['correction-requests'] });
-                            } catch (err: any) { toast.error(err.message); }
-                          }}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </TabsContent>
 
         {/* ── MFA Tab Content ── */}
         <TabsContent value="mfa">

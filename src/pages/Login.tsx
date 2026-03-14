@@ -115,8 +115,8 @@ const Login = () => {
       toast.error('As senhas não coincidem.');
       return;
     }
-    if (forgotForm.nova_senha.length < 6) {
-      toast.error('A nova senha deve ter no mínimo 6 caracteres.');
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{12,}$/.test(forgotForm.nova_senha)) {
+      toast.error('A nova senha deve ter no mínimo 12 caracteres, incluir uma letra maiúscula, uma minúscula e um caractere especial.');
       return;
     }
     setSubmittingForgot(true);
@@ -143,8 +143,8 @@ const Login = () => {
       toast.error('As senhas não coincidem.');
       return;
     }
-    if (requestForm.senha.length < 6) {
-      toast.error('A senha deve ter no mínimo 6 caracteres.');
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{12,}$/.test(requestForm.senha)) {
+      toast.error('A senha deve ter no mínimo 12 caracteres, incluir uma letra maiúscula, uma minúscula e um caractere especial.');
       return;
     }
     // Validate supervisor/gerente based on cargo

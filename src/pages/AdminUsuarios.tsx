@@ -250,8 +250,8 @@ const AdminUsuarios = () => {
          toast.error('As senhas não coincidem.');
          return;
       }
-      if (form.senha.length < 6) {
-         toast.error('A senha deve ter no mínimo 6 caracteres.');
+      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{12,}$/.test(form.senha)) {
+         toast.error('A senha deve ter no mínimo 12 caracteres, incluir uma letra maiúscula, uma minúscula e um caractere especial.');
          return;
       }
     }
