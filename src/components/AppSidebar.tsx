@@ -6,7 +6,7 @@ import {
   GripVertical, Pin, PinOff, Kanban, Users, Settings
 } from 'lucide-react';
 import { useProfile, useUserRole } from '@/hooks/useProfile';
-import { getPatente, getFraseMotivacional } from '@/lib/gamification';
+import { getPatente } from '@/lib/gamification';
 import { PatenteBadge } from './PatenteBadge';
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -69,7 +69,6 @@ export function AppSidebar() {
   const displayName = profile?.apelido || profile?.nome_completo?.split(' ')[0] || '...';
   const percentMeta = 0;
   const patente = getPatente(percentMeta);
-  const frase = getFraseMotivacional(percentMeta);
   const borderClass = patente?.borderClass ?? 'border-sidebar-border';
 
   // Map sidebar page key to cargo resource prefixes
@@ -285,9 +284,6 @@ export function AppSidebar() {
             <LogOut className="w-4 h-4" />
           </button>
         </div>
-        {!collapsed && patente && frase && (
-          <p className="text-sidebar-foreground/40 text-[10px] italic leading-tight mt-2 font-medium px-0.5">{frase}</p>
-        )}
       </div>
 
       {/* Search */}
