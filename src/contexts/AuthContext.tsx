@@ -125,20 +125,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, disabled, cargo, perfil')
+          .select('id, disabled')
           .eq('id', user!.id)
           .maybeSingle();
 
-        if (error || !data || (data as any).disabled) {
+        if (error) {
+          console.error("AuthContext Profile Error:", error);
+          setHasProfile(false);
+          setCargo(null);
+          setPerfil(null);
+          return;
+        }
+
+        if (!data || (data as any).disabled) {
           setHasProfile(false);
           setCargo(null);
           setPerfil(null);
         } else {
           setHasProfile(true);
-          setCargo((data as any).cargo ?? null);
-          setPerfil((data as any).perfil ?? null);
+          
+          // Fetch extra columns separately to avoid breaking login if columns don't exist yet
+          try {
+            const { data: extraData } = await supabase
+              .from('profiles')
+              .select('cargo, perfil')
+              .eq('id', user!.id)
+              .maybeSingle();
+            if (extraData) {
+              setCargo((extraData as any).cargo ?? null);
+              setPerfil((extraData as any).perfil ?? null);
+            }
+          } catch {
+             // Ignore silently
+          }
         }
-      } catch {
+      } catch (err: any) {
+        console.error("AuthContext Profile Fatal:", err);
         setHasProfile(false);
       }
     }
