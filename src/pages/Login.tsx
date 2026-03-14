@@ -98,11 +98,15 @@ const Login = () => {
         localStorage.removeItem('rememberedEmail');
         localStorage.removeItem('rememberedPassword');
       }
+      toast.success('Login realizado com sucesso!');
+      
+      // Force hard navigation to clear the react tree state
+      window.location.href = '/';
+      
     } catch (err: any) {
       toast.error(err.message || 'Erro inesperado. Tente novamente.');
       console.error(err);
-    } finally {
-      setLoading(false);
+      setLoading(false); // Only stop loading on error, so UI doesn't unlock during redirect
     }
   };
 
