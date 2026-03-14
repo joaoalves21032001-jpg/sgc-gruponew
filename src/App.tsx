@@ -12,7 +12,6 @@ import Perfil from "./pages/Perfil";
 import Login from "./pages/Login";
 import MfaSetup from "./pages/MfaSetup";
 import AdminUsuarios from "./pages/AdminUsuarios";
-
 import MinhasAcoes from "./pages/MinhasAcoes";
 import Aprovacoes from "./pages/Aprovacoes";
 import Inventario from "./pages/Inventario";
@@ -23,12 +22,18 @@ import Configuracoes from "./pages/Configuracoes";
 import Equipe from "./pages/Equipe";
 import LandingPage from "./pages/LandingPage";
 import NotFound from "./pages/NotFound";
-import { Shield, UserPlus } from "lucide-react";
+import { Shield } from "lucide-react";
 import { Button } from "./components/ui/button";
-import { CopilotChat } from "./components/CopilotChat";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function NoAccessScreen() {
   const { signOut } = useAuth();
@@ -55,46 +60,28 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
-      <div className="relative">
-        <div className="h-10 w-10 rounded-full border-3 border-muted animate-spin border-t-primary" />
-        <div className="absolute inset-0 h-10 w-10 rounded-full border-3 border-transparent animate-spin border-b-secondary" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
-      </div>
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       <p className="text-xs text-muted-foreground animate-pulse">Carregando...</p>
     </div>
   );
 
   if (!user) return <Navigate to="/login" replace />;
 
-  // Check if user has a profile (is authorized)
-  if (hasProfile === false) {
-    return <NoAccessScreen />;
-  }
+  if (hasProfile === false) return <NoAccessScreen />;
 
-  // Still checking profile
-  if (hasProfile === null) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
-        <div className="relative">
-          <div className="h-10 w-10 rounded-full border-3 border-muted animate-spin border-t-primary" />
-          <div className="absolute inset-0 h-10 w-10 rounded-full border-3 border-transparent animate-spin border-b-secondary" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
-        </div>
-        <p className="text-xs text-muted-foreground animate-pulse">Verificando acesso...</p>
-      </div>
-    );
-  }
+  if (hasProfile === null) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-xs text-muted-foreground animate-pulse">Verificando acesso...</p>
+    </div>
+  );
 
-  // Wait for MFA check to complete before rendering anything
-  if (!mfaChecked) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
-        <div className="relative">
-          <div className="h-10 w-10 rounded-full border-3 border-muted animate-spin border-t-primary" />
-          <div className="absolute inset-0 h-10 w-10 rounded-full border-3 border-transparent animate-spin border-b-secondary" style={{ animationDirection: 'reverse', animationDuration: '1.5s' }} />
-        </div>
-        <p className="text-xs text-muted-foreground animate-pulse">Verificando segurança...</p>
-      </div>
-    );
-  }
+  if (!mfaChecked) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-xs text-muted-foreground animate-pulse">Verificando segurança...</p>
+    </div>
+  );
 
   if (needsMfa && !mfaVerified) {
     return <MfaSetup onVerified={() => setMfaVerified(true)} />;
@@ -105,7 +92,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, mfaVerified, needsMfa, hasProfile } = useAuth();
-  if (loading) return null;
+  if (loading) return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+      <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <p className="text-sm font-medium animate-pulse">Carregando...</p>
+    </div>
+  );
   if (user && hasProfile === true && (!needsMfa || mfaVerified)) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
@@ -121,6 +113,7 @@ const App = () => (
             <Routes>
               <Route path="/landing" element={<LandingPage />} />
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+              {/* Protected routes — AppLayout uses <Outlet /> internally */}
               <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
                 <Route path="/" element={<Index />} />
                 <Route path="/comercial" element={<Comercial />} />
@@ -133,13 +126,11 @@ const App = () => (
                 <Route path="/perfil" element={<Perfil />} />
                 <Route path="/equipe" element={<Equipe />} />
                 <Route path="/admin/usuarios" element={<AdminUsuarios />} />
-
                 <Route path="/admin/logs" element={<AuditLogs />} />
                 <Route path="/admin/configuracoes" element={<Configuracoes />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>
-            <CopilotChat />
           </AuthProvider>
         </BrowserRouter>
       </TooltipProvider>

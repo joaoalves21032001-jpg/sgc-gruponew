@@ -382,6 +382,10 @@ const Configuracoes = () => {
     };
 
     const handleCleanupLogs = async () => {
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
         try {
             let cutoff = new Date();
             
@@ -418,6 +422,10 @@ const Configuracoes = () => {
     };
 
     const handleCleanupNotifs = async () => {
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
         try {
             let cutoff = new Date();
             let query = supabase.from('notifications').delete().eq('lida', true);
@@ -445,6 +453,10 @@ const Configuracoes = () => {
     };
 
     const handleCreateRule = async () => {
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
         if (!newRuleEvent.trim() || !newRuleLabel.trim() || newRuleAudiences.length === 0) {
             toast.error('Preencha os campos obrigatórios (Evento, Label e ao menos um Público).');
             return;
@@ -468,6 +480,10 @@ const Configuracoes = () => {
     };
 
     const handleDeleteRule = async () => {
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
         if (!confirmDeleteRuleId) return;
         try {
             await deleteRule.mutateAsync(confirmDeleteRuleId);
@@ -478,6 +494,10 @@ const Configuracoes = () => {
     };
 
     const handleCreateAuditEvent = async () => {
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
         if (!newEventKey.trim() || !newEventLabel.trim()) {
             toast.error('Chave e Label são obrigatórios.');
             return;
@@ -501,6 +521,10 @@ const Configuracoes = () => {
     };
 
     const handleDeleteAuditEvent = async () => {
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
         if (!confirmDeleteEventId) return;
         try {
             await deleteAuditEvent.mutateAsync(confirmDeleteEventId);
@@ -511,6 +535,14 @@ const Configuracoes = () => {
     };
 
     const handleCreateProfile = async () => {
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
+        if (!hasCargoPermission(myCargoPermissions, 'config.permissoes', 'edit')) {
+            toast.error('Seu cargo não permite criar perfis de segurança.');
+            return;
+        }
         if (!newProfileName.trim()) { toast.error('Nome obrigatório.'); return; }
         try {
             const result = await createProfile.mutateAsync({ name: newProfileName.trim(), description: newProfileDesc.trim() || undefined });
@@ -530,6 +562,14 @@ const Configuracoes = () => {
     };
 
     const handleUpdateProfile = async () => {
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
+        if (!hasCargoPermission(myCargoPermissions, 'config.permissoes', 'edit')) {
+            toast.error('Seu cargo não permite editar perfis de segurança.');
+            return;
+        }
         if (!editingProfile) return;
         try {
             let passwordToSave = editingProfile.protection_password;
@@ -561,6 +601,14 @@ const Configuracoes = () => {
 
 
     const handleDeleteProfile = async () => {
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
+        if (!hasCargoPermission(myCargoPermissions, 'config.permissoes', 'edit')) {
+            toast.error('Seu cargo não permite excluir perfis de segurança.');
+            return;
+        }
         if (!confirmDeleteId) return;
         try {
             await deleteProfile.mutateAsync(confirmDeleteId);
@@ -573,6 +621,14 @@ const Configuracoes = () => {
 
     const handleTogglePerm = (resource: string, action: string) => {
         if (!selectedProfileId) return;
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
+        if (!hasCargoPermission(myCargoPermissions, 'config.permissoes', 'edit')) {
+            toast.error('Seu cargo não permite alterar permissões de perfis.');
+            return;
+        }
         
         const sp = securityProfiles.find(p => p.id === selectedProfileId);
         const existing = profilePerms.find(p => p.resource === resource && p.action === action);
@@ -599,6 +655,14 @@ const Configuracoes = () => {
     };
 
     const handleCreateCargo = async () => {
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
+        if (!hasCargoPermission(myCargoPermissions, 'config.cargos', 'edit')) {
+            toast.error('Seu cargo não permite criar novos cargos.');
+            return;
+        }
         if (!newCargoNome.trim()) { toast.error('Nome obrigatório.'); return; }
         try {
             const result = await createCargo.mutateAsync({ 
@@ -619,6 +683,14 @@ const Configuracoes = () => {
     };
 
     const handleUpdateCargo = async () => {
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
+        if (!hasCargoPermission(myCargoPermissions, 'config.cargos', 'edit')) {
+            toast.error('Seu cargo não permite editar cargos.');
+            return;
+        }
         if (!editingCargo) return;
         try {
             let passwordToSave = (editingCargo as any).protection_password;
@@ -649,6 +721,14 @@ const Configuracoes = () => {
 
 
     const handleDeleteCargo = async () => {
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
+        if (!hasCargoPermission(myCargoPermissions, 'config.cargos', 'edit')) {
+            toast.error('Seu cargo não permite excluir cargos.');
+            return;
+        }
         if (!confirmDeleteCargoId) return;
         try {
             await deleteCargo.mutateAsync(confirmDeleteCargoId);
@@ -661,6 +741,15 @@ const Configuracoes = () => {
 
     const handleToggleCargoPerm = (resource: string, action: string) => {
         if (!selectedCargoId) return;
+        if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+            toast.error('Você não tem permissão para editar configurações.');
+            return;
+        }
+        if (!hasCargoPermission(myCargoPermissions, 'config.cargos', 'edit')) {
+            toast.error('Seu cargo não permite alterar permissões de cargos.');
+            return;
+        }
+
         const cargo = cargos.find((c: any) => c.id === selectedCargoId);
         
         const performToggle = () => {
@@ -2230,6 +2319,10 @@ const Configuracoes = () => {
                         <Button variant="outline" onClick={() => setNewKbOpen(false)}>Cancelar</Button>
                         <Button 
                             onClick={async () => {
+                                if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+                                    toast.error('Você não tem permissão para editar configurações.');
+                                    return;
+                                }
                                 if (!newKbContent.trim()) { toast.error("O conteúdo é obrigatório"); return; }
                                 try {
                                     await createKb.mutateAsync({ content: newKbContent, categoria: newKbCategoria });
@@ -2258,6 +2351,10 @@ const Configuracoes = () => {
                         <Button 
                             variant="destructive" 
                             onClick={async () => {
+                                if (!hasPermission(myPermissions, 'configuracoes', 'edit')) {
+                                    toast.error('Você não tem permissão para editar configurações.');
+                                    return;
+                                }
                                 if(confirmDeleteKbId) {
                                   try { await deleteKb.mutateAsync(confirmDeleteKbId); toast.success('Removido!'); } 
                                   catch(e:any) { toast.error(e.message); }

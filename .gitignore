@@ -33,3 +33,8 @@ test_copilot.cjs
 fix_permissions.cjs
 upgrade_admin.cjs
 *_assign.cjs
+apply-super-admin.cjs
+check_admin.ts
+check_admin_db.cjs
+*.timestamp*.mjs
+vite.config.ts.timestamp*

@@ -228,7 +228,16 @@ const AdminUsuarios = () => {
     setOpen(true);
   };
 
-  const handleSave = async () => {
+   const handleSave = async () => {
+    if (editingId && !hasPermission(myPermissions, 'usuarios', 'edit')) {
+      toast.error('Você não tem permissão para editar usuários.');
+      return;
+    }
+    if (!editingId && !hasPermission(myPermissions, 'usuarios', 'create')) {
+      toast.error('Você não tem permissão para criar novos usuários.');
+      return;
+    }
+
     const required: (keyof FormData)[] = [
       'email', 'nome_completo', 'apelido', 'celular', 'cpf', 'rg',
       'endereco', 'cargo',
@@ -353,7 +362,11 @@ const AdminUsuarios = () => {
     setSaving(false);
   };
 
-  const handleToggleDisable = async (profile: Profile) => {
+   const handleToggleDisable = async (profile: Profile) => {
+    if (!hasPermission(myPermissions, 'usuarios', 'disable')) {
+      toast.error('Você não tem permissão para desabilitar usuários.');
+      return;
+    }
     setToggling(true);
     try {
       const isDisabled = (profile as any).disabled === true;
@@ -667,7 +680,11 @@ const AdminUsuarios = () => {
 
 
 
-            <Button onClick={handleSave} disabled={saving} className="w-full h-12 font-semibold shadow-brand min-w-[160px]">
+             <Button 
+                onClick={handleSave} 
+                disabled={saving || (editingId ? !hasPermission(myPermissions, 'usuarios', 'edit') : !hasPermission(myPermissions, 'usuarios', 'create'))} 
+                className="w-full h-12 font-semibold shadow-brand min-w-[160px]"
+              >
               {saving ? (
                 <><div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin mr-2" /> Salvando...</>
               ) : (
@@ -723,8 +740,12 @@ const AdminUsuarios = () => {
             <Button
               variant="destructive"
               disabled={deleting}
-              onClick={async () => {
+               onClick={async () => {
                 if (!deleteConfirm) return;
+                if (!hasPermission(myPermissions, 'usuarios', 'delete')) {
+                  toast.error('Você não tem permissão para excluir usuários.');
+                  return;
+                }
                 setDeleting(true);
                 try {
                   // Edge function handles all cleanup (user_roles, profiles, notifications, etc.)
@@ -765,6 +786,10 @@ const AdminUsuarios = () => {
               disabled={resettingMfa}
               onClick={async () => {
                 if (!mfaResetConfirm) return;
+                if (!hasPermission(myPermissions, 'usuarios', 'reset_mfa')) {
+                  toast.error('Você não tem permissão para resetar MFA.');
+                  return;
+                }
                 setResettingMfa(true);
                 try {
                   await resetMfaFactors(mfaResetConfirm.id);
@@ -810,6 +835,10 @@ const AdminUsuarios = () => {
               disabled={resettingPwd || newPassword.length < 6}
               onClick={async () => {
                 if (!pwdResetConfirm) return;
+                if (!hasPermission(myPermissions, 'usuarios', 'reset_password')) {
+                  toast.error('Você não tem permissão para configurar novas senhas.');
+                  return;
+                }
                 setResettingPwd(true);
                 try {
                   await directPasswordReset(pwdResetConfirm.id, newPassword);

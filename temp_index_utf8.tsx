@@ -1,12 +1,10 @@
-import { format, parse } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 import { Phone, MessageSquare, FileText, CheckCircle2, DollarSign, Target, TrendingUp, RotateCcw } from 'lucide-react';
 import { StatCard } from '@/components/StatCard';
 import { useProfile, useUserRole } from '@/hooks/useProfile';
 import { useMyAtividades } from '@/hooks/useAtividades';
 import { useMyVendas } from '@/hooks/useVendas';
 import { PatenteBadge } from '@/components/PatenteBadge';
-import { getPatenteFrase } from '@/lib/gamification';
+import { getFraseMotivacional, getPerformanceTierInfo } from '@/lib/gamification';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMemo, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
@@ -112,15 +110,6 @@ const Index = () => {
     return days;
   }, [vendas]);
 
-  const activityData = useMemo(() => {
-    if (!atividades || atividades.length === 0) return [];
-    return atividades.slice(0, 7).reverse().map(a => ({
-      day: format(parse(a.data, 'yyyy-MM-dd', new Date()), 'dd/MM', { locale: ptBR }),
-      ligacoes: a.ligacoes,
-      cotacoes: a.cotacoes_enviadas,
-    }));
-  }, [atividades]);
-
   const faturamento = useMemo(() => {
     if (!vendas) return 0;
     return vendas
@@ -130,7 +119,19 @@ const Index = () => {
 
   const metaFaturamento = profile?.meta_faturamento ?? 75000;
   const percentMeta = metaFaturamento > 0 ? Math.round((faturamento / metaFaturamento) * 100) : 0;
-  const frase = getPatenteFrase(percentMeta);
+  const frase = useMemo(() => getFraseMotivacional(percentMeta), [percentMeta]);
+  const tierInfo = getPerformanceTierInfo(percentMeta);
+
+  const activityData = useMemo(() => {
+    if (!atividades || atividades.length === 0) return [];
+    return atividades.slice(0, 7).reverse().map(a => ({
+      day: new Date(a.data).toLocaleDateString('pt-BR', { weekday: 'short' }),
+      ligacoes: a.ligacoes,
+      cotacoes: a.cotacoes_enviadas,
+    }));
+  }, [atividades]);
+
+  const displayName = profile?.apelido || profile?.nome_completo?.split(' ')[0] || '';
 
   // Confetti celebration when meta reaches 100%
   const confettiFired = useRef(false);
@@ -144,8 +145,6 @@ const Index = () => {
   const isLoading = loadingProfile || loadingAtiv || loadingVendas;
   if (isLoading) return <DashboardSkeleton />;
 
-  const displayName = profile?.apelido || profile?.nome_completo;
-
   return (
     <div className="space-y-6 page-enter">
       {/* Header */}
@@ -157,7 +156,10 @@ const Index = () => {
           <p className="text-sm text-muted-foreground mt-1">
             Resumo das suas atividades • {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
           </p>
-          <p className="text-xs text-muted-foreground/70 italic mt-2">{frase}</p>
+          <p className="text-xs italic mt-2 font-medium flex items-center gap-1.5" style={{ color: tierInfo.color }}>
+            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" style={{ backgroundColor: tierInfo.color + '20', color: tierInfo.color }}>{tierInfo.name}</span>
+            {frase}
+          </p>
         </div>
         {percentMeta >= 80 && <PatenteBadge percentMeta={percentMeta} size="md" />}
       </div>

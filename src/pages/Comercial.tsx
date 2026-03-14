@@ -5,7 +5,7 @@ import { ptBR } from 'date-fns/locale';
 import {
   Phone, MessageSquare, FileText, CheckCircle2, RotateCcw, Info, Save, Send,
   ChevronRight, ChevronLeft, AlertCircle, CalendarIcon, DollarSign,
-  ClipboardList, ShoppingCart, Trash2, Plus,
+  ClipboardList, ShoppingCart, Trash2, Plus, Calculator,
   Mail, User, XCircle, MessageCircle, BarChart3, Flag
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { useProfile, useSupervisorProfile, useGerenteProfile, useUserRole, useTeamProfiles } from '@/hooks/useProfile';
 import { useCreateAtividade, useMyAtividades } from '@/hooks/useAtividades';
+import { useLeads } from '@/hooks/useInventario';
 import { useCreateVenda, useMyVendas, uploadVendaDocumento } from '@/hooks/useVendas';
 import { useSubmitCorrectionRequest } from '@/hooks/useCorrectionRequests';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,7 +34,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { dispatchNotification } from '@/hooks/useNotificationRules';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 import { useMyCargoPermissions, hasCargoPermission } from '@/hooks/useCargos';
-import { getFraseMotivacional, getPerformanceTierInfo } from '@/lib/gamification';
+import { getDailyFraseMotivacional, getPerformanceTierInfo } from '@/lib/gamification';
 import confetti from 'canvas-confetti';
 
 /* ─── Shared Components ─── */
@@ -78,6 +79,7 @@ function SectionHeader({ icon: Icon, title, subtitle }: { icon: React.ElementTyp
 interface AtividadesForm {
   ligacoes: string;
   mensagens: string;
+  cotacoes_realizadas: string;
   cotacoes_enviadas: string;
   cotacoes_respondidas: string;
   cotacoes_nao_respondidas: string;
@@ -103,6 +105,13 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const resolvedSupervisor = (profile as any)?._supervisor || supervisor || (profile?.supervisor_id ? allProfiles.find(p => p.id === profile.supervisor_id) : null);
   const resolvedGerente = (profile as any)?._gerente || gerente || (profile?.gerente_id ? allProfiles.find(p => p.id === profile.gerente_id) : null);
   const { data: myAtividades } = useMyAtividades();
+  const { data: leads } = useLeads();
+  
+  const followUpAgendado = useMemo(() => {
+    if (!leads || !user) return 0;
+    return leads.filter((l: any) => l.user_id === user.id && ['Aguardando retorno', 'Declinado'].includes(l.status)).length;
+  }, [leads, user]);
+
   const { data: myVendas } = useMyVendas();
   const createAtividade = useCreateAtividade();
   const logAction = useLogAction();
@@ -117,7 +126,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const [changeJustificativa, setChangeJustificativa] = useState('');
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<AtividadesForm>({
-    ligacoes: '', mensagens: '', cotacoes_enviadas: '',
+    ligacoes: '', mensagens: '', cotacoes_realizadas: '', cotacoes_enviadas: '',
     cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '',
   });
 
@@ -127,6 +136,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
       setForm({
         ligacoes: String(editAtividade.ligacoes ?? ''),
         mensagens: String(editAtividade.mensagens ?? ''),
+        cotacoes_realizadas: String((editAtividade as any).cotacoes_realizadas ?? ''),
         cotacoes_enviadas: String(editAtividade.cotacoes_enviadas ?? ''),
         cotacoes_respondidas: String(editAtividade.cotacoes_fechadas ?? ''),
         cotacoes_nao_respondidas: String((editAtividade as any).cotacoes_nao_respondidas ?? 0),
@@ -146,6 +156,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
     const mapping = [
       { key: 'ligacoes', formKey: 'ligacoes', label: 'Ligações Realizadas' },
       { key: 'mensagens', formKey: 'mensagens', label: 'Mensagens Enviadas' },
+      { key: 'cotacoes_realizadas', formKey: 'cotacoes_realizadas', label: 'Cotações Realizadas' },
       { key: 'cotacoes_enviadas', formKey: 'cotacoes_enviadas', label: 'Cotações Enviadas' },
       { key: 'cotacoes_fechadas', formKey: 'cotacoes_respondidas', label: 'Cotações Respondidas' },
       { key: 'cotacoes_nao_respondidas', formKey: 'cotacoes_nao_respondidas', label: 'Cotações Não Respondidas' },
@@ -168,15 +179,26 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const metrics: { key: keyof AtividadesForm; label: string; icon: React.ElementType; tooltip: string }[] = [
     { key: 'ligacoes', label: 'Ligações Realizadas', icon: Phone, tooltip: 'Total de ligações de prospecção e follow-up realizadas no dia selecionado.' },
     { key: 'mensagens', label: 'Mensagens Enviadas', icon: MessageSquare, tooltip: 'WhatsApp, e-mails e mensagens enviadas a clientes e leads no dia.' },
+    { key: 'cotacoes_realizadas', label: 'Cotações Realizadas', icon: Calculator, tooltip: 'Quantidade de cotações precificadas.' },
     { key: 'cotacoes_enviadas', label: 'Cotações Enviadas', icon: MessageCircle, tooltip: 'Propostas comerciais efetivamente enviadas ao cliente.' },
     { key: 'cotacoes_respondidas', label: 'Cotações Respondidas', icon: CheckCircle2, tooltip: 'Cotações que o cliente respondeu (positiva ou negativamente).' },
     { key: 'cotacoes_nao_respondidas', label: 'Cotações Não Respondidas', icon: XCircle, tooltip: 'Cotações enviadas que ainda não obtiveram retorno do cliente.' },
-    { key: 'follow_up', label: 'Follow-up', icon: RotateCcw, tooltip: 'Retornos agendados com clientes.' },
+    { key: 'follow_up', label: 'Follow-ups Realizados', icon: RotateCcw, tooltip: 'Retornos com clientes realizados hoje.' },
   ];
 
   const metricKeys = metrics.map(m => m.key);
   const allFilled = metricKeys.every(k => form[k] !== '');
-  const canSave = allFilled && (!isRetroativo || form.justificativa.trim().length > 0);
+
+  const requiresJustification = useMemo(() => {
+    if (isRetroativo) return true;
+    const lig = parseInt(form.ligacoes) || 0;
+    const msg = parseInt(form.mensagens) || 0;
+    const cotRealizadas = parseInt(form.cotacoes_realizadas) || 0;
+    if ((lig + msg) > 0 && cotRealizadas < Math.floor((lig + msg) * 0.1)) return true;
+    return false;
+  }, [isRetroativo, form.ligacoes, form.mensagens, form.cotacoes_realizadas]);
+
+  const canSave = allFilled && (!requiresJustification || form.justificativa.trim().length > 0);
 
   const conversionRates = [
     { label: 'Ligações → Cotações Enviadas', value: calcRate(form.ligacoes, form.cotacoes_enviadas) },
@@ -184,7 +206,12 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   ];
 
   const handleSave = () => {
-    if (!canSave) { toast.error('Preencha todos os campos obrigatórios.'); return; }
+    if (!canSave) { 
+      toast.error(requiresJustification && form.justificativa.trim().length === 0 
+        ? 'A justificativa é obrigatória para cenários atípicos.' 
+        : 'Preencha todos os campos obrigatórios.');
+      return; 
+    }
     if (editAtividade) {
       // Show change request confirmation instead
       if (changeRequestFields.length === 0) {
@@ -244,6 +271,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
         data: format(dataLancamento, 'yyyy-MM-dd'),
         ligacoes: parseInt(form.ligacoes) || 0,
         mensagens: parseInt(form.mensagens) || 0,
+        cotacoes_realizadas: parseInt(form.cotacoes_realizadas) || 0,
         cotacoes_enviadas: parseInt(form.cotacoes_enviadas) || 0,
         cotacoes_fechadas: parseInt(form.cotacoes_respondidas) || 0,
         cotacoes_nao_respondidas: parseInt(form.cotacoes_nao_respondidas) || 0,
@@ -252,12 +280,13 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
       setShowConfirm(false);
       logAction('criar_atividade', 'atividade', undefined, { data: format(dataLancamento, 'yyyy-MM-dd') });
       
+      const totalVolume = (parseInt(form.ligacoes) || 0) + (parseInt(form.mensagens) || 0);
+      const frase = getDailyFraseMotivacional(totalVolume);
+      const tierInfo = getPerformanceTierInfo(totalVolume);
+
       const metaFaturamento = profile?.meta_faturamento ?? 75000;
       const faturamentoAtual = (myVendas || []).filter(v => v.status === 'aprovado').reduce((sum, v) => sum + (v.valor ?? 0), 0);
       const percentMeta = metaFaturamento > 0 ? Math.round((faturamentoAtual / metaFaturamento) * 100) : 0;
-      
-      const frase = getFraseMotivacional(percentMeta);
-      const tierInfo = getPerformanceTierInfo(percentMeta);
 
       if (percentMeta >= 100) {
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
@@ -286,7 +315,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
           '/aprovacoes'
         );
       }
-      setForm({ ligacoes: '', mensagens: '', cotacoes_enviadas: '', cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '' });
+      setForm({ ligacoes: '', mensagens: '', cotacoes_realizadas: '', cotacoes_enviadas: '', cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '' });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao registrar atividades.');
     } finally {
@@ -316,21 +345,38 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
           </PopoverContent>
         </Popover>
 
-        {isRetroativo && (
+        {requiresJustification && (
           <div className="mt-4 p-4 bg-warning/8 border border-warning/20 rounded-lg space-y-3">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-warning shrink-0" />
-              <p className="text-sm font-medium text-foreground">Lançamento retroativo detectado</p>
+              <p className="text-sm font-medium text-foreground">
+                {isRetroativo ? 'Lançamento retroativo detectado' : 'Atenção: Ações atípicas identificadas'}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground">A justificativa é obrigatória e será enviada para o <strong>Supervisor</strong>, <strong>Gerente</strong> e <strong>Diretor</strong>.</p>
-            <Textarea placeholder="Justifique o motivo do lançamento fora da data correta..." value={form.justificativa} onChange={(e) => update('justificativa', e.target.value)} rows={3} disabled={!canEdit} className="border-warning/30 focus:border-warning disabled:opacity-60 disabled:cursor-not-allowed" />
+            <p className="text-xs text-muted-foreground">
+              {isRetroativo 
+                ? 'A justificativa é obrigatória para lançamentos fora da data atual e será enviada à diretoria.' 
+                : 'A taxa de cotações realizadas está abaixo da meta (10% dos contatos). Por favor, justifique o baixo rendimento.'}
+            </p>
+            <Textarea placeholder="Descreva o motivo..." value={form.justificativa} onChange={(e) => update('justificativa', e.target.value)} rows={3} disabled={!canEdit} className="border-warning/30 focus:border-warning disabled:opacity-60 disabled:cursor-not-allowed" />
           </div>
         )}
       </div>
 
       {/* ── Campos de Atividade ── */}
       <div className="bg-card rounded-2xl p-6 shadow-elevated hover-lift border border-border/40">
-        <SectionHeader icon={ClipboardList} title="Atividades do Dia" subtitle="Todos os campos são obrigatórios, mesmo que o valor seja 0" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5">
+          <SectionHeader icon={ClipboardList} title="Atividades do Dia" subtitle="Todos os campos são obrigatórios, mesmo que o valor seja 0" />
+          <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-2 flex items-center gap-3 w-fit shrink-0">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <CalendarIcon className="w-4 h-4 text-primary font-bold" />
+            </div>
+            <div className="pr-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider leading-none mb-0.5">Agendados hoje</p>
+              <p className="text-xl font-black text-primary font-display leading-tight">{followUpAgendado}</p>
+            </div>
+          </div>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
           {metrics.map((m) => (
             <FieldWithTooltip key={m.key} label={m.label} tooltip={m.tooltip} required>
@@ -422,10 +468,10 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
                 <span className="font-medium text-foreground">{form[m.key] || '0'}</span>
               </div>
             ))}
-            {isRetroativo && (
-              <div className="p-2.5 bg-warning/10 rounded-lg border border-warning/20">
-                <p className="text-xs text-muted-foreground mb-1">Justificativa (retroativo)</p>
-                <p className="text-xs text-foreground">{form.justificativa}</p>
+            {requiresJustification && (
+              <div className="pt-2 border-t border-border/20">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">Justificativa Exigida</p>
+                <p className="text-xs text-foreground bg-warning/10 p-2 rounded border border-warning/20">{form.justificativa}</p>
               </div>
             )}
           </div>

@@ -47,7 +47,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const prevUser = user;
 
-      // When session becomes null (SIGNED_OUT, token revoked after password reset, etc.)
       if (_event === 'SIGNED_OUT' || !session) {
         setSession(null);
         setUser(null);
@@ -77,7 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } as any).then(() => { });
       }
 
-      // When user changes (e.g. password was reset), reset MFA check state
       if (prevUser && prevUser.id === session.user.id && _event === 'USER_UPDATED') {
         setMfaChecked(false);
         setMfaVerified(false);
@@ -100,7 +98,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) { setHasProfile(null); return; }
 
     const checkProfile = async () => {
-      // First: check if profile exists (essential columns only)
       const { data, error } = await supabase
         .from('profiles')
         .select('id, disabled')
@@ -122,7 +119,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setHasProfile(true);
 
-      // Second: try to fetch cargo/perfil (non-blocking, won't break login if columns don't exist)
       try {
         const { data: extraData } = await supabase
           .from('profiles')
@@ -140,24 +136,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkProfile();
   }, [user]);
 
-  // MFA check — run once per login (guarded by mfaChecked ref to avoid re-runs on token refresh)
-  // useRef so the guard persists across renders (unlike a plain object which is recreated every render)
+  // MFA check — run once per login
   const mfaCheckRef = useRef(false);
   useEffect(() => {
     if (!user || hasProfile !== true || mfaChecked) return;
     checkMfaStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, hasProfile]); // intentionally exclude mfaChecked from deps — it's only a guard
+  }, [user?.id, hasProfile]);
 
   const checkMfaStatus = async () => {
-    // Guard: don't run twice concurrently
     if (mfaCheckRef.current) return;
     mfaCheckRef.current = true;
 
     let cancelled = false;
 
-    // Safety net: 8s timeout — only fires if check() hangs completely.
-    // Uses 'cancelled' flag so it can't override result after check() succeeds.
     const timeoutId = setTimeout(() => {
       if (!cancelled) {
         console.warn('MFA check timed out — unblocking UI');
@@ -168,11 +160,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const { data: aalData, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-      cancelled = true; // prevent timeout from firing after this point
+      cancelled = true;
       clearTimeout(timeoutId);
 
       if (error) {
-        // Non-fatal: session might be refreshing — let user through gracefully
         console.warn('MFA AAL check error (non-fatal):', error.message);
         setNeedsMfa(false);
         setMfaChecked(true);
@@ -188,7 +179,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { currentLevel, nextLevel } = aalData;
 
       if (nextLevel === 'aal2' && currentLevel === 'aal1') {
-        // User has an enrolled + verified MFA factor — needs to verify this session
         const deviceHash = localStorage.getItem('mfa_device_hash');
         if (deviceHash) {
           const { data: trusted, error: trustedErr } = await supabase
@@ -204,13 +194,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           if (trusted) {
-            console.log('[MFA] Dispositivo confiável encontrado. Bypass MFA ativo.');
             setMfaVerified(true);
             setNeedsMfa(false);
             setMfaChecked(true);
             return;
-          } else {
-            console.warn('[MFA] Hash do dispositivo não encontrado ou expirado. MFA será solicitado. Hash usado:', deviceHash);
           }
         }
         setNeedsMfa(true);
@@ -220,17 +207,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (currentLevel === 'aal2') {
-        // Already fully authenticated
         setMfaVerified(true);
         setNeedsMfa(false);
         setMfaChecked(true);
         return;
       }
 
-      // currentLevel === aal1, nextLevel === aal1:
-      // User has no verified MFA factor at all — must enroll
-      // NOTE: Do NOT unenroll any factors here. If an unverified factor exists, it means
-      // MfaSetup is in the middle of enrollment. Let MfaSetup handle it.
       setNeedsMfa(true);
       setMfaVerified(false);
       setMfaChecked(true);
@@ -239,8 +221,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       cancelled = true;
       clearTimeout(timeoutId);
       console.error('MFA check exception:', err);
-      // On unexpected error — do NOT let the user through without MFA
-      // Instead, force MFA setup (safer than bypassing)
       setNeedsMfa(true);
       setMfaVerified(false);
       setMfaChecked(true);
@@ -248,7 +228,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mfaCheckRef.current = false;
     }
   };
-
 
   const signOut = async () => {
     await supabase.auth.signOut();

@@ -1,4 +1,4 @@
-import { getMotivationalTier, getRandomPhrase } from './motivationalPhrases';
+import { getMotivationalTier, getRandomPhrase, getMotivationalPhrase } from './motivationalPhrases';
 
 export type Patente = 'diamante' | 'platina' | 'ouro' | 'prata' | 'bronze' | null;
 export type FlagRisco = 'amarelo' | 'laranja' | 'vermelho' | null;
@@ -68,35 +68,23 @@ export function getPatente(percentMeta: number): PatenteInfo | null {
   return null;
 }
 
+/** Returns the original motivational phrase based on monthly meta percent. */
+export function getPatenteFrase(percentMeta: number): string {
+  const patente = getPatente(percentMeta);
+  return patente ? patente.frase : 'Continue focado em seus objetivos para alcançar novos níveis!';
+}
+
 /**
- * Maps percentMeta (0-200+) to a performance rate (0-1) for the motivational tier system.
- * 0%   → critico  (< 40%)
- * 40%  → alerta   (< 70%)
- * 70%  → bom      (< 90%)
- * 90%  → excelente(< 98%)
- * 98%+ → lendário
+ * Maps daily volume to a performance tier.
  */
-function percentToRate(percentMeta: number): number {
-  if (percentMeta >= 200) return 1.0;
-  if (percentMeta >= 98)  return 0.98;
-  if (percentMeta >= 90)  return 0.9;
-  if (percentMeta >= 70)  return 0.7;
-  if (percentMeta >= 40)  return 0.4;
-  return 0;
-}
-
-/** Returns a random motivational phrase based on performance % against the meta. */
-export function getFraseMotivacional(percentMeta: number): string {
-  const rate = percentToRate(percentMeta);
-  const tier = getMotivationalTier(rate);
-  return getRandomPhrase(tier.id);
-}
-
-/** Returns tier color (hex) and name for visual feedback. */
-export function getPerformanceTierInfo(percentMeta: number): { color: string; name: string; id: string } {
-  const rate = percentToRate(percentMeta);
-  const tier = getMotivationalTier(rate);
+export function getPerformanceTierInfo(volume: number): { color: string; name: string; id: string } {
+  const tier = getMotivationalTier(volume);
   return { color: tier.color, name: tier.name, id: tier.id };
+}
+
+/** Returns a random motivational phrase based on daily volume (from the 250 phrases). */
+export function getDailyFraseMotivacional(volume: number): string {
+  return getMotivationalPhrase(volume);
 }
 
 export function getFlagRisco(

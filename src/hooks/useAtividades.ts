@@ -8,6 +8,7 @@ export interface Atividade {
   data: string;
   ligacoes: number;
   mensagens: number;
+  cotacoes_realizadas: number;
   cotacoes_enviadas: number;
   cotacoes_fechadas: number;
   cotacoes_nao_respondidas?: number;

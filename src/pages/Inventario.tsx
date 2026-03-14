@@ -99,6 +99,10 @@ function CompanhiasTab() {
   };
 
   const handleSave = async () => {
+    if (!canEdit) {
+      toast.error('Você não tem permissão para esta ação.');
+      return;
+    }
     if (!nome.trim()) { toast.error('Informe o nome.'); return; }
     setSaving(true);
     try {
@@ -143,6 +147,10 @@ function CompanhiasTab() {
   };
 
   const handleDelete = async () => {
+    if (!canEdit) {
+      toast.error('Você não tem permissão para excluir companhias.');
+      return;
+    }
     if (!deleteItem) return;
     setSaving(true);
     try {
@@ -294,6 +302,10 @@ function ProdutosTab() {
   const getCompanhiaNome = (id: string) => companhias.find(c => c.id === id)?.nome ?? '—';
 
   const handleSave = async () => {
+    if (!canEdit) {
+      toast.error('Você não tem permissão para esta ação.');
+      return;
+    }
     if (!nome.trim()) { toast.error('Informe o nome do produto.'); return; }
     if (!companhiaId) { toast.error('Selecione a companhia.'); return; }
     setSaving(true);
@@ -495,6 +507,10 @@ function ModalidadesTab() {
   };
 
   const handleSave = async () => {
+    if (!canEdit) {
+      toast.error('Você não tem permissão para esta ação.');
+      return;
+    }
     if (!nome.trim()) { toast.error('Informe o nome.'); return; }
     setSaving(true);
     const payload = {
