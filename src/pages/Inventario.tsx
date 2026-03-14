@@ -13,6 +13,7 @@ import { LeadsListView } from '@/components/LeadsListView';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
@@ -258,28 +259,64 @@ function ProdutosTab() {
   const [search, setSearch] = useState('');
   const [showAdd, setShowAdd] = useState(false);
   const [editItem, setEditItem] = useState<Produto | null>(null);
-  const [nome, setNome] = useState('');
-  const [companhiaId, setCompanhiaId] = useState('');
   const [deleteItem, setDeleteItem] = useState<Produto | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Form state
+  const [nome, setNome] = useState('');
+  const [companhiaId, setCompanhiaId] = useState('');
+  const [catAcomodacao, setCatAcomodacao] = useState('');
+  const [catReembolso, setCatReembolso] = useState('');
+  const [catCopart, setCatCopart] = useState('');
+  const [temIof, setTemIof] = useState(false);
+  const [pctIof, setPctIof] = useState('');
+
+  const resetForm = () => {
+    setNome(''); setCompanhiaId(''); setCatAcomodacao(''); setCatReembolso('');
+    setCatCopart(''); setTemIof(false); setPctIof('');
+  };
+
+  const openAdd = () => { resetForm(); setEditItem(null); setShowAdd(true); };
+
+  const openEdit = (p: Produto) => {
+    setEditItem(p);
+    setNome(p.nome);
+    setCompanhiaId(p.companhia_id);
+    setCatAcomodacao(p.categoria_acomodacao || '');
+    setCatReembolso(p.categoria_reembolso || '');
+    setCatCopart(p.categoria_coparticipacao || '');
+    setTemIof(p.tem_iof ?? false);
+    setPctIof(p.porcentagem_iof != null ? String(p.porcentagem_iof) : '');
+    setShowAdd(true);
+  };
 
   const filtered = produtos.filter(p => p.nome.toLowerCase().includes(search.toLowerCase()));
   const getCompanhiaNome = (id: string) => companhias.find(c => c.id === id)?.nome ?? '—';
 
   const handleSave = async () => {
-    if (!nome.trim() || !companhiaId) { toast.error('Preencha todos os campos.'); return; }
+    if (!nome.trim()) { toast.error('Informe o nome do produto.'); return; }
+    if (!companhiaId) { toast.error('Selecione a companhia.'); return; }
     setSaving(true);
     try {
+      const payload = {
+        nome: nome.trim(),
+        companhia_id: companhiaId,
+        categoria_acomodacao: catAcomodacao || null,
+        categoria_reembolso: catReembolso || null,
+        categoria_coparticipacao: catCopart || null,
+        tem_iof: temIof,
+        porcentagem_iof: temIof && pctIof ? parseFloat(pctIof) : null,
+      };
       if (editItem) {
-        await updateMut.mutateAsync({ id: editItem.id, nome: nome.trim(), companhia_id: companhiaId });
+        await updateMut.mutateAsync({ id: editItem.id, ...payload });
         logAction('editar_produto', 'produto', editItem.id, { nome: nome.trim() });
         toast.success('Produto atualizado!');
       } else {
-        const result = await createMut.mutateAsync({ nome: nome.trim(), companhia_id: companhiaId });
-        logAction('criar_produto', 'produto', undefined, { nome: nome.trim() });
+        const result = await createMut.mutateAsync(payload);
+        logAction('criar_produto', 'produto', (result as any)?.id, { nome: nome.trim() });
         toast.success('Produto criado!');
       }
-      setShowAdd(false); setEditItem(null); setNome(''); setCompanhiaId('');
+      setShowAdd(false); setEditItem(null); resetForm();
     } catch (e: any) { toast.error(e.message); }
     finally { setSaving(false); }
   };
@@ -292,7 +329,7 @@ function ProdutosTab() {
           <Input placeholder="Buscar produto..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-10 bg-card border-border/40" />
         </div>
         {canEdit && (
-          <Button onClick={() => { setShowAdd(true); setEditItem(null); setNome(''); setCompanhiaId(''); }} className="gap-1.5 font-semibold shadow-brand">
+          <Button onClick={openAdd} className="gap-1.5 font-semibold shadow-brand">
             <Plus className="w-4 h-4" /> Novo Produto
           </Button>
         )}
@@ -303,13 +340,19 @@ function ProdutosTab() {
           filtered.length === 0 ? <p className="text-center py-12 text-muted-foreground">Nenhum produto encontrado.</p> :
             filtered.map(p => (
               <div key={p.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 flex items-center justify-between gap-3">
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-foreground">{p.nome}</p>
                   <p className="text-xs text-muted-foreground">{getCompanhiaNome(p.companhia_id)}</p>
+                  <div className="flex flex-wrap gap-1 mt-1.5">
+                    {p.categoria_acomodacao && <Badge variant="outline" className="text-[10px]">{p.categoria_acomodacao}</Badge>}
+                    {p.categoria_reembolso && <Badge variant="outline" className="text-[10px]">{p.categoria_reembolso}</Badge>}
+                    {p.categoria_coparticipacao && <Badge variant="outline" className="text-[10px]">{p.categoria_coparticipacao}</Badge>}
+                    {p.tem_iof && <Badge className="text-[10px] bg-warning/10 text-warning border-warning/20">IOF {p.porcentagem_iof != null ? `${p.porcentagem_iof}%` : ''}</Badge>}
+                  </div>
                 </div>
                 {canEdit && (
                   <div className="flex gap-1.5 shrink-0">
-                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => { setEditItem(p); setNome(p.nome); setCompanhiaId(p.companhia_id); setShowAdd(true); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                    <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}><Pencil className="w-3.5 h-3.5" /></Button>
                     <Button variant="outline" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteItem(p)}><Trash2 className="w-3.5 h-3.5" /></Button>
                   </div>
                 )}
@@ -317,25 +360,97 @@ function ProdutosTab() {
             ))}
       </div>
 
-      <Dialog open={showAdd} onOpenChange={v => { if (!v) { setShowAdd(false); setEditItem(null); } }}>
-        <DialogContent className="sm:max-w-sm">
+      {/* Add / Edit Modal */}
+      <Dialog open={showAdd} onOpenChange={v => { if (!v) { setShowAdd(false); setEditItem(null); resetForm(); } }}>
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle className="font-display">{editItem ? 'Editar' : 'Novo'} Produto</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Nome do produto" className="h-10" />
-            <Select value={companhiaId} onValueChange={setCompanhiaId}>
-              <SelectTrigger className="h-10"><SelectValue placeholder="Selecione a companhia" /></SelectTrigger>
-              <SelectContent>
-                {companhias.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
+          <div className="space-y-4">
+
+            {/* Nome */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome do Produto <span className="text-destructive">*</span></label>
+              <Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Plano Empresarial Plus" className="h-10" />
+            </div>
+
+            {/* Companhia */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Companhia <span className="text-destructive">*</span></label>
+              <Select value={companhiaId} onValueChange={setCompanhiaId}>
+                <SelectTrigger className="h-10"><SelectValue placeholder="Selecione a companhia" /></SelectTrigger>
+                <SelectContent>
+                  {companhias.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Categoria de Acomodação */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Categoria de Acomodação</label>
+              <Input value={catAcomodacao} onChange={e => setCatAcomodacao(e.target.value)} placeholder="Ex: Enfermaria, Apartamento, Coletivo" className="h-10" />
+            </div>
+
+            {/* Categoria de Reembolso */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Categoria de Reembolso</label>
+              <Input value={catReembolso} onChange={e => setCatReembolso(e.target.value)} placeholder="Ex: Nacional, Internacional, Sem reembolso" className="h-10" />
+            </div>
+
+            {/* Categoria de Co-participação */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Categoria de Co-participação</label>
+              <Select value={catCopart} onValueChange={setCatCopart}>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="sem">Sem co-participação</SelectItem>
+                  <SelectItem value="parcial">Co-participação parcial</SelectItem>
+                  <SelectItem value="completa">Co-participação completa</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* IOF Toggle */}
+            <div className="flex items-center justify-between rounded-lg border border-border/40 bg-muted/20 p-3">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Incidência de IOF</p>
+                <p className="text-xs text-muted-foreground">Ativa se o produto possui IOF incidente</p>
+              </div>
+              <Switch
+                checked={temIof}
+                onCheckedChange={v => { setTemIof(v); if (!v) setPctIof(''); }}
+                id="tem-iof"
+              />
+            </div>
+
+            {/* Porcentagem IOF (conditional) */}
+            {temIof && (
+              <div className="space-y-1.5 animate-fade-in">
+                <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Porcentagem do IOF (%) <span className="text-destructive">*</span></label>
+                <Input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={pctIof}
+                  onChange={e => setPctIof(e.target.value)}
+                  placeholder="Ex: 7.38"
+                  className="h-10"
+                />
+              </div>
+            )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={saving}>{saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Salvar'}</Button>
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => { setShowAdd(false); resetForm(); }}>Cancelar</Button>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Salvar'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirm */}
       <Dialog open={!!deleteItem} onOpenChange={v => { if (!v) setDeleteItem(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader><DialogTitle className="text-destructive font-display">Excluir Produto</DialogTitle><DialogDescription>Excluir "{deleteItem?.nome}"?</DialogDescription></DialogHeader>

@@ -65,8 +65,23 @@ export interface Produto {
   id: string;
   nome: string;
   companhia_id: string;
+  categoria_acomodacao: string | null;
+  categoria_reembolso: string | null;
+  categoria_coparticipacao: string | null;
+  tem_iof: boolean;
+  porcentagem_iof: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ProdutoPayload {
+  nome: string;
+  companhia_id: string;
+  categoria_acomodacao?: string | null;
+  categoria_reembolso?: string | null;
+  categoria_coparticipacao?: string | null;
+  tem_iof?: boolean;
+  porcentagem_iof?: number | null;
 }
 
 export function useProdutos() {
@@ -83,8 +98,8 @@ export function useProdutos() {
 export function useCreateProduto() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ nome, companhia_id }: { nome: string; companhia_id: string }) => {
-      const { data, error } = await supabase.from('produtos').insert({ nome, companhia_id } as any).select().single();
+    mutationFn: async (payload: ProdutoPayload) => {
+      const { data, error } = await supabase.from('produtos').insert(payload as any).select().single();
       if (error) throw error;
       return data;
     },
@@ -95,8 +110,8 @@ export function useCreateProduto() {
 export function useUpdateProduto() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, nome, companhia_id }: { id: string; nome: string; companhia_id: string }) => {
-      const { error } = await supabase.from('produtos').update({ nome, companhia_id } as any).eq('id', id);
+    mutationFn: async ({ id, ...payload }: ProdutoPayload & { id: string }) => {
+      const { error } = await supabase.from('produtos').update(payload as any).eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['produtos'] }),
