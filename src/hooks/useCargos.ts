@@ -12,6 +12,8 @@ export interface Cargo {
     requires_leader: boolean;
     security_profile_id: string | null;
     is_protected?: boolean;
+    protection_password?: string | null;
+    protection_mfa_secret?: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -71,9 +73,28 @@ export const CARGO_MODULES_DEF: CargoResourceGroupDef[] = [
     {
         groupLabel: 'Subguias: CRM & Comercial',
         resources: [
-            { key: 'crm.leads', label: 'CRM - Leads', actions: CRM_LEADS_ACTIONS },
+            { 
+                key: 'crm.leads', 
+                label: 'CRM - Leads', 
+                actions: [
+                    { key: 'view', label: 'Visualizar' },
+                    { key: 'edit', label: 'Editar' },
+                    { key: 'view_own', label: 'Ver Somente Meus' },
+                    { key: 'view_all', label: 'Ver Todos' },
+                    { key: 'create', label: 'Criar' },
+                    { key: 'edit_leads', label: 'Editor Avançado' }
+                ] 
+            },
             { key: 'crm.clientes', label: 'CRM - Clientes', actions: BASIC_CRUD },
             { key: 'comercial.cotacoes', label: 'Comercial - Cotações', actions: BASIC_CRUD },
+        ]
+    },
+    {
+        groupLabel: 'Subguias: Minhas Ações',
+        resources: [
+            { key: 'minhas_acoes.pendentes', label: 'Pendentes', actions: BASIC_CRUD },
+            { key: 'minhas_acoes.aprovados', label: 'Aprovados', actions: BASIC_CRUD },
+            { key: 'minhas_acoes.devolvidos', label: 'Devolvidos', actions: BASIC_CRUD },
         ]
     },
     {
@@ -208,7 +229,7 @@ export function useCargos() {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('cargos' as any)
-                .select('id, nome, description, requires_leader, security_profile_id, is_protected, created_at')
+                .select('id, nome, description, requires_leader, security_profile_id, is_protected, protection_password, protection_mfa_secret, created_at')
                 .order('created_at');
             if (error) {
                 if (error.message?.includes('relation "public.cargos" does not exist') || error.code === '42P01') return [];
@@ -266,15 +287,32 @@ export function useMyCargoPermissions() {
 
 /**
  * Check if the user has a specific cargo permission.
+ * Supports hierarchical check: if 'atividades' is denied, 'atividades.atividades' is auto-denied.
  */
 export function hasCargoPermission(
     permissions: CargoPermission[] | null | undefined,
     resource: string,
     action: string
 ): boolean {
-    if (!permissions || permissions.length === 0) return true; // Default to allow if no cargo permissions are defined for the user yet
-    const p = permissions.find(p => p.resource === resource && p.action === action);
-    return p ? p.allowed : false;
+    // If permissions not loaded or empty, default to deny (safer)
+    if (!permissions || permissions.length === 0) return false;
+
+    // Direct match: exact resource + action
+    const direct = permissions.find(p => p.resource === resource && p.action === action);
+    if (direct) return direct.allowed;
+
+    // Parent-level match: if resource is 'atividades.atividades', also check parent 'atividades'
+    const dot = resource.lastIndexOf('.');
+    if (dot !== -1) {
+        const parent = resource.substring( dot + 1); // For cargos, we might need to check if we check parents
+        // Actually, let's keep it consistent with hasPermission from useSecurityProfiles
+        const parentKey = resource.substring(0, dot);
+        const parentPerm = permissions.find(p => p.resource === parentKey && p.action === action);
+        if (parentPerm) return parentPerm.allowed;
+    }
+
+    // No match found → deny
+    return false;
 }
 
 // ─── Mutations ───────────────────────────────────────────────────
@@ -300,10 +338,19 @@ export function useCreateCargo() {
 export function useUpdateCargo() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ id, nome, description, requires_leader }: { id: string; nome: string; description?: string; requires_leader?: boolean }) => {
+        mutationFn: async ({ id, nome, description, requires_leader, protection_password, protection_mfa_secret }: { 
+            id: string; 
+            nome: string; 
+            description?: string; 
+            requires_leader?: boolean;
+            protection_password?: string | null;
+            protection_mfa_secret?: string | null;
+        }) => {
             const updateProps: any = { nome };
             if (description !== undefined) updateProps.description = description;
             if (requires_leader !== undefined) updateProps.requires_leader = requires_leader;
+            if (protection_password !== undefined) updateProps.protection_password = protection_password;
+            if (protection_mfa_secret !== undefined) updateProps.protection_mfa_secret = protection_mfa_secret;
             const { error } = await supabase
                 .from('cargos' as any)
                 .update(updateProps)
@@ -348,6 +395,34 @@ export function useToggleCargoPermission() {
                     { cargo_id: cargoId, resource, action, allowed } as any,
                     { onConflict: 'cargo_id,resource,action' }
                 );
+            if (error) throw error;
+        },
+        onSuccess: (_, { cargoId }) => {
+            queryClient.invalidateQueries({ queryKey: ['cargo-permissions', cargoId] });
+            queryClient.invalidateQueries({ queryKey: ['my-cargo-permissions'] });
+        },
+    });
+}
+
+/** Bulk set permissions for a cargo */
+export function useBulkSetCargoPermissions() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: async ({ cargoId, permissions }: {
+            cargoId: string;
+            permissions: { resource: string; action: string; allowed: boolean }[];
+        }) => {
+            const payload = permissions.map(p => ({
+                cargo_id: cargoId,
+                resource: p.resource,
+                action: p.action,
+                allowed: p.allowed
+            }));
+
+            const { error } = await supabase
+                .from('cargo_permissions' as any)
+                .upsert(payload as any, { onConflict: 'cargo_id,resource,action' });
+            
             if (error) throw error;
         },
         onSuccess: (_, { cargoId }) => {

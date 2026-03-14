@@ -1,3 +1,5 @@
+import { getMotivationalTier, getRandomPhrase } from './motivationalPhrases';
+
 export type Patente = 'diamante' | 'platina' | 'ouro' | 'prata' | 'bronze' | null;
 export type FlagRisco = 'amarelo' | 'laranja' | 'vermelho' | null;
 
@@ -66,10 +68,35 @@ export function getPatente(percentMeta: number): PatenteInfo | null {
   return null;
 }
 
+/**
+ * Maps percentMeta (0-200+) to a performance rate (0-1) for the motivational tier system.
+ * 0%   → critico  (< 40%)
+ * 40%  → alerta   (< 70%)
+ * 70%  → bom      (< 90%)
+ * 90%  → excelente(< 98%)
+ * 98%+ → lendário
+ */
+function percentToRate(percentMeta: number): number {
+  if (percentMeta >= 200) return 1.0;
+  if (percentMeta >= 98)  return 0.98;
+  if (percentMeta >= 90)  return 0.9;
+  if (percentMeta >= 70)  return 0.7;
+  if (percentMeta >= 40)  return 0.4;
+  return 0;
+}
+
+/** Returns a random motivational phrase based on performance % against the meta. */
 export function getFraseMotivacional(percentMeta: number): string {
-  const patente = getPatente(percentMeta);
-  if (patente) return patente.frase;
-  return 'Foco total! Cada esforço conta.';
+  const rate = percentToRate(percentMeta);
+  const tier = getMotivationalTier(rate);
+  return getRandomPhrase(tier.id);
+}
+
+/** Returns tier color (hex) and name for visual feedback. */
+export function getPerformanceTierInfo(percentMeta: number): { color: string; name: string; id: string } {
+  const rate = percentToRate(percentMeta);
+  const tier = getMotivationalTier(rate);
+  return { color: tier.color, name: tier.name, id: tier.id };
 }
 
 export function getFlagRisco(

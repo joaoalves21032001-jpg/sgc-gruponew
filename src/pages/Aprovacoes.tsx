@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useMyPermissions, hasPermission } from '@/hooks/useSecurityProfiles';
 import { useMyCargoPermissions, hasCargoPermission } from '@/hooks/useCargos';
 import { useAuth } from '@/contexts/AuthContext';
@@ -90,7 +90,7 @@ function useCargosList() {
     queryFn: async () => {
       const { data, error } = await supabase.from('cargos').select('id, nome, requires_leader');
       if (error) throw error;
-      return (data || []) as { id: string, nome: string, requires_leader: boolean }[];
+      return (data as unknown || []) as { id: string, nome: string, requires_leader: boolean }[];
     }
   });
 }
@@ -1347,21 +1347,25 @@ const Aprovacoes = () => {
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedAtiv(a); setAtivJustificativa(''); }}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" disabled={ativStatus !== 'pendente'} onClick={() => handleAtivAction(a, 'aprovado')}>
-                          <CheckCircle2 className="w-4 h-4" /> Aprovar
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30" disabled={ativStatus !== 'pendente'} onClick={() => { setIsRejectingAtiv(false); setDevolverAtiv(a); setDevolverAtivMotivo(''); }}>
-                          <Undo2 className="w-4 h-4" /> Devolver
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setEditAtiv(a); setEditForm({ ligacoes: String(a.ligacoes), mensagens: String(a.mensagens), cotacoes_enviadas: String(a.cotacoes_enviadas), cotacoes_fechadas: String(a.cotacoes_fechadas), cotacoes_nao_respondidas: String((a as any).cotacoes_nao_respondidas ?? 0), follow_up: String(a.follow_up) }); }}>
-                          <Pencil className="w-4 h-4" /> Editar
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-orange-500 hover:bg-orange-500/10 border-orange-500/30" disabled={ativStatus !== 'pendente'} onClick={() => { setIsRejectingAtiv(true); setDevolverAtiv(a); setDevolverAtivMotivo(''); }}>
-                          <XCircle className="w-4 h-4" /> Rejeitar
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => setConfirmDeleteAtiv(a)}>
-                          <Trash2 className="w-4 h-4" /> Excluir
-                        </Button>
+                        {hasPermission(myPermissions, 'aprovacoes', 'edit') && (
+                          <>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" disabled={ativStatus !== 'pendente'} onClick={() => handleAtivAction(a, 'aprovado')}>
+                              <CheckCircle2 className="w-4 h-4" /> Aprovar
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30" disabled={ativStatus !== 'pendente'} onClick={() => { setIsRejectingAtiv(false); setDevolverAtiv(a); setDevolverAtivMotivo(''); }}>
+                              <Undo2 className="w-4 h-4" /> Devolver
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setEditAtiv(a); setEditForm({ ligacoes: String(a.ligacoes), mensagens: String(a.mensagens), cotacoes_enviadas: String(a.cotacoes_enviadas), cotacoes_fechadas: String(a.cotacoes_fechadas), cotacoes_nao_respondidas: String((a as any).cotacoes_nao_respondidas ?? 0), follow_up: String(a.follow_up) }); }}>
+                              <Pencil className="w-4 h-4" /> Editar
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-orange-500 hover:bg-orange-500/10 border-orange-500/30" disabled={ativStatus !== 'pendente'} onClick={() => { setIsRejectingAtiv(true); setDevolverAtiv(a); setDevolverAtivMotivo(''); }}>
+                              <XCircle className="w-4 h-4" /> Rejeitar
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => setConfirmDeleteAtiv(a)}>
+                              <Trash2 className="w-4 h-4" /> Excluir
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1442,21 +1446,25 @@ const Aprovacoes = () => {
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedVenda(v); setObs(v.observacoes || ''); setJustificativa(''); }}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" disabled={!isPending} onClick={() => handleVendaAction(v, 'aprovado')}>
-                          <CheckCircle2 className="w-4 h-4" /> Aprovar
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30" disabled={!isPending} onClick={() => { setIsRejectingVenda(false); setDevolverVenda(v); setDevolverVendaMotivo(''); }}>
-                          <Undo2 className="w-4 h-4" /> Devolver
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedVenda(v); setObs(v.observacoes || ''); setJustificativa(''); }}>
-                          <Pencil className="w-4 h-4" /> Editar
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-orange-500 hover:bg-orange-500/10 border-orange-500/30" disabled={!isPending} onClick={() => { setIsRejectingVenda(true); setDevolverVenda(v); setDevolverVendaMotivo(''); }}>
-                          <XCircle className="w-4 h-4" /> Rejeitar
-                        </Button>
-                        <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => setConfirmDeleteVenda(v)}>
-                          <Trash2 className="w-4 h-4" /> Excluir
-                        </Button>
+                        {hasPermission(myPermissions, 'aprovacoes', 'edit') && (
+                          <>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" disabled={!isPending} onClick={() => handleVendaAction(v, 'aprovado')}>
+                              <CheckCircle2 className="w-4 h-4" /> Aprovar
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30" disabled={!isPending} onClick={() => { setIsRejectingVenda(false); setDevolverVenda(v); setDevolverVendaMotivo(''); }}>
+                              <Undo2 className="w-4 h-4" /> Devolver
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedVenda(v); setObs(v.observacoes || ''); setJustificativa(''); }}>
+                              <Pencil className="w-4 h-4" /> Editar
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-orange-500 hover:bg-orange-500/10 border-orange-500/30" disabled={!isPending} onClick={() => { setIsRejectingVenda(true); setDevolverVenda(v); setDevolverVendaMotivo(''); }}>
+                              <XCircle className="w-4 h-4" /> Rejeitar
+                            </Button>
+                            <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => setConfirmDeleteVenda(v)}>
+                              <Trash2 className="w-4 h-4" /> Excluir
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                     {v.observacoes && (
@@ -2447,11 +2455,11 @@ const Aprovacoes = () => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CPF</label>
-                  <Input value={editAccessForm.cpf || ''} onChange={e => setEditAccessForm(p => ({ ...p, cpf: maskCPF(e.target.value) }))} placeholder="000.000.000-00" className="h-10" />
+                  <Input value={editAccessForm.cpf || ''} onChange={e => setEditAccessForm(p => ({ ...p, cpf: e.target.value }))} placeholder="000.000.000-00" className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">RG</label>
-                  <Input value={editAccessForm.rg || ''} onChange={e => setEditAccessForm(p => ({ ...p, rg: maskRG(e.target.value) }))} placeholder="00.000.000-0" className="h-10" />
+                  <Input value={editAccessForm.rg || ''} onChange={e => setEditAccessForm(p => ({ ...p, rg: e.target.value }))} placeholder="00.000.000-0" className="h-10" />
                 </div>
                 <div className="sm:col-span-2 space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Endereço</label>

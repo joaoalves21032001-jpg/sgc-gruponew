@@ -4,7 +4,7 @@ import { useProfile, useUserRole } from '@/hooks/useProfile';
 import { useMyAtividades } from '@/hooks/useAtividades';
 import { useMyVendas } from '@/hooks/useVendas';
 import { PatenteBadge } from '@/components/PatenteBadge';
-import { getFraseMotivacional } from '@/lib/gamification';
+import { getFraseMotivacional, getPerformanceTierInfo } from '@/lib/gamification';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMemo, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
@@ -119,7 +119,8 @@ const Index = () => {
 
   const metaFaturamento = profile?.meta_faturamento ?? 75000;
   const percentMeta = metaFaturamento > 0 ? Math.round((faturamento / metaFaturamento) * 100) : 0;
-  const frase = getFraseMotivacional(percentMeta);
+  const frase = useMemo(() => getFraseMotivacional(percentMeta), [percentMeta]);
+  const tierInfo = getPerformanceTierInfo(percentMeta);
 
   const activityData = useMemo(() => {
     if (!atividades || atividades.length === 0) return [];
@@ -155,7 +156,10 @@ const Index = () => {
           <p className="text-sm text-muted-foreground mt-1">
             Resumo das suas atividades • {new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
           </p>
-          <p className="text-xs text-muted-foreground/70 italic mt-2">{frase}</p>
+          <p className="text-xs italic mt-2 font-medium flex items-center gap-1.5" style={{ color: tierInfo.color }}>
+            <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider" style={{ backgroundColor: tierInfo.color + '20', color: tierInfo.color }}>{tierInfo.name}</span>
+            {frase}
+          </p>
         </div>
         {percentMeta >= 80 && <PatenteBadge percentMeta={percentMeta} size="md" />}
       </div>

@@ -137,7 +137,7 @@ const MinhasAcoes = () => {
   const canSubmitRequest = alteracoesPropostas.length > 0 && requestJustificativa.trim().length > 0;
 
   const getStatusFilter = () => {
-    if (mainTab === 'pendentes') return ['pendente', 'analise', 'devolvido'];
+    if (mainTab === 'pendentes') return ['pendente', 'analise', 'devolvido', 'solicitado'];
     if (mainTab === 'aprovados') return ['aprovado'];
     if (mainTab === 'devolvidos') return ['devolvido'];
     return [];
@@ -465,9 +465,6 @@ const MinhasAcoes = () => {
           <TabsTrigger value="devolvidos" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
             <Undo2 className="w-4 h-4" /> Devolvidos ({devolvidoCount})
           </TabsTrigger>
-          <TabsTrigger value="solicitados" className="gap-1.5 py-2 px-4 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-semibold text-sm rounded-md">
-            <GitCompareArrows className="w-4 h-4" /> Alterações ({solicitadoCount})
-          </TabsTrigger>
         </TabsList>
 
         <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
@@ -506,62 +503,6 @@ const MinhasAcoes = () => {
           </TabsContent>
         ))}
 
-        {/* Alterações Solicitadas Tab */}
-        <TabsContent value="solicitados">
-          <div className="space-y-4">
-            {myCorrectionRequests.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <GitCompareArrows className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                Nenhuma solicitação de alteração encontrada.
-              </div>
-            ) : (
-              myCorrectionRequests.map((cr: any) => {
-                const crStatus = cr.status || 'pendente';
-                const sc = crStatus === 'aprovado'
-                  ? statusConfig.aprovado
-                  : crStatus === 'recusado'
-                    ? statusConfig.recusado
-                    : statusConfig.solicitado;
-                const StatusIcon = sc.icon;
-                let parsed: any = {};
-                try { parsed = JSON.parse(cr.motivo); } catch { }
-                const alteracoes = parsed.alteracoesPropostas || [];
-                return (
-                  <div key={cr.id} className="bg-card rounded-xl border border-border/30 shadow-card p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="outline" className={`text-[10px] ${sc.className}`}>
-                            <StatusIcon className="w-3 h-3 mr-1" />{sc.label}
-                          </Badge>
-                          <Badge variant="outline" className="text-[10px] uppercase bg-muted/40">{cr.tipo}</Badge>
-                          <Badge variant="outline" className="text-[10px]">📅 {new Date(cr.created_at).toLocaleDateString('pt-BR')}</Badge>
-                        </div>
-                        {parsed.justificativa && <p className="text-xs text-muted-foreground mt-1 italic">📝 {parsed.justificativa}</p>}
-                        <div className="mt-2 space-y-1">
-                          {alteracoes.map((a: any, i: number) => (
-                            <div key={i} className="flex items-center gap-2 text-xs">
-                              <span className="text-muted-foreground font-medium">{a.campo}:</span>
-                              <span className="text-destructive line-through">{String(a.valorAntigo)}</span>
-                              <span>→</span>
-                              <span className="text-primary font-semibold">{String(a.valorNovo)}</span>
-                            </div>
-                          ))}
-                        </div>
-                        {cr.admin_resposta && (
-                          <div className="mt-2 p-2 bg-muted/30 rounded-lg border border-border/20">
-                            <p className="text-[10px] text-muted-foreground uppercase font-semibold">Resposta do Supervisor</p>
-                            <p className="text-xs text-foreground mt-0.5">{cr.admin_resposta}</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </TabsContent>
       </Tabs>
 
       {/* Delete Dialog */}

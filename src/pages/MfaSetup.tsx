@@ -406,12 +406,12 @@ function getTrusted30Days(): Date {
 
 async function generateDeviceHash(): Promise<string> {
   const nav = navigator;
+  // Only use stable attributes — screen dimensions change when window is resized
+  // or the user moves to a different monitor, which would break the trusted-device
+  // lookup and force MFA every time.
   const raw = [
     nav.userAgent,
     nav.language,
-    screen.width,
-    screen.height,
-    screen.colorDepth,
     Intl.DateTimeFormat().resolvedOptions().timeZone,
   ].join('|');
   const encoder = new TextEncoder();

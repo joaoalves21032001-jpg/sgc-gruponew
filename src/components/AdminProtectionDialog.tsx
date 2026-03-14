@@ -13,6 +13,10 @@ interface AdminProtectionDialogProps {
   /** Called when the user successfully authenticates */
   onUnlocked: () => void;
   targetName?: string;
+  customProtection?: {
+    passwordHash?: string | null;
+    mfaSecret?: string | null;
+  };
 }
 
 /**
@@ -21,7 +25,7 @@ interface AdminProtectionDialogProps {
  *
  * Uses Supabase reauthentication + MFA challenge flow.
  */
-export function AdminProtectionDialog({ open, onOpenChange, onUnlocked, targetName }: AdminProtectionDialogProps) {
+export function AdminProtectionDialog({ open, onOpenChange, onUnlocked, targetName, customProtection }: AdminProtectionDialogProps) {
   const [step, setStep] = useState<'password' | 'mfa'>('password');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -37,12 +41,89 @@ export function AdminProtectionDialog({ open, onOpenChange, onUnlocked, targetNa
     setLoading(false);
   };
 
+  const base32ToBytes = (base32: string) => {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    let bits = '';
+    for (let i = 0; i < base32.length; i++) {
+        const val = alphabet.indexOf(base32[i].toUpperCase());
+        if (val === -1) continue;
+        bits += val.toString(2).padStart(5, '0');
+    }
+    const bytes = [];
+    for (let i = 0; i + 8 <= bits.length; i += 8) {
+        bytes.push(parseInt(bits.substring(i, i + 8), 2));
+    }
+    return new Uint8Array(bytes);
+  };
+
+  const validateTOTP = async (secret: string, code: string) => {
+    try {
+      const keyBytes = base32ToBytes(secret);
+      const counter = Math.floor(Date.now() / 1000 / 30);
+      const counterBytes = new Uint8Array(8);
+      let tempCounter = BigInt(counter);
+      for (let i = 7; i >= 0; i--) {
+        counterBytes[i] = Number(tempCounter & 0xffn);
+        tempCounter >>= 8n;
+      }
+
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        keyBytes,
+        { name: 'HMAC', hash: 'SHA-1' },
+        false,
+        ['sign']
+      );
+
+      const signature = await crypto.subtle.sign('HMAC', cryptoKey, counterBytes);
+      const hmac = new Uint8Array(signature);
+      const offset = hmac[hmac.length - 1] & 0xf;
+      const binary =
+        ((hmac[offset] & 0x7f) << 24) |
+        ((hmac[offset + 1] & 0xff) << 16) |
+        ((hmac[offset + 2] & 0xff) << 8) |
+        (hmac[offset + 3] & 0xff);
+
+      const otp = (binary % 1000000).toString().padStart(6, '0');
+      return otp === code;
+    } catch (e) {
+      console.error('TOTP Validation Error:', e);
+      return false;
+    }
+  };
+
   const handlePasswordConfirm = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!password) { toast.error('Informe sua senha.'); return; }
     setLoading(true);
     try {
-      // Re-authenticate with current user's email + password
+      if (customProtection?.passwordHash) {
+        // Validate against custom password hash (SHA-256)
+        const encoder = new TextEncoder();
+        const data = encoder.encode(password);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        if (hashHex !== customProtection.passwordHash) {
+          throw new Error('Senha de proteção incorreta.');
+        }
+
+        // If password matches, check if we also need MFA
+        if (customProtection.mfaSecret) {
+          setStep('mfa');
+          setLoading(false);
+          return;
+        }
+
+        toast.success('Acesso autorizado!');
+        onUnlocked();
+        onOpenChange(false);
+        reset();
+        return;
+      }
+
+      // Default behavior: Re-authenticate with current user's email + password
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user?.email) throw new Error('Usuário não identificado.');
 
@@ -84,6 +165,16 @@ export function AdminProtectionDialog({ open, onOpenChange, onUnlocked, targetNa
     if (code.length !== 6) { toast.error('Código deve ter 6 dígitos.'); return; }
     setLoading(true);
     try {
+      if (customProtection?.mfaSecret) {
+        const isValid = await validateTOTP(customProtection.mfaSecret, code);
+        if (!isValid) throw new Error('Código MFA incorreto.');
+        toast.success('Perfil desbloqueado!');
+        onUnlocked();
+        onOpenChange(false);
+        reset();
+        return;
+      }
+
       const { error } = await supabase.auth.mfa.verify({ factorId, challengeId, code });
       if (error) throw new Error('Código MFA inválido.');
       toast.success('Identidade confirmada!');

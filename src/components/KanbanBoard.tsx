@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import {
-  Plus, Pencil, Trash2, X, Upload, MoreHorizontal, Phone, Mail, Shield, User, FileText, Building2, Users, Heart, DollarSign
+  Plus, Pencil, Trash2, X, Upload, MoreHorizontal, Phone, Mail, Shield, User, FileText, Building2, Users, Heart, DollarSign, Undo2, CheckCircle2
 } from 'lucide-react';
 import { maskCPF, maskCNPJ, maskPhone, maskCurrency, unmaskCurrency } from '@/lib/masks';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -72,7 +72,10 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, onAssume, lead
     <div
       draggable={canEditLead}
       onDragStart={e => onDragStart(e, lead.id)}
-      className={cn("bg-card rounded-xl border border-border/30 shadow-sm p-4 hover-lift group relative", canEditLead ? "cursor-grab active:cursor-grabbing" : "")}
+      className={cn(
+        "bg-card rounded-xl border border-border/30 shadow-sm p-4 transition-all group relative", 
+        canEditLead ? "cursor-grab active:cursor-grabbing hover-lift" : "opacity-80 grayscale-[0.2]"
+      )}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -203,7 +206,7 @@ function KanbanColumn({ stage, leads, isAdmin, onEdit, onDelete, onDragStart, on
 }
 
 /* ─── Main Kanban Board ─── */
-export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespace?: string }) {
+export function KanbanBoard({ permissionNamespace = 'crm.leads' }: { permissionNamespace?: string }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -238,7 +241,7 @@ export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespa
     livre: false, possuiAproveitamento: false,
     produto: '', quantidade_vidas: '', companhia_nome: '', valor: '',
     vendaDental: false, coParticipacao: 'sem' as string, estagiarios: false, qtdEstagiarios: '',
-    observacoes: '', dataVigencia: '',
+    observacoes: '', dataVigencia: '', tempoFollowUpDias: '0',
   });
   const [titulares, setTitulares] = useState<{ nome: string; idade: string; produto: string }[]>([{ nome: '', idade: '', produto: '' }]);
   const [dependentes, setDependentes] = useState<{ nome: string; idade: string; produto: string; descricao: string }[]>([]);
@@ -249,6 +252,11 @@ export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespa
   const [approvalDialog, setApprovalDialog] = useState<{ type: 'edit' | 'delete'; lead: Lead } | null>(null);
   const [approvalJustificativa, setApprovalJustificativa] = useState('');
   const [sendingApproval, setSendingApproval] = useState(false);
+
+  // Retrocessos
+  const [retrocessoLead, setRetrocessoLead] = useState<{ lead: Lead; targetStageId: string | null } | null>(null);
+  const [retrocessoJustificativa, setRetrocessoJustificativa] = useState('');
+  const [savingRetrocesso, setSavingRetrocesso] = useState(false);
 
   // File uploads
   const [docFoto, setDocFoto] = useState<File | null>(null);
@@ -338,27 +346,64 @@ export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespa
     if (!draggedLeadId) return;
     const lead = leads.find(l => l.id === draggedLeadId);
     if (lead) {
-      const error = validateLeadForStage(lead, stageId);
-      if (error) {
-        toast.error(error);
+      // ── PARTE 6: Validação de Fluxo Kanban (Trava de Retrocesso) ──
+      const getWeight = (sId: string | null) => {
+        if (!sId) return 0;
+        const s = stages.find(x => x.id === sId);
+        if (!s) return 0;
+        const name = s.nome.toLowerCase();
+        // Peso 7 — Fase Final Absoluta (nenhuma saída permitida)
+        if (name.includes('vendas implantadas') || name.includes('implantadas')) return 7;
+        // Peso 6 — Fechamento comercial (pode avançar para Vendas Implantadas)
+        if (name.includes('venda realizada')) return 6;
+        if (name.includes('aguardando retorno') || name.includes('declinado')) return 5;
+        if (name.includes('negociação')) return 4;
+        if (name.includes('envio de cotação') || name.includes('cotação')) return 3;
+        if (name.includes('sem retorno') || name.includes('sem contato')) return 2;
+        if (name.includes('primeiro contato')) return 1;
+        return 0;
+      };
+
+      const sourceWeight = getWeight(lead.stage_id);
+      const targetWeight = getWeight(stageId);
+
+      // Block exit from "Vendas Implantadas" (peso 7 - fase final absoluta)
+      if (sourceWeight === 7 && targetWeight !== 7) {
+        toast.error('Leads em "Vendas Implantadas" representam clientes ativos na base e não podem retornar ao funil.');
+        setDraggedLeadId(null);
+        return;
+      }
+
+      // Backward move: Request justification
+      if (targetWeight < sourceWeight && targetWeight > 0) {
+        setRetrocessoLead({ lead, targetStageId: stageId });
+        setRetrocessoJustificativa('');
         setDraggedLeadId(null);
         return;
       }
     }
 
-    // Check if target stage is "Venda Realizada"
+    // Check if target stage triggers celebration (Venda Realizada or Vendas Implantadas)
     if (stageId) {
       const stage = stages.find(s => s.id === stageId);
-      if (stage && stage.nome.toLowerCase().includes('venda realizada')) {
-        // Redirect to sales form with lead data pre-filled
+      const stageName = stage?.nome.toLowerCase() || '';
+      const isVendaRealizada = stageName.includes('venda realizada');
+      const isImplantada = stageName.includes('vendas implantadas') || stageName.includes('implantadas');
+
+      if (isVendaRealizada) {
         moveMut.mutate({ leadId: draggedLeadId, stageId });
         setDraggedLeadId(null);
-        // Celebrate!
         confetti({ particleCount: 100, spread: 70, origin: { y: 0.5 } });
-        // Navigate to commercial page with lead data in state
-        if (lead) {
-          navigate('/comercial', { state: { prefillLead: lead } });
-        }
+        if (lead) navigate('/comercial', { state: { prefillLead: lead } });
+        return;
+      }
+
+      if (isImplantada) {
+        moveMut.mutate({ leadId: draggedLeadId, stageId });
+        setDraggedLeadId(null);
+        // Celebração maior para cliente implantado na base!
+        confetti({ particleCount: 180, spread: 100, origin: { y: 0.4 } });
+        toast.success('🎉 Lead implantado na base! Cliente ativo confirmado.');
         return;
       }
     }
@@ -367,12 +412,53 @@ export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespa
     setDraggedLeadId(null);
   };
 
+
+  const handleRetrocesso = async () => {
+    if (!retrocessoLead || !retrocessoJustificativa.trim()) {
+      toast.error('Informe a justificativa do retrocesso.');
+      return;
+    }
+    setSavingRetrocesso(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado');
+
+      const sourceStage = stages.find(s => s.id === retrocessoLead.lead.stage_id);
+      const targetStage = stages.find(s => s.id === retrocessoLead.targetStageId);
+
+      // Log retrocesso
+      await supabase.from('lead_retrocessos').insert({
+        lead_id: retrocessoLead.lead.id,
+        user_id: user.id,
+        coluna_origem: sourceStage?.nome || 'Inexistente',
+        coluna_destino: targetStage?.nome || 'Inexistente',
+        justificativa: retrocessoJustificativa.trim()
+      } as any);
+
+      // Move lead
+      await moveMut.mutateAsync({ leadId: retrocessoLead.lead.id, stageId: retrocessoLead.targetStageId });
+      
+      toast.success('Lead movido com justificativa de retrocesso.');
+      logAction('retrocesso_lead', 'lead', retrocessoLead.lead.id, { 
+        origem: sourceStage?.nome, 
+        destino: targetStage?.nome,
+        motivo: retrocessoJustificativa 
+      });
+      setRetrocessoLead(null);
+    } catch (e: any) {
+      toast.error(e.message);
+    } finally {
+      setSavingRetrocesso(false);
+    }
+  };
+
   const openEdit = (l: Lead) => {
     const isOwner = l.created_by === user?.id;
-    const canEdit = isAdmin || (canEditOwn && isOwner);
-    if (!canEdit) {
-      if (!canEditOwn && !isAdmin) {
-        toast.error('Privilégios insuficientes para editar leads.'); return;
+    const canEditLead = isAdmin || (canEditOwn && isOwner);
+
+    if (!canEditLead) {
+      if (!isAdmin && !canEditOwn) {
+        toast.error('Seu perfil não possui permissão para editar leads.'); return;
       }
       setApprovalDialog({ type: 'edit', lead: l });
       setApprovalJustificativa('');
@@ -396,6 +482,7 @@ export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespa
       qtdEstagiarios: ext.qtdEstagiarios || '',
       observacoes: ext.observacoes || '',
       dataVigencia: ext.dataVigencia || '',
+      tempoFollowUpDias: String(l.tempo_follow_up_dias ?? 0)
     });
     setTitulares(ext.titulares?.length ? ext.titulares : [{ nome: '', idade: '', produto: '' }]);
     setDependentes(ext.dependentes?.length ? ext.dependentes : []);
@@ -445,8 +532,12 @@ export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespa
   };
 
   const openAdd = (stageId?: string | null) => {
+    if (!canCreate) {
+      toast.error('Seu perfil não possui permissão para criar novos leads.');
+      return;
+    }
     setEditItem(null);
-    setForm({ tipo: '', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false, possuiAproveitamento: false, produto: '', quantidade_vidas: '', companhia_nome: '', valor: '', vendaDental: false, coParticipacao: 'sem', estagiarios: false, qtdEstagiarios: '', observacoes: '', dataVigencia: '' });
+    setForm({ tipo: '', nome: '', contato: '', email: '', cpf: '', cnpj: '', endereco: '', idade: '', livre: false, possuiAproveitamento: false, produto: '', quantidade_vidas: '', companhia_nome: '', valor: '', vendaDental: false, coParticipacao: 'sem', estagiarios: false, qtdEstagiarios: '', observacoes: '', dataVigencia: '', tempoFollowUpDias: '0' });
     setTitulares([{ nome: '', idade: '', produto: '' }]);
     setDependentes([]);
     setFormStageId(stageId ?? (stages.length > 0 ? stages[0].id : null));
@@ -469,6 +560,17 @@ export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespa
   };
 
   const handleSave = async () => {
+    if (editItem) {
+      const isOwner = editItem.created_by === user?.id;
+      if (!isAdmin && !(canEditOwn && isOwner)) {
+        toast.error('Sem permissão para salvar alterações neste lead.');
+        return;
+      }
+    } else if (!canCreate) {
+      toast.error('Sem permissão para criar novos leads.');
+      return;
+    }
+
     if (!form.nome.trim()) { toast.error('Informe o nome.'); return; }
     if (!form.tipo) { toast.error('Selecione o Tipo / Modalidade.'); return; }
     setSaving(true);
@@ -514,6 +616,7 @@ export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespa
       email: form.email || null, endereco: form.endereco || null, stage_id: formStageId,
       idade: form.idade ? parseInt(form.idade) : null,
       origem: extendedData,
+      tempo_follow_up_dias: parseInt(form.tempoFollowUpDias) || 0,
     };
     payload.livre = form.livre;
     if (isPessoaFisica(form.tipo)) { payload.cpf = form.cpf || null; payload.cnpj = null; }
@@ -707,6 +810,37 @@ export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespa
                 </SelectContent>
               </Select>
               {!form.tipo && <p className="text-[10px] text-destructive mt-1">Obrigatório</p>}
+            </div>
+
+            {/* Tempo de Follow-up (RN-01) */}
+            <div className="space-y-1.5 pt-1">
+              <label className="text-xs font-semibold text-muted-foreground flex items-center justify-between">
+                Tempo de Follow-up (Dias)
+                {editItem && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="h-auto p-0 text-[10px] text-primary hover:no-underline"
+                    onClick={() => {
+                      setApprovalDialog({ type: 'edit', lead: editItem });
+                      setApprovalJustificativa('');
+                    }}
+                  >
+                    Solicitar Alteração
+                  </Button>
+                )}
+              </label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.tempoFollowUpDias}
+                  onChange={e => setForm(p => ({ ...p, tempoFollowUpDias: e.target.value }))}
+                  disabled={!!editItem}
+                  className={`h-10 pr-10 ${editItem ? 'bg-muted/50 opacity-80' : ''}`}
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground font-medium pointer-events-none">dias</span>
+              </div>
             </div>
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Nome <span className="text-destructive">*</span></label>
@@ -1061,6 +1195,47 @@ export function KanbanBoard({ permissionNamespace = 'crm' }: { permissionNamespa
           <DialogFooter>
             <Button variant="outline" onClick={() => setApprovalDialog(null)}>Cancelar</Button>
             <Button onClick={sendApprovalRequest} disabled={sendingApproval}>{sendingApproval ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Enviar'}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Retrocesso Dialog */}
+      <Dialog open={!!retrocessoLead} onOpenChange={v => { if (!v) setRetrocessoLead(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <Undo2 className="w-5 h-5 text-primary" /> Justificativa de Retrocesso
+            </DialogTitle>
+            <DialogDescription>
+              Você está movendo o lead para uma fase anterior do funil. Justifique esta ação para continuar.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="p-3 bg-muted/40 rounded-lg border border-border/20 text-xs">
+              <p><strong>Origem:</strong> {stages.find(s => s.id === retrocessoLead?.lead.stage_id)?.nome}</p>
+              <p><strong>Destino:</strong> {stages.find(s => s.id === retrocessoLead?.targetStageId)?.nome}</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold">Motivo do Retrocesso *</Label>
+              <Textarea 
+                value={retrocessoJustificativa} 
+                onChange={e => setRetrocessoJustificativa(e.target.value)} 
+                placeholder="Ex: Cliente solicitou nova cotação com dados diferentes..." 
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRetrocessoLead(null)}>Cancelar</Button>
+            <Button 
+              onClick={handleRetrocesso} 
+              disabled={savingRetrocesso || !retrocessoJustificativa.trim()}
+              className="gap-1.5"
+            >
+              {savingRetrocesso ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+              Confirmar Retrocesso
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

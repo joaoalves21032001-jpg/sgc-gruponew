@@ -82,30 +82,33 @@ export function AppSidebar() {
     dashboard: 'dashboard',
     inventario: 'inventario.',
     equipe: 'equipe',
+    usuarios: 'usuarios',
     configuracoes: 'configuracoes',
     logs_auditoria: 'logs_auditoria',
     notificacoes: 'notificacoes',
   };
 
   const cargoAllowsPage = (pageKey: string): boolean => {
-    // If cargo permissions not loaded yet or no cargo set, don't block
-    if (myCargoPermissions === undefined || myCargoPermissions === null) return true;
-    // If cargo has NO permissions at all configured, allow (backwards compatible)
-    if (myCargoPermissions.length === 0) return true;
+    // If cargo permissions not loaded yet, default to deny (safer)
+    if (!myCargoPermissions || myCargoPermissions.length === 0) return false;
+    
     const prefix = PAGE_TO_CARGO_PREFIX[pageKey];
-    if (!prefix) return true;
+    if (!prefix) return false;
+    
     // Check if there's at least one allowed 'view' permission for this page
     const relevant = myCargoPermissions.filter(p => p.resource.startsWith(prefix) || p.resource === prefix);
-    if (relevant.length === 0) return true; // no cargo rule for this page, don't restrict
+    if (relevant.length === 0) return false; // no explicitly allowed cargo rule for this page → deny
+    
     return relevant.some(p => p.action === 'view' && p.allowed);
   };
 
   const canAccess = (item: NavItem) => {
+
     // Map the nav item path to the resource key (must match keys in MODULES_DEF)
     const resourceKey = item.to === '/' ? 'progresso'
       : item.to === '/comercial' ? 'atividades'
       : item.to === '/gestao' ? 'dashboard'
-      : item.to === '/admin/usuarios' ? 'configuracoes'
+      : item.to === '/admin/usuarios' ? 'usuarios'
       : item.to === '/admin/logs' ? 'logs_auditoria'
       : PATH_TO_RESOURCE[item.to];
     if (!resourceKey) return false;
@@ -118,12 +121,13 @@ export function AppSidebar() {
 
   const filteredItems = useMemo(() => {
     const accessible = navItems.filter(item => canAccess(item));
+    console.log('[SIDEBAR DEBUG] Total nav items:', navItems.length, 'Accessible items:', accessible.length);
     const sorted = sortItems(accessible);
     if (search) {
       return sorted.filter(item => item.label.toLowerCase().includes(search.toLowerCase()));
     }
     return sorted;
-  }, [search, profile, myPermissions, sortItems]);
+  }, [search, profile, myPermissions, sortItems, myCargoPermissions]);
 
   const handleDragStart = (path: string) => {
     setDragItem(path);

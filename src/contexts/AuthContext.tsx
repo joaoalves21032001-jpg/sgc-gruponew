@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { User, Session } from '@supabase/supabase-js';
 
@@ -141,7 +141,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   // MFA check — run once per login (guarded by mfaChecked ref to avoid re-runs on token refresh)
-  const mfaCheckRef = { running: false };
+  // useRef so the guard persists across renders (unlike a plain object which is recreated every render)
+  const mfaCheckRef = useRef(false);
   useEffect(() => {
     if (!user || hasProfile !== true || mfaChecked) return;
     checkMfaStatus();
@@ -150,8 +151,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkMfaStatus = async () => {
     // Guard: don't run twice concurrently
-    if (mfaCheckRef.running) return;
-    mfaCheckRef.running = true;
+    if (mfaCheckRef.current) return;
+    mfaCheckRef.current = true;
 
     let cancelled = false;
 
@@ -203,11 +204,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           if (trusted) {
-            console.log('Dispositivo confiável encontrado. Bypass MFA ativo.');
+            console.log('[MFA] Dispositivo confiável encontrado. Bypass MFA ativo.');
             setMfaVerified(true);
             setNeedsMfa(false);
             setMfaChecked(true);
             return;
+          } else {
+            console.warn('[MFA] Hash do dispositivo não encontrado ou expirado. MFA será solicitado. Hash usado:', deviceHash);
           }
         }
         setNeedsMfa(true);
@@ -242,7 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setMfaVerified(false);
       setMfaChecked(true);
     } finally {
-      mfaCheckRef.running = false;
+      mfaCheckRef.current = false;
     }
   };
 

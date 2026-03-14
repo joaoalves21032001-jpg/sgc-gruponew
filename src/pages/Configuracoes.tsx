@@ -17,7 +17,7 @@ import { toast } from 'sonner';
 import {
     Settings, Shield, Database, Bell, Clock, Save,
     Trash2, Users, Activity, Eye, Lock, Plus, Pencil,
-    Check, X, UserPlus, ChevronRight, ShieldCheck, ChevronDown, AlertTriangle, BrainCircuit, Sparkles, History, Loader2, RefreshCw, Cpu, ShieldAlert, ShieldOff
+    Check, X, UserPlus, ChevronRight, ShieldCheck, ChevronDown, AlertTriangle, BrainCircuit, Sparkles, History, Loader2, RefreshCw, Cpu, ShieldAlert, ShieldOff, Unlock
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -31,6 +31,7 @@ import {
     useAssignSecurityProfileToCargo,
     useProfileCargos,
     useMyPermissions,
+    useBulkSetPermissions,
     hasPermission,
     MODULES_DEF,
     SUPER_ADMIN_PROFILE_NAME,
@@ -54,6 +55,7 @@ import {
     useUpdateCargo,
     useDeleteCargo,
     useToggleCargoPermission,
+    useBulkSetCargoPermissions,
     CARGO_MODULES_DEF
 } from '@/hooks/useCargos';
 import { MultiSelect } from '@/components/ui/multi-select';
@@ -92,7 +94,62 @@ const Configuracoes = () => {
     const updateProfile = useUpdateSecurityProfile();
     const deleteProfile = useDeleteSecurityProfile();
     const togglePerm = useTogglePermission();
+    const bulkSetPerms = useBulkSetPermissions();
     const assignProfileToCargo = useAssignSecurityProfileToCargo();
+
+    const toggleAllPermissions = (enable: boolean) => {
+        if (!selectedProfileId) return;
+        const sp = securityProfiles.find(p => p.id === selectedProfileId);
+        
+        const performToggle = () => {
+            const allPerms: { resource: string; action: string; allowed: boolean }[] = [];
+            MODULES_DEF.forEach(group => {
+                group.resources.forEach(res => {
+                    res.actions.forEach(act => {
+                        allPerms.push({ resource: res.key, action: act.key, allowed: enable });
+                    });
+                });
+            });
+            bulkSetPerms.mutate({ profileId: selectedProfileId, permissions: allPerms });
+            toast.success(enable ? 'Todas as permissões ativadas!' : 'Todas as permissões desativadas!');
+        };
+
+        if (sp?.is_protected) {
+            requireAdminAuth(selectedProfileId, sp.name || '', performToggle, {
+                passwordHash: sp.protection_password,
+                mfaSecret: sp.protection_mfa_secret
+            });
+        } else {
+            performToggle();
+        }
+    };
+
+    const toggleGroupPermissions = (groupKey: string, enable: boolean) => {
+        if (!selectedProfileId) return;
+        const sp = securityProfiles.find(p => p.id === selectedProfileId);
+        const group = MODULES_DEF.find(g => g.groupLabel === groupKey);
+        if (!group) return;
+
+        const performToggle = () => {
+            const groupPerms: { resource: string; action: string; allowed: boolean }[] = [];
+            group.resources.forEach(res => {
+                res.actions.forEach(act => {
+                    groupPerms.push({ resource: res.key, action: act.key, allowed: enable });
+                });
+            });
+            bulkSetPerms.mutate({ profileId: selectedProfileId, permissions: groupPerms });
+            toast.success(enable ? `Bloco "${groupKey}" ativado!` : `Bloco "${groupKey}" desativado!`);
+        };
+
+        if (sp?.is_protected) {
+            requireAdminAuth(selectedProfileId, sp.name || '', performToggle, {
+                passwordHash: sp.protection_password,
+                mfaSecret: sp.protection_mfa_secret
+            });
+        } else {
+            performToggle();
+        }
+    };
 
     // Cargos
     const { data: cargos = [], isLoading: cargosLoading } = useCargos();
@@ -102,6 +159,61 @@ const Configuracoes = () => {
     const updateCargo = useUpdateCargo();
     const deleteCargo = useDeleteCargo();
     const toggleCargoPerm = useToggleCargoPermission();
+    const bulkSetCargoPerms = useBulkSetCargoPermissions();
+
+    const toggleAllCargoPermissions = (enable: boolean) => {
+        if (!selectedCargoId) return;
+        const cargo = cargos.find((c: any) => c.id === selectedCargoId);
+
+        const performToggle = () => {
+            const allPerms: { resource: string; action: string; allowed: boolean }[] = [];
+            CARGO_MODULES_DEF.forEach(group => {
+                group.resources.forEach(res => {
+                    res.actions.forEach(act => {
+                        allPerms.push({ resource: res.key, action: act.key, allowed: enable });
+                    });
+                });
+            });
+            bulkSetCargoPerms.mutate({ cargoId: selectedCargoId, permissions: allPerms });
+            toast.success(enable ? 'Todas as permissões do cargo ativadas!' : 'Todas as permissões do cargo desativadas!');
+        };
+
+        if (cargo?.is_protected) {
+            requireAdminAuth(cargo.id, cargo.nome, performToggle, {
+                passwordHash: (cargo as any).protection_password,
+                mfaSecret: (cargo as any).protection_mfa_secret
+            });
+        } else {
+            performToggle();
+        }
+    };
+
+    const toggleCargoGroupPermissions = (groupKey: string, enable: boolean) => {
+        if (!selectedCargoId) return;
+        const cargo = cargos.find((c: any) => c.id === selectedCargoId);
+        const group = CARGO_MODULES_DEF.find(g => g.groupLabel === groupKey);
+        if (!group) return;
+
+        const performToggle = () => {
+            const groupPerms: { resource: string; action: string; allowed: boolean }[] = [];
+            group.resources.forEach(res => {
+                res.actions.forEach(act => {
+                    groupPerms.push({ resource: res.key, action: act.key, allowed: enable });
+                });
+            });
+            bulkSetCargoPerms.mutate({ cargoId: selectedCargoId, permissions: groupPerms });
+            toast.success(enable ? `Bloco "${groupKey}" ativado!` : `Bloco "${groupKey}" desativado!`);
+        };
+
+        if (cargo?.is_protected) {
+            requireAdminAuth(cargo.id, cargo.nome, performToggle, {
+                passwordHash: (cargo as any).protection_password,
+                mfaSecret: (cargo as any).protection_mfa_secret
+            });
+        } else {
+            performToggle();
+        }
+    };
 
     const [newCargoOpen, setNewCargoOpen] = useState(false);
     const [newCargoNome, setNewCargoNome] = useState('');
@@ -109,15 +221,27 @@ const Configuracoes = () => {
     const [newCargoRequiresLeader, setNewCargoRequiresLeader] = useState(true);
     const [editingCargo, setEditingCargo] = useState<{ id: string; nome: string; description: string; requires_leader: boolean; is_protected?: boolean } | null>(null);
 
-    // Admin protection dialog state
     const [adminProtectionDialog, setAdminProtectionDialog] = useState<{
         open: boolean;
         targetName?: string;
+        customProtection?: { passwordHash?: string | null; mfaSecret?: string | null };
         onUnlocked: () => void;
     }>({ open: false, onUnlocked: () => {} });
 
-    const requireAdminAuth = (targetName: string, onUnlocked: () => void) => {
-        setAdminProtectionDialog({ open: true, targetName, onUnlocked });
+    const requireAdminAuth = (id: string, targetName: string, onUnlocked: () => void, customProtection?: { passwordHash?: string | null; mfaSecret?: string | null }) => {
+        // Check if there is an active session for this specific resource (profile/cargo)
+        if (unlockedSession && unlockedSession.id === id && Date.now() < unlockedSession.until) {
+            onUnlocked();
+            return;
+        }
+
+        const handleSuccess = () => {
+            // Create a session valid for 5 minutes
+            setUnlockedSession({ id, until: Date.now() + 5 * 60 * 1000 });
+            onUnlocked();
+        };
+
+        setAdminProtectionDialog({ open: true, targetName, customProtection, onUnlocked: handleSuccess });
     };
     const [confirmDeleteCargoId, setConfirmDeleteCargoId] = useState<string | null>(null);
     const [expandedCargoResources, setExpandedCargoResources] = useState<Set<string>>(new Set());
@@ -149,6 +273,34 @@ const Configuracoes = () => {
     const [newEventLabel, setNewEventLabel] = useState('');
     const [newEventCategory, setNewEventCategory] = useState('geral');
     const [confirmDeleteEventId, setConfirmDeleteEventId] = useState<string | null>(null);
+    const [unlockedSession, setUnlockedSession] = useState<{ id: string; until: number } | null>(null);
+    const [currentTime, setCurrentTime] = useState(Date.now());
+
+    // Effect for the countdown timer
+    useEffect(() => {
+        if (!unlockedSession) return;
+        const interval = setInterval(() => {
+            const now = Date.now();
+            setCurrentTime(now);
+            if (now >= unlockedSession.until) {
+                setUnlockedSession(null);
+                toast.info('Sessão expirada. O item foi bloqueado automaticamente por segurança.');
+            }
+        }, 1000);
+        return () => clearInterval(interval);
+    }, [unlockedSession]);
+
+    const formatTimeLeft = (until: number) => {
+        const seconds = Math.max(0, Math.floor((until - Date.now()) / 1000));
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const handleFinalizeSession = () => {
+        setUnlockedSession(null);
+        toast.success('Edição finalizada! Todas as alterações foram salvas com sucesso.');
+    };
 
     // Dialogs
     const [cleanupLogsOpen, setCleanupLogsOpen] = useState(false);
@@ -159,7 +311,17 @@ const Configuracoes = () => {
     const [newProfileOpen, setNewProfileOpen] = useState(false);
     const [newProfileName, setNewProfileName] = useState('');
     const [newProfileDesc, setNewProfileDesc] = useState('');
-    const [editingProfile, setEditingProfile] = useState<{ id: string; name: string; description: string } | null>(null);
+    const [editingProfile, setEditingProfile] = useState<{ 
+        id: string; 
+        name: string; 
+        description: string;
+        is_system?: boolean;
+        is_protected?: boolean;
+        protection_password?: string | null;
+        protection_mfa_secret?: string | null;
+        new_protection_password?: string;
+        new_protection_mfa_secret?: string;
+    } | null>(null);
     const [assignCargoOpen, setAssignCargoOpen] = useState(false);
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
     const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set());
@@ -370,9 +532,27 @@ const Configuracoes = () => {
     const handleUpdateProfile = async () => {
         if (!editingProfile) return;
         try {
-            await updateProfile.mutateAsync({ id: editingProfile.id, name: editingProfile.name, description: editingProfile.description });
+            let passwordToSave = editingProfile.protection_password;
+            
+            if (editingProfile.new_protection_password) {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(editingProfile.new_protection_password);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                passwordToSave = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+
+            await updateProfile.mutateAsync({ 
+                id: editingProfile.id, 
+                name: editingProfile.name, 
+                description: editingProfile.description,
+                protection_password: passwordToSave,
+                protection_mfa_secret: editingProfile.new_protection_mfa_secret || editingProfile.protection_mfa_secret
+            });
+            
             // Also save is_protected
-            await supabase.from('security_profiles' as any).update({ is_protected: !!((editingProfile as any).is_protected) } as any).eq('id', editingProfile.id);
+            await supabase.from('security_profiles' as any).update({ is_protected: !!(editingProfile.is_protected) } as any).eq('id', editingProfile.id);
+            
             logAction('editar_perfil_seguranca', 'security_profiles', editingProfile.id);
             toast.success('Perfil atualizado!');
             setEditingProfile(null);
@@ -393,15 +573,29 @@ const Configuracoes = () => {
 
     const handleTogglePerm = (resource: string, action: string) => {
         if (!selectedProfileId) return;
-        // Super Admin is always fully granted — immutable
+        
         const sp = securityProfiles.find(p => p.id === selectedProfileId);
-        if (sp?.name?.toLowerCase().includes(SUPER_ADMIN_PROFILE_NAME)) {
-            toast.info('O perfil Super Admin é imutável. Suas permissões são sempre completas.');
-            return;
-        }
         const existing = profilePerms.find(p => p.resource === resource && p.action === action);
         const newAllowed = !(existing?.allowed ?? false);
-        togglePerm.mutate({ profileId: selectedProfileId, resource, action, allowed: newAllowed });
+
+        const performToggle = () => {
+            togglePerm.mutate({ profileId: selectedProfileId, resource, action, allowed: newAllowed });
+        };
+
+        if (sp?.is_protected) {
+            requireAdminAuth(
+                sp.id,
+                sp.name || '', 
+                performToggle, 
+                { 
+                    passwordHash: sp?.protection_password,
+                    mfaSecret: sp?.protection_mfa_secret
+                }
+            );
+            return;
+        }
+        
+        performToggle();
     };
 
     const handleCreateCargo = async () => {
@@ -427,11 +621,23 @@ const Configuracoes = () => {
     const handleUpdateCargo = async () => {
         if (!editingCargo) return;
         try {
+            let passwordToSave = (editingCargo as any).protection_password;
+            
+            if ((editingCargo as any).new_protection_password) {
+                const encoder = new TextEncoder();
+                const data = encoder.encode((editingCargo as any).new_protection_password);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                passwordToSave = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+
             await updateCargo.mutateAsync({ 
                 id: editingCargo.id, 
                 nome: editingCargo.nome, 
                 description: editingCargo.description,
-                requires_leader: editingCargo.requires_leader
+                requires_leader: editingCargo.requires_leader,
+                protection_password: passwordToSave,
+                protection_mfa_secret: (editingCargo as any).new_protection_mfa_secret || (editingCargo as any).protection_mfa_secret
             });
             // Also save is_protected (not in hook yet)
             await supabase.from('cargos' as any).update({ is_protected: !!editingCargo.is_protected } as any).eq('id', editingCargo.id);
@@ -455,16 +661,34 @@ const Configuracoes = () => {
 
     const handleToggleCargoPerm = (resource: string, action: string) => {
         if (!selectedCargoId) return;
-        const existing = cargoPerms.find(p => p.resource === resource && p.action === action);
-        const newAllowed = !(existing?.allowed ?? false);
-        toggleCargoPerm.mutate(
-            { cargoId: selectedCargoId, resource, action, allowed: newAllowed },
-            {
-                onError: (err: any) => {
-                    toast.error(`Erro ao salvar permissão: ${err.message || 'Falha na rede'}`);
+        const cargo = cargos.find((c: any) => c.id === selectedCargoId);
+        
+        const performToggle = () => {
+            const existing = cargoPerms.find(p => p.resource === resource && p.action === action);
+            const newAllowed = !(existing?.allowed ?? false);
+            toggleCargoPerm.mutate(
+                { cargoId: selectedCargoId, resource, action, allowed: newAllowed },
+                {
+                    onError: (err: any) => {
+                        toast.error(`Erro ao salvar permissão: ${err.message || 'Falha na rede'}`);
+                    }
                 }
-            }
-        );
+            );
+        };
+
+        if (cargo?.is_protected) {
+            requireAdminAuth(
+                cargo.id,
+                cargo.nome,
+                performToggle,
+                {
+                    passwordHash: (cargo as any).protection_password,
+                    mfaSecret: (cargo as any).protection_mfa_secret
+                }
+            );
+        } else {
+            performToggle();
+        }
     };
 
     const isCargoPermAllowed = (resource: string, action: string): boolean => {
@@ -827,9 +1051,10 @@ const Configuracoes = () => {
                                                 <h3 className="text-sm font-bold text-foreground">{sp.name}</h3>
                                             </div>
                                             {sp.is_system && (
-                                                sp.name?.toLowerCase().includes(SUPER_ADMIN_PROFILE_NAME)
-                                                    ? <Badge variant="outline" className="text-[9px] bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" /> Imutável</Badge>
-                                                    : <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/20">Sistema</Badge>
+                                                <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/20">Sistema</Badge>
+                                            )}
+                                            {sp.name?.toLowerCase().includes(SUPER_ADMIN_PROFILE_NAME) && (
+                                                <Badge variant="outline" className="text-[9px] bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" /> Mestre</Badge>
                                             )}
                                             {!sp.is_system && sp.is_protected && (
                                                 <span title="Perfil protegido">
@@ -860,17 +1085,48 @@ const Configuracoes = () => {
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                {!selectedProfile.is_system && (
                                     <>
                                         {selectedProfile.is_protected && (
-                                            <span title="Protegido — exige senha + MFA para editar" className="flex items-center gap-1 text-[10px] text-destructive font-semibold">
-                                                <ShieldAlert className="w-3.5 h-3.5" /> Protegido
-                                            </span>
+                                            unlockedSession?.id === selectedProfile.id && currentTime < unlockedSession.until ? (
+                                                <div className="flex items-center gap-2">
+                                                    <span title="Desbloqueado temporariamente" className="flex items-center gap-1 text-[10px] text-success font-semibold px-2 py-0.5 bg-success/10 rounded-full border border-success/20 animate-pulse">
+                                                        <Unlock className="w-3.5 h-3.5" /> Desbloqueado ({formatTimeLeft(unlockedSession.until)})
+                                                    </span>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm" 
+                                                        className="h-6 px-2 text-[10px] gap-1 text-success hover:bg-success/10 border border-success/20"
+                                                        onClick={handleFinalizeSession}
+                                                    >
+                                                        <Check className="w-3 h-3" /> Finalizar e Salvar
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <span title="Protegido — exige senha + MFA para editar" className="flex items-center gap-1 text-[10px] text-destructive font-semibold">
+                                                    <ShieldAlert className="w-3.5 h-3.5" /> Protegido
+                                                </span>
+                                            )
                                         )}
                                         <Button variant="outline" size="sm" className="gap-1" onClick={() => {
-                                            const openEdit = () => setEditingProfile({ id: selectedProfile.id, name: selectedProfile.name, description: selectedProfile.description || '' });
+                                            const openEdit = () => setEditingProfile({ 
+                                                id: selectedProfile.id, 
+                                                name: selectedProfile.name, 
+                                                description: selectedProfile.description || '',
+                                                is_system: selectedProfile.is_system,
+                                                is_protected: !!selectedProfile.is_protected,
+                                                protection_password: selectedProfile.protection_password,
+                                                protection_mfa_secret: selectedProfile.protection_mfa_secret
+                                            });
                                             if (selectedProfile.is_protected) {
-                                                requireAdminAuth(selectedProfile.name, openEdit);
+                                                requireAdminAuth(
+                                                    selectedProfile.id,
+                                                    selectedProfile.name, 
+                                                    openEdit,
+                                                    { 
+                                                        passwordHash: selectedProfile.protection_password,
+                                                        mfaSecret: selectedProfile.protection_mfa_secret
+                                                    }
+                                                );
                                             } else {
                                                 openEdit();
                                             }
@@ -879,7 +1135,14 @@ const Configuracoes = () => {
                                         </Button>
                                         <Button variant="outline" size="sm" className="gap-1 text-destructive hover:bg-destructive/10" onClick={() => {
                                             if (selectedProfile.is_protected) {
-                                                requireAdminAuth(selectedProfile.name, () => setConfirmDeleteId(selectedProfile.id));
+                                                requireAdminAuth(
+                                                    selectedProfile.name, 
+                                                    () => setConfirmDeleteId(selectedProfile.id),
+                                                    { 
+                                                        passwordHash: selectedProfile.protection_password,
+                                                        mfaSecret: selectedProfile.protection_mfa_secret
+                                                    }
+                                                );
                                             } else {
                                                 setConfirmDeleteId(selectedProfile.id);
                                             }
@@ -887,7 +1150,6 @@ const Configuracoes = () => {
                                             <Trash2 className="w-3 h-3" /> Excluir
                                         </Button>
                                     </>
-                                )}
                                 </div>
                             </div>
 
@@ -899,9 +1161,29 @@ const Configuracoes = () => {
                                     <Lock className="w-4 h-4 text-primary" />
                                     <h4 className="text-sm font-bold text-foreground">Matriz de Permissões</h4>
                                 </div>
-                                <p className="text-[11px] text-muted-foreground">
-                                    Defina quais guias e subguias este perfil pode visualizar e editar. Clique na seta para expandir subguias.
-                                </p>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Defina quais guias e subguias este perfil pode visualizar e editar. Clique na seta para expandir subguias.
+                                    </p>
+                                    <div className="flex items-center gap-2">
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="h-7 px-3 text-[10px] gap-1.5 font-bold uppercase tracking-wider"
+                                            onClick={() => toggleAllPermissions(true)}
+                                        >
+                                            <Check className="w-3.5 h-3.5" /> Selecionar Tudo
+                                        </Button>
+                                        <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="h-7 px-3 text-[10px] gap-1.5 font-bold uppercase tracking-wider text-muted-foreground"
+                                            onClick={() => toggleAllPermissions(false)}
+                                        >
+                                            <X className="w-3.5 h-3.5" /> Limpar Tudo
+                                        </Button>
+                                    </div>
+                                </div>
 
                                 <div className="space-y-6">
                                     {MODULES_DEF.map((group) => {
@@ -914,10 +1196,30 @@ const Configuracoes = () => {
                                         const uniqueActions = Array.from(groupActions.values());
 
                                         return (
-                                            <div key={group.groupLabel} className="space-y-2">
-                                                <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
-                                                    {group.groupLabel}
-                                                </h5>
+                                            <div key={group.groupLabel} className="space-y-4">
+                                                <div className="flex items-center justify-between px-1">
+                                                    <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                                        {group.groupLabel}
+                                                    </h5>
+                                                    <div className="flex items-center gap-2">
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="sm" 
+                                                            className="h-6 px-2 text-[10px] text-success hover:text-success hover:bg-success/10"
+                                                            onClick={() => toggleGroupPermissions(group.groupLabel, true)}
+                                                        >
+                                                            <Check className="w-3 h-3 mr-1" /> Marcar Bloco
+                                                        </Button>
+                                                        <Button 
+                                                            variant="ghost" 
+                                                            size="sm" 
+                                                            className="h-6 px-2 text-[10px] text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                            onClick={() => toggleGroupPermissions(group.groupLabel, false)}
+                                                        >
+                                                            <X className="w-3 h-3 mr-1" /> Desmarcar Bloco
+                                                        </Button>
+                                                    </div>
+                                                </div>
                                                 <div className="overflow-x-auto rounded-lg border border-border/30">
                                                     <table className="w-full text-sm border-collapse bg-card">
                                                         <thead>
@@ -946,9 +1248,8 @@ const Configuracoes = () => {
                                                                             );
                                                                         }
                                                                         // Super Admin: always fully granted, toggles locked
-                                                                        const isSuperAdminProfile = selectedProfile?.name?.toLowerCase().includes(SUPER_ADMIN_PROFILE_NAME);
-                                                                        const allowed = isSuperAdminProfile ? true : isPermAllowed(res.key, act.key);
-                                                                        const disableToggle = !!isSuperAdminProfile;
+                                                                        const allowed = isPermAllowed(res.key, act.key);
+                                                                        const disableToggle = false;
 
                                                                         return (
                                                                             <td key={act.key} className="text-center py-2.5 px-3">
@@ -1084,9 +1385,25 @@ const Configuracoes = () => {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {selectedCargo.is_protected && (
-                                            <span title="Protegido — exige senha + MFA para editar" className="flex items-center gap-1 text-[10px] text-destructive font-semibold">
-                                                <ShieldAlert className="w-3.5 h-3.5" /> Protegido
-                                            </span>
+                                            unlockedSession?.id === selectedCargo.id && currentTime < unlockedSession.until ? (
+                                                <div className="flex items-center gap-2">
+                                                    <span title="Desbloqueado temporariamente" className="flex items-center gap-1 text-[10px] text-success font-semibold px-2 py-0.5 bg-success/10 rounded-full border border-success/20 animate-pulse">
+                                                        <Unlock className="w-3.5 h-3.5" /> Desbloqueado ({formatTimeLeft(unlockedSession.until)})
+                                                    </span>
+                                                    <Button 
+                                                        variant="ghost" 
+                                                        size="sm" 
+                                                        className="h-6 px-2 text-[10px] gap-1 text-success hover:bg-success/10 border border-success/20"
+                                                        onClick={handleFinalizeSession}
+                                                    >
+                                                        <Check className="w-3 h-3" /> Finalizar e Salvar
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <span title="Protegido — exige senha + MFA para editar" className="flex items-center gap-1 text-[10px] text-destructive font-semibold">
+                                                    <ShieldAlert className="w-3.5 h-3.5" /> Protegido
+                                                </span>
+                                            )
                                         )}
                                         <Button variant="outline" size="sm" className="gap-1" onClick={() => {
                                             const openEdit = () => setEditingCargo({
@@ -1094,9 +1411,19 @@ const Configuracoes = () => {
                                                 description: selectedCargo.description || '',
                                                 requires_leader: selectedCargo.requires_leader !== false,
                                                 is_protected: !!selectedCargo.is_protected,
-                                            });
+                                                protection_password: (selectedCargo as any).protection_password,
+                                                protection_mfa_secret: (selectedCargo as any).protection_mfa_secret
+                                            } as any);
                                             if (selectedCargo.is_protected) {
-                                                requireAdminAuth(selectedCargo.nome, openEdit);
+                                                requireAdminAuth(
+                                                    selectedCargo.id,
+                                                    selectedCargo.nome,
+                                                    openEdit,
+                                                    {
+                                                        passwordHash: (selectedCargo as any).protection_password,
+                                                        mfaSecret: (selectedCargo as any).protection_mfa_secret
+                                                    }
+                                                );
                                             } else {
                                                 openEdit();
                                             }
@@ -1105,7 +1432,15 @@ const Configuracoes = () => {
                                         </Button>
                                         <Button variant="outline" size="sm" className="gap-1 text-destructive hover:bg-destructive/10" onClick={() => {
                                             if (selectedCargo.is_protected) {
-                                                requireAdminAuth(selectedCargo.nome, () => setConfirmDeleteCargoId(selectedCargo.id));
+                                                requireAdminAuth(
+                                                    selectedCargo.id,
+                                                    selectedCargo.nome, 
+                                                    () => setConfirmDeleteCargoId(selectedCargo.id),
+                                                    { 
+                                                        passwordHash: (selectedCargo as any).protection_password,
+                                                        mfaSecret: (selectedCargo as any).protection_mfa_secret
+                                                    }
+                                                );
                                             } else {
                                                 setConfirmDeleteCargoId(selectedCargo.id);
                                             }
@@ -1123,9 +1458,29 @@ const Configuracoes = () => {
                                         <Lock className="w-4 h-4 text-primary" />
                                         <h4 className="text-sm font-bold text-foreground">Permissões do Cargo</h4>
                                     </div>
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Configure quais ações este cargo pode executar em cada subguia e módulo da plataforma.
-                                    </p>
+                                        <div className="flex items-center justify-between">
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Configure quais ações este cargo pode executar em cada subguia e módulo da plataforma.
+                                            </p>
+                                            <div className="flex items-center gap-2">
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-7 px-3 text-[10px] gap-1.5 font-bold uppercase tracking-wider"
+                                                    onClick={() => toggleAllCargoPermissions(true)}
+                                                >
+                                                    <Check className="w-3.5 h-3.5" /> Selecionar Tudo
+                                                </Button>
+                                                <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-7 px-3 text-[10px] gap-1.5 font-bold uppercase tracking-wider text-muted-foreground"
+                                                    onClick={() => toggleAllCargoPermissions(false)}
+                                                >
+                                                    <X className="w-3.5 h-3.5" /> Limpar Tudo
+                                                </Button>
+                                            </div>
+                                        </div>
 
                                     <div className="space-y-6">
                                         {CARGO_MODULES_DEF.map((group) => {
@@ -1138,10 +1493,30 @@ const Configuracoes = () => {
                                             const uniqueActions = Array.from(groupActions.values());
 
                                             return (
-                                                <div key={group.groupLabel} className="space-y-2">
-                                                    <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
-                                                        {group.groupLabel}
-                                                    </h5>
+                                                <div key={group.groupLabel} className="space-y-4">
+                                                    <div className="flex items-center justify-between px-1">
+                                                        <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                                                            {group.groupLabel}
+                                                        </h5>
+                                                        <div className="flex items-center gap-2">
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="sm" 
+                                                                className="h-6 px-2 text-[10px] text-success hover:text-success hover:bg-success/10"
+                                                                onClick={() => toggleCargoGroupPermissions(group.groupLabel, true)}
+                                                            >
+                                                                <Check className="w-3 h-3 mr-1" /> Marcar Bloco
+                                                            </Button>
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                size="sm" 
+                                                                className="h-6 px-2 text-[10px] text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                                                                onClick={() => toggleCargoGroupPermissions(group.groupLabel, false)}
+                                                            >
+                                                                <X className="w-3 h-3 mr-1" /> Desmarcar Bloco
+                                                            </Button>
+                                                        </div>
+                                                    </div>
                                                     <div className="overflow-x-auto rounded-lg border border-border/30">
                                                         <table className="w-full text-sm border-collapse bg-card">
                                                             <thead>
@@ -1613,6 +1988,38 @@ const Configuracoes = () => {
                                     onCheckedChange={v => setEditingProfile({ ...editingProfile, is_protected: v } as any)}
                                 />
                             </div>
+
+                            {(editingProfile as any).is_protected && (
+                                <div className="space-y-3 p-3 bg-muted/30 rounded-lg border border-border/40 animate-fade-in-up mt-2">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">Nova Senha de Proteção</Label>
+                                        <Input 
+                                            type="password" 
+                                            placeholder="Deixe em branco para manter a atual"
+                                            value={(editingProfile as any).new_protection_password || ''}
+                                            onChange={e => setEditingProfile({ ...editingProfile, new_protection_password: e.target.value } as any)}
+                                            className="h-9 text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">Segredo MFA (TOTP)</Label>
+                                        <div className="flex gap-2">
+                                            <Input 
+                                                placeholder="Segredo Base32"
+                                                value={(editingProfile as any).new_protection_mfa_secret || (editingProfile as any).protection_mfa_secret || ''}
+                                                onChange={e => setEditingProfile({ ...editingProfile, new_protection_mfa_secret: e.target.value } as any)}
+                                                className="h-9 text-sm font-mono"
+                                            />
+                                            <Button size="sm" variant="outline" onClick={() => {
+                                                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+                                                let secret = '';
+                                                for (let i = 0; i < 16; i++) secret += chars.charAt(Math.floor(Math.random() * chars.length));
+                                                setEditingProfile({ ...editingProfile, new_protection_mfa_secret: secret } as any);
+                                            }}>Gerar</Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                     <DialogFooter className="gap-2">
@@ -1908,19 +2315,49 @@ const Configuracoes = () => {
                                 <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
                                 <Input value={editingCargo.description || ''} onChange={e => setEditingCargo({ ...editingCargo, description: e.target.value })} className="h-9 text-sm" />
                             </div>
-                            <div className="flex items-center justify-between p-3 bg-destructive/5 rounded-lg border border-destructive/20">
+                            
+                            <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/40">
                                 <div className="flex items-center gap-2">
                                     <ShieldAlert className="w-4 h-4 text-destructive" />
-                                    <div>
-                                        <p className="text-sm font-semibold text-foreground">Protegido</p>
-                                        <p className="text-[10px] text-muted-foreground">Exige senha + MFA para editar</p>
-                                    </div>
+                                    <Label className="font-bold text-sm">Proteção de Acesso</Label>
                                 </div>
                                 <Switch
                                     checked={!!editingCargo.is_protected}
                                     onCheckedChange={v => setEditingCargo({ ...editingCargo, is_protected: v })}
                                 />
                             </div>
+
+                            {editingCargo.is_protected && (
+                                <div className="space-y-3 p-3 bg-muted/30 rounded-lg border border-border/40 animate-fade-in-up mt-2">
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">Nova Senha de Proteção</Label>
+                                        <Input 
+                                            type="password" 
+                                            placeholder="Deixe em branco para manter a atual"
+                                            value={(editingCargo as any).new_protection_password || ''}
+                                            onChange={e => setEditingCargo({ ...editingCargo, new_protection_password: e.target.value } as any)}
+                                            className="h-9 text-sm"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label className="text-xs">Segredo MFA (TOTP)</Label>
+                                        <div className="flex gap-2">
+                                            <Input 
+                                                placeholder="Segredo Base32"
+                                                value={(editingCargo as any).new_protection_mfa_secret || (editingCargo as any).protection_mfa_secret || ''}
+                                                onChange={e => setEditingCargo({ ...editingCargo, new_protection_mfa_secret: e.target.value } as any)}
+                                                className="h-9 text-sm font-mono"
+                                            />
+                                            <Button size="sm" variant="outline" onClick={() => {
+                                                const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+                                                let secret = '';
+                                                for (let i = 0; i < 16; i++) secret += chars.charAt(Math.floor(Math.random() * chars.length));
+                                                setEditingCargo({ ...editingCargo, new_protection_mfa_secret: secret } as any);
+                                            }}>Gerar</Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                     <DialogFooter className="gap-2">
@@ -1952,9 +2389,96 @@ const Configuracoes = () => {
                 open={adminProtectionDialog.open}
                 onOpenChange={(open) => setAdminProtectionDialog(prev => ({ ...prev, open }))}
                 onUnlocked={adminProtectionDialog.onUnlocked}
-                targetName={adminProtectionDialog.targetName}
+                customProtection={adminProtectionDialog.customProtection}
             />
 
+            {/* Edit Profile Dialog */}
+            <Dialog open={!!editingProfile} onOpenChange={(open) => !open && setEditingProfile(null)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Editar Perfil: {editingProfile?.name}</DialogTitle>
+                        <DialogDescription>Altere as informações básicas do perfil.</DialogDescription>
+                    </DialogHeader>
+                    {editingProfile && (
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-1.5">
+                                <Label>Nome do Perfil</Label>
+                                <Input 
+                                    value={editingProfile.name} 
+                                    onChange={e => setEditingProfile({ ...editingProfile, name: e.target.value })} 
+                                    disabled={editingProfile.is_system}
+                                />
+                                {editingProfile.is_system && <p className="text-[10px] text-muted-foreground">Nomes de perfis de sistema não podem ser alterados.</p>}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>Descrição</Label>
+                                <Textarea 
+                                    value={editingProfile.description} 
+                                    onChange={e => setEditingProfile({ ...editingProfile, description: e.target.value })} 
+                                    rows={3}
+                                />
+                            </div>
+                            
+                            <Separator />
+                            
+                            <div className="space-y-3 p-3 bg-muted/30 rounded-lg border border-border/40">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <ShieldAlert className="w-4 h-4 text-destructive" />
+                                        <Label className="font-bold text-sm">Proteção de Acesso</Label>
+                                    </div>
+                                    <Switch 
+                                        checked={editingProfile.is_protected} 
+                                        onCheckedChange={v => setEditingProfile({ ...editingProfile, is_protected: v })} 
+                                    />
+                                </div>
+                                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                                    Quando ativo, qualquer alteração neste perfil exigirá uma senha de proteção adicional.
+                                </p>
+                                
+                                {editingProfile.is_protected && (
+                                    <div className="space-y-2 mt-2 animate-fade-in-up">
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs">Nova Senha de Proteção</Label>
+                                            <Input 
+                                                type="password" 
+                                                placeholder="Deixe em branco para manter a atual"
+                                                value={editingProfile.new_protection_password || ''}
+                                                onChange={e => setEditingProfile({ ...editingProfile, new_protection_password: e.target.value })}
+                                                className="h-9 text-sm"
+                                            />
+                                        </div>
+                                        <div className="space-y-1.5">
+                                            <Label className="text-xs">Segredo MFA (TOTP)</Label>
+                                            <div className="flex gap-2">
+                                                <Input 
+                                                    placeholder="Segredo Base32 (ex: JBSWY3DPEHPK3PXP)"
+                                                    value={editingProfile.new_protection_mfa_secret || editingProfile.protection_mfa_secret || ''}
+                                                    onChange={e => setEditingProfile({ ...editingProfile, new_protection_mfa_secret: e.target.value })}
+                                                    className="h-9 text-sm font-mono"
+                                                />
+                                                <Button size="sm" variant="outline" onClick={() => {
+                                                    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+                                                    let secret = '';
+                                                    for (let i = 0; i < 16; i++) secret += chars.charAt(Math.floor(Math.random() * chars.length));
+                                                    setEditingProfile({ ...editingProfile, new_protection_mfa_secret: secret });
+                                                }}>Gerar</Button>
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground">Insira este segredo no Google Authenticator se desejar proteção MFA.</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setEditingProfile(null)}>Cancelar</Button>
+                        <Button onClick={handleUpdateProfile} disabled={updateProfile.isPending}>
+                            {updateProfile.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Salvar Alterações'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

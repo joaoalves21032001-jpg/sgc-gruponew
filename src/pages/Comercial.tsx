@@ -107,7 +107,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const navigate = useNavigate();
   const { data: myPermissions } = useMyPermissions();
   const { data: cargoPermissions } = useMyCargoPermissions();
-  const canEdit = hasPermission(myPermissions, 'atividades', 'edit') && hasCargoPermission(cargoPermissions, 'atividades', 'edit');
+  const canEdit = hasPermission(myPermissions, 'atividades', 'edit') && hasCargoPermission(cargoPermissions, 'atividades.atividades', 'edit');
   const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const submitCR = useSubmitCorrectionRequest();
   const [showConfirm, setShowConfirm] = useState(false);
@@ -469,9 +469,12 @@ const Comercial = () => {
   const editAtividade = (location.state as any)?.editAtividade;
   const defaultTab = (editVenda || prefillLead) ? 'nova-venda' : 'atividades';
   const { data: myPermissions } = useMyPermissions();
-  const canViewAtividades = hasPermission(myPermissions, 'atividades', 'view');
-  const canViewNovaVenda = hasPermission(myPermissions, 'atividades', 'edit'); // Changed from 'view' to 'edit'
-  const canEditAtividades = hasPermission(myPermissions, 'atividades', 'edit');
+  const { data: cargoPermissions } = useMyCargoPermissions();
+
+  const canViewAtividades = hasPermission(myPermissions, 'atividades', 'view') && hasCargoPermission(cargoPermissions, 'atividades.atividades', 'view');
+  const canViewNovaVenda = hasPermission(myPermissions, 'atividades', 'view') && hasCargoPermission(cargoPermissions, 'atividades.vendas', 'view');
+  
+  const canEditAtividades = hasPermission(myPermissions, 'atividades', 'edit') && hasCargoPermission(cargoPermissions, 'atividades.atividades', 'edit');
 
 
   return (

@@ -10,6 +10,8 @@ export interface SecurityProfile {
     description: string | null;
     is_system: boolean;
     is_protected?: boolean;
+    protection_password?: string | null;
+    protection_mfa_secret?: string | null;
     created_at: string;
     updated_at: string;
 }
@@ -78,10 +80,18 @@ export const MODULES_DEF: ResourceGroupDef[] = [
         resources: [
             { key: 'atividades',   label: 'Registro de Atividades', actions: COMMON_ACTIONS },
             { key: 'minhas_acoes', label: 'Minhas Ações',           actions: COMMON_ACTIONS },
-            { key: 'crm',         label: 'CRM',                    actions: COMMON_ACTIONS },
+            { 
+                key: 'crm', 
+                label: 'CRM', 
+                actions: [
+                    { key: 'view', label: 'Visualizador' },
+                    { key: 'edit', label: 'Editor' }
+                ] 
+            },
             { key: 'aprovacoes',  label: 'Aprovações',             actions: COMMON_ACTIONS },
             { key: 'inventario',  label: 'Inventário',             actions: COMMON_ACTIONS },
             { key: 'equipe',      label: 'Equipe',                 actions: COMMON_ACTIONS },
+            { key: 'usuarios',    label: 'Usuários',               actions: COMMON_ACTIONS },
             { key: 'configuracoes', label: 'Configurações',        actions: COMMON_ACTIONS },
         ]
     }
@@ -102,7 +112,7 @@ export const PATH_TO_RESOURCE: Record<string, string> = {
     '/gestao': 'dashboard',
     '/inventario': 'inventario',
     '/equipe': 'equipe',
-    '/admin/usuarios': 'configuracoes',
+    '/admin/usuarios': 'usuarios',
     '/admin/solicitacoes': 'configuracoes',
     '/admin/logs': 'logs_auditoria',
     '/admin/configuracoes': 'configuracoes',
@@ -130,7 +140,7 @@ export function useSecurityProfiles() {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('security_profiles' as any)
-                .select('id, name, description, is_system, is_protected, created_at, updated_at')
+                .select('id, name, description, is_system, is_protected, protection_password, protection_mfa_secret, created_at, updated_at')
                 .order('created_at');
             if (error) {
                 // If table doesn't exist yet, return empty gracefully
@@ -209,17 +219,54 @@ export function useMyPermissions() {
             const spPerms = (spData ?? []) as unknown as SecurityProfilePermission[];
             const cpPerms = (cpData ?? []) as any[];
 
-            // Merge permissions: Cargo permissions further restrict Security Profile permissions.
-            // If a cargo permission is defined, it overrides the SP allowed status (boolean AND).
-            // If not defined, it defaults to true (no restriction).
-            return spPerms.map(sp => {
-                const cp = cpPerms.find(c => c.resource === sp.resource && c.action === sp.action);
-                const cargoAllowed = cp ? cp.allowed : true;
-                return {
-                    ...sp,
-                    allowed: sp.allowed && cargoAllowed
-                };
+            // 1. Start with SP permissions as base
+            const merged = spPerms.map(sp => {
+                const cpDirect = cpPerms.find(c => c.resource === sp.resource && c.action === sp.action);
+                if (cpDirect) {
+                    return { ...sp, allowed: sp.allowed && cpDirect.allowed };
+                }
+                
+                // Hierarchical vetting: if this is a sub-resource in SP (unlikely) 
+                // check if Cargo allows the parent
+                const dot = sp.resource.lastIndexOf('.');
+                if (dot !== -1) {
+                    const parentKey = sp.resource.substring(0, dot);
+                    const cpParent = cpPerms.find(c => c.resource === parentKey && c.action === sp.action);
+                    if (cpParent) {
+                        return { ...sp, allowed: sp.allowed && cpParent.allowed };
+                    }
+                }
+
+                // SECURITY FIX: If a resource exists in SP (Macro), we follow its 
+                // state for the macro check. This ensures the user can enter 
+                // the module (e.g., 'atividades') if SP allows it.
+                // Granular sub-options will be merged separately.
+                return { ...sp, allowed: sp.allowed };
             });
+
+            // 2. Add Cargo-only permissions (Granular)
+            // But only if the parent module is allowed in SP
+            cpPerms.forEach(cp => {
+                const alreadyMatched = merged.some(m => m.resource === cp.resource && m.action === cp.action);
+                if (alreadyMatched) return;
+
+                // Check if SP allows this resource or its parent
+                const spAllows = hasPermission(spPerms, cp.resource, 'view') || 
+                                 hasPermission(spPerms, cp.resource, 'edit');
+                
+                // If the cargo resource is allowed by SP macro layer, add it
+                if (spAllows) {
+                    merged.push({
+                        id: cp.id,
+                        profile_id: profileId,
+                        resource: cp.resource,
+                        action: cp.action,
+                        allowed: cp.allowed
+                    });
+                }
+            });
+
+            return merged;
         },
         enabled: !!user && !!profile,
     });
@@ -301,10 +348,22 @@ export function useCreateSecurityProfile() {
 export function useUpdateSecurityProfile() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ id, name, description }: { id: string; name: string; description?: string }) => {
+        mutationFn: async ({ id, name, description, protection_password, protection_mfa_secret }: { 
+            id: string; 
+            name: string; 
+            description?: string;
+            protection_password?: string | null;
+            protection_mfa_secret?: string | null;
+        }) => {
             const { error } = await supabase
                 .from('security_profiles' as any)
-                .update({ name, description, updated_at: new Date().toISOString() } as any)
+                .update({ 
+                    name, 
+                    description, 
+                    protection_password,
+                    protection_mfa_secret,
+                    updated_at: new Date().toISOString() 
+                } as any)
                 .eq('id', id);
             if (error) throw error;
         },
