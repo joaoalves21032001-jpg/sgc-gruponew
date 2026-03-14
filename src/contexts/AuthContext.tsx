@@ -49,6 +49,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [needsMfa, setNeedsMfa] = useState(false);
   const [mfaVerified, setMfaVerified] = useState(false);
 
+  // Safety failsafe: never load infinitely
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(prev => {
+        if (prev) {
+          console.warn('AuthContext loading state forced to resolve after timeout.');
+          return false;
+        }
+        return prev;
+      });
+    }, 3500);
+    return () => clearTimeout(timer);
+  }, []);
+
   // Phase 1: Initialize Auth
   useEffect(() => {
     let mounted = true;
@@ -60,9 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(session);
           setUser(session?.user ?? null);
           if (!session) {
-            setLoading(false); // If no user, stop loading immediately
             setHasProfile(false);
             setMfaChecked(true);
+            setLoading(false); // If no user, stop loading immediately
           }
         }
       } catch (err) {
@@ -100,7 +114,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Phase 2: Load Profile (runs only when we have a user but don't know profile status)
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+       // If there's no user, ensure we are not stuck loading profile
+       if (hasProfile === null) setHasProfile(false);
+       return; 
+    }
     if (hasProfile !== null) return; // Already checked
 
     async function checkProfile() {
@@ -132,8 +150,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mfaCheckInProgress = useRef(false);
   
   useEffect(() => {
-    if (!user || hasProfile !== true) return;
-    if (mfaChecked || mfaCheckInProgress.current) return;
+    if (!user || hasProfile !== true) {
+       // Stop loading if we don't need MFA check or user is invalid
+       if (loading && hasProfile === false) {
+          setLoading(false);
+          setMfaChecked(true);
+       }
+       return;
+    }
+    if (mfaChecked || mfaCheckInProgress.current) {
+        if (loading) setLoading(false);
+        return;
+    }
 
     mfaCheckInProgress.current = true;
 
