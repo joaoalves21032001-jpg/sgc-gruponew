@@ -787,7 +787,7 @@ const AdminUsuarios = () => {
                         {form.is_protected && (
                             <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-4 pt-2 border-t border-warning/10">
                                 <div className="space-y-2">
-                                    <Label className="text-xs text-warning font-semibold">Senhar de Proteção (Opcional se já tiver)</Label>
+                                    <Label className="text-xs text-warning font-semibold">Senha de Proteção (Opcional se já tiver)</Label>
                                     <Input 
                                         type="password" 
                                         placeholder="Min. 12 caracteres (Aa#)" 
@@ -1053,7 +1053,7 @@ const AdminUsuarios = () => {
         targetName={adminProtectionDialog.targetName}
         customProtection={adminProtectionDialog.customProtection}
         onOpenChange={(v) => !v && setAdminProtectionDialog(prev => ({ ...prev, open: false }))}
-        onSuccess={() => {
+        onUnlocked={() => {
           setAdminProtectionDialog(prev => ({ ...prev, open: false }));
           adminProtectionDialog.onUnlocked();
         }}

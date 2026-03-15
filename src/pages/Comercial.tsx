@@ -42,9 +42,9 @@ import confetti from 'canvas-confetti';
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-1.5">
-        <label className="text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground">{label}</label>
-        {required && <span className="text-destructive text-xs font-bold">*</span>}
+      <div className="flex items-start sm:items-center gap-1.5 min-h-[32px]">
+        <label className="text-[11px] lg:text-xs font-semibold uppercase tracking-wider text-muted-foreground leading-tight">{label}</label>
+        {required && <span className="text-destructive text-[11px] lg:text-xs font-bold shrink-0">*</span>}
         <Tooltip>
           <TooltipTrigger tabIndex={-1}>
             <Info className="w-3.5 h-3.5 text-muted-foreground/50 hover:text-primary transition-colors" />
@@ -252,7 +252,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
     let cenarioAReason = '';
     if (isRetroativo) {
       cenarioA = true;
-      cenarioAReason = 'A justificativa é obrigatória para lançamentos fora da data atual e será enviada à diretoria.';
+      cenarioAReason = 'A justificativa é obrigatória para lançamentos fora da data atual e será enviada para avaliação.';
     } else if ((lig + msg) > 0 && cotRealizadas < Math.ceil((lig + msg) * 0.1)) {
       cenarioA = true;
       cenarioAReason = 'A taxa de cotações realizadas está abaixo do mínimo (10% dos contatos). Justifique o rendimento para liberar o registro.';
@@ -450,19 +450,6 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
           </PopoverContent>
         </Popover>
 
-        {/* Cenário A: Retroativo / 10% / Enviadas */}
-        {validations.cenarioA && (
-          <div className="mt-4 p-4 bg-warning/8 border border-warning/20 rounded-lg space-y-3">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-warning shrink-0" />
-              <p className="text-sm font-medium text-foreground">
-                {isRetroativo ? 'Lançamento retroativo detectado' : 'Atenção: Ações atípicas identificadas'}
-              </p>
-            </div>
-            <p className="text-xs text-muted-foreground">{validations.cenarioAReason}</p>
-            <Textarea placeholder="Descreva o motivo..." value={form.justificativa} onChange={(e) => update('justificativa', e.target.value)} rows={3} disabled={!canEdit} className="border-warning/30 focus:border-warning disabled:opacity-60 disabled:cursor-not-allowed" />
-          </div>
-        )}
       </div>
 
       {/* ── Campos de Atividade ── */}
@@ -513,9 +500,22 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
             </div>
           </FieldWithTooltip>
         </div>
-        {allFilled && (validations.cenarioB || validations.cenarioC || validations.cenarioD) && (
+        {(validations.cenarioA || (allFilled && (validations.cenarioB || validations.cenarioC || validations.cenarioD))) && (
           <div className="space-y-3 mt-5">
-            {validations.cenarioB && (
+            {validations.cenarioA && (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                  <p className="text-sm font-semibold text-foreground">
+                    {isRetroativo ? 'Lançamento retroativo detectado' : 'Atenção: Ações atípicas identificadas'}
+                  </p>
+                </div>
+                <p className="text-xs text-muted-foreground">{validations.cenarioAReason}</p>
+                <Textarea placeholder="Descreva o motivo..." value={form.justificativa} onChange={(e) => update('justificativa', e.target.value)} rows={3} disabled={!canEdit} className="border-amber-200 focus:border-amber-400 disabled:opacity-60 disabled:cursor-not-allowed" />
+              </div>
+            )}
+
+            {allFilled && validations.cenarioB && (
               <div className="p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/40 rounded-xl space-y-3">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-orange-500 shrink-0" />
@@ -526,7 +526,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
               </div>
             )}
 
-            {validations.cenarioC && (
+            {allFilled && validations.cenarioC && (
               <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-xl space-y-3">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-blue-500 shrink-0" />
@@ -537,7 +537,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
               </div>
             )}
 
-            {validations.cenarioD && (
+            {allFilled && validations.cenarioD && (
               <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-3">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
