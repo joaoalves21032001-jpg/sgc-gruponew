@@ -6,7 +6,7 @@ import { useProfile, useUserRole } from '@/hooks/useProfile';
 import { useMyAtividades } from '@/hooks/useAtividades';
 import { useMyVendas } from '@/hooks/useVendas';
 import { PatenteBadge } from '@/components/PatenteBadge';
-import { getPatenteFrase } from '@/lib/gamification';
+import { getPatenteFrase, getDailyFraseMotivacional, getPerformanceTierInfo } from '@/lib/gamification';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useMemo, useEffect, useRef } from 'react';
 import confetti from 'canvas-confetti';
@@ -20,15 +20,25 @@ const Index = () => {
   const { data: vendas, isLoading: loadingVendas } = useMyVendas();
 
   const stats = useMemo(() => {
-    if (!atividades) return { ligacoes: 0, mensagens: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0, follow_up: 0 };
+    if (!atividades) return { ligacoes: 0, mensagens: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0, follow_up: 0, today_ligacoes: 0, today_mensagens: 0 };
+    const today = new Date().toISOString().slice(0, 10);
+    const todayAtiv = atividades.filter(a => a.data === today);
+    const todayLig = todayAtiv.reduce((s, a) => s + a.ligacoes, 0);
+    const todayMsg = todayAtiv.reduce((s, a) => s + a.mensagens, 0);
     return atividades.reduce((acc, a) => ({
       ligacoes: acc.ligacoes + a.ligacoes,
       mensagens: acc.mensagens + a.mensagens,
       cotacoes_enviadas: acc.cotacoes_enviadas + a.cotacoes_enviadas,
       cotacoes_fechadas: acc.cotacoes_fechadas + a.cotacoes_fechadas,
       follow_up: acc.follow_up + a.follow_up,
-    }), { ligacoes: 0, mensagens: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0, follow_up: 0 });
+      today_ligacoes: todayLig,
+      today_mensagens: todayMsg,
+    }), { ligacoes: 0, mensagens: 0, cotacoes_enviadas: 0, cotacoes_fechadas: 0, follow_up: 0, today_ligacoes: todayLig, today_mensagens: todayMsg });
   }, [atividades]);
+
+  const dailyVolume = stats.today_ligacoes + stats.today_mensagens;
+  const dailyTier = getPerformanceTierInfo(dailyVolume);
+  const dailyFrase = getDailyFraseMotivacional(dailyVolume);
 
   // Period comparison: current month vs previous month
   const periodComparison = useMemo(() => {
@@ -179,6 +189,33 @@ const Index = () => {
           trend={fatComparison ?? undefined}
           sparkline={fatSparkline}
         />
+      </div>
+
+      {/* Part 6: Gamification daily tier banner */}
+      <div
+        className="rounded-xl p-4 border flex items-center gap-4 shadow-sm"
+        style={{ borderColor: dailyTier.color + '50', backgroundColor: dailyTier.color + '10' }}
+      >
+        <div
+          className="w-10 h-10 rounded-lg flex items-center justify-center text-lg shrink-0 font-bold"
+          style={{ backgroundColor: dailyTier.color + '25', color: dailyTier.color }}
+        >
+          {dailyVolume}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
+              style={{ backgroundColor: dailyTier.color, color: '#fff' }}
+            >
+              {dailyTier.name}
+            </span>
+            <span className="text-[10px] text-muted-foreground">
+              Contatos hoje: {stats.today_ligacoes} ligações + {stats.today_mensagens} msgs
+            </span>
+          </div>
+          <p className="text-xs italic text-foreground/80 mt-1 leading-snug">{dailyFrase}</p>
+        </div>
       </div>
 
       {/* Progress Bar */}
