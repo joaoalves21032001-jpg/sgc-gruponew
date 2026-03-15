@@ -55,37 +55,42 @@ serve(async (req) => {
 
     if (searchErr) throw searchErr;
 
+    let requestId = '';
     if (existingPending && existingPending.length > 0) {
       // Overwrite existing
-      const { error: updateErr } = await supabaseAdmin
+      const { data: updated, error: updateErr } = await supabaseAdmin
         .from('password_reset_requests')
         .update({
-          email: email,
           motivo: motivo,
-          nova_senha: encryptedPassword,
-          updated_at: new Date().toISOString()
+          encrypted_password: encryptedPassword,
+          requested_at: new Date().toISOString()
         })
-        .eq('id', existingPending[0].id);
+        .eq('id', existingPending[0].id)
+        .select('id')
+        .single();
       
       if (updateErr) throw updateErr;
+      requestId = updated.id;
     } else {
       // Insert new
-      const { error: insertErr } = await supabaseAdmin
+      const { data: inserted, error: insertErr } = await supabaseAdmin
         .from('password_reset_requests')
         .insert({
           user_id: userId,
-          email: email,
           motivo: motivo,
-          nova_senha: encryptedPassword,
+          encrypted_password: encryptedPassword,
           status: 'pendente'
-        });
+        })
+        .select('id')
+        .single();
 
       if (insertErr) {
         throw insertErr;
       }
+      requestId = inserted.id;
     }
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, id: requestId }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });

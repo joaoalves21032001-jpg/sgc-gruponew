@@ -144,14 +144,15 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const DRAFT_KEY = `atividades_draft_${user?.id ?? 'anon'}`;
 
   const getInitialForm = (): AtividadesForm => {
+    const defaults: AtividadesForm = { ligacoes: '', mensagens: '', cotacoes_realizadas: '', cotacoes_enviadas: '',
+      cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', follow_up_realizado: '', justificativa: '', justificativa_nao_resposta: '', justificativa_atraso: '', justificativa_baixa_resposta: '' };
     if (!editAtividade) {
       try {
         const saved = sessionStorage.getItem(DRAFT_KEY);
-        if (saved) return JSON.parse(saved);
+        if (saved) return { ...defaults, ...JSON.parse(saved) };
       } catch { /* ignore */ }
     }
-    return { ligacoes: '', mensagens: '', cotacoes_realizadas: '', cotacoes_enviadas: '',
-      cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', follow_up_realizado: '', justificativa: '', justificativa_nao_resposta: '', justificativa_atraso: '', justificativa_baixa_resposta: '' };
+    return defaults;
   };
 
   const [form, setForm] = useState<AtividadesForm>(getInitialForm);
@@ -213,14 +214,14 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
       { key: 'follow_up', formKey: 'follow_up', label: 'Follow-up' },
     ];
     return mapping.filter(m => {
-      const original = String(editAtividade[m.key] ?? 0);
-      const novo = form[m.formKey as keyof AtividadesForm] ?? '';
+      const original = String(editAtividade[m.key] ?? '').trim();
+      const novo = String(form[m.formKey as keyof AtividadesForm] ?? '').trim();
       return original !== novo;
     }).map(m => ({
       campo: m.key,
       label: m.label,
-      valorAntigo: editAtividade[m.key] ?? 0,
-      valorNovo: form[m.formKey as keyof AtividadesForm],
+      valorAntigo: String(editAtividade[m.key] ?? '').trim(),
+      valorNovo: String(form[m.formKey as keyof AtividadesForm] ?? '').trim(),
     }));
   }, [editAtividade, form]);
 
@@ -278,10 +279,10 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
 
   const canSave = useMemo(() => {
     if (!allFilled) return false;
-    if (validations.cenarioA && !form.justificativa.trim()) return false;
-    if (validations.cenarioB && !form.justificativa_nao_resposta.trim()) return false;
-    if (validations.cenarioC && !form.justificativa_atraso.trim()) return false;
-    if (validations.cenarioD && !form.justificativa_baixa_resposta.trim()) return false;
+    if (validations.cenarioA && !(form.justificativa ?? '').trim()) return false;
+    if (validations.cenarioB && !(form.justificativa_nao_resposta ?? '').trim()) return false;
+    if (validations.cenarioC && !(form.justificativa_atraso ?? '').trim()) return false;
+    if (validations.cenarioD && !(form.justificativa_baixa_resposta ?? '').trim()) return false;
     return true;
   }, [allFilled, validations, form.justificativa, form.justificativa_nao_resposta, form.justificativa_atraso, form.justificativa_baixa_resposta]);
 
@@ -294,10 +295,10 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
     if (!canSave) { 
       const needsJustification = validations.cenarioA || validations.cenarioB || validations.cenarioC;
       const missingJustification = 
-        (validations.cenarioA && !form.justificativa.trim()) ||
-        (validations.cenarioB && !form.justificativa_nao_resposta.trim()) ||
-        (validations.cenarioC && !form.justificativa_atraso.trim()) ||
-        (validations.cenarioD && !form.justificativa_baixa_resposta.trim());
+        (validations.cenarioA && !(form.justificativa ?? '').trim()) ||
+        (validations.cenarioB && !(form.justificativa_nao_resposta ?? '').trim()) ||
+        (validations.cenarioC && !(form.justificativa_atraso ?? '').trim()) ||
+        (validations.cenarioD && !(form.justificativa_baixa_resposta ?? '').trim());
 
       toast.error(needsJustification && missingJustification 
         ? 'A justificativa é obrigatória para os cenários atípicos (retroativo, metas baixas ou atrasos).' 

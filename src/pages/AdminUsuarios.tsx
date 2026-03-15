@@ -662,7 +662,7 @@ const AdminUsuarios = () => {
                   <FieldWithTooltip label="Emergência 1 (Opcional)" tooltip="Número de um contato de emergência (familiar ou próximo).">
                     <Input value={form.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
                   </FieldWithTooltip>
-                  {form.numero_emergencia_1.trim() && (
+                  {(form.numero_emergencia_1 ?? '').trim() && (
                     <div className="grid grid-cols-2 gap-2 animate-fade-in-up">
                       <FieldWithTooltip label="Nome Contato 1" tooltip="Nome do contato de emergência 1.">
                         <Input value={form.nome_emergencia_1} onChange={(e) => setField('nome_emergencia_1', e.target.value)} placeholder="Nome..." className="h-10" />
@@ -677,7 +677,7 @@ const AdminUsuarios = () => {
                   <FieldWithTooltip label="Emergência 2 (Opcional)" tooltip="Segundo contato de emergência. Deve ser diferente do primeiro.">
                     <Input value={form.numero_emergencia_2} onChange={(e) => setField('numero_emergencia_2', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
                   </FieldWithTooltip>
-                  {form.numero_emergencia_2.trim() && (
+                  {(form.numero_emergencia_2 ?? '').trim() && (
                     <div className="grid grid-cols-2 gap-2 animate-fade-in-up">
                       <FieldWithTooltip label="Nome Contato 2" tooltip="Nome do contato de emergência 2.">
                         <Input value={form.nome_emergencia_2} onChange={(e) => setField('nome_emergencia_2', e.target.value)} placeholder="Nome..." className="h-10" />
@@ -815,7 +815,7 @@ const AdminUsuarios = () => {
                                         <div className="mt-3 p-4 bg-white/5 rounded-lg flex flex-col items-center justify-center gap-2 border border-border/40">
                                             <div className="bg-white p-2 rounded">
                                                 <QRCodeSVG 
-                                                    value={`otpauth://totp/SGC%20Protegido%20(Usuario):${encodeURIComponent(form.nome_completo)}?secret=${form.new_protection_mfa_secret || form.protection_mfa_secret}&issuer=SGC`} 
+                                                    value={`otpauth://totp/SGC:${encodeURIComponent(form.nome_completo || '')}?secret=${form.new_protection_mfa_secret || form.protection_mfa_secret}&issuer=SGC`} 
                                                     size={120} 
                                                 />
                                             </div>

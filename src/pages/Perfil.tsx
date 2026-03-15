@@ -231,25 +231,25 @@ const Perfil = () => {
           <Separator className="bg-border/20" />
 
           {/* Emergência */}
-          <div>
+          <div className="space-y-4">
             <div className="flex items-center gap-2 mb-2">
               <AlertTriangle className="w-3.5 h-3.5 text-muted-foreground" />
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Contatos de Emergência</p>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="p-3 rounded-xl bg-muted/30 border border-border/40">
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Contato 1</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="p-4 rounded-xl bg-muted/30 border border-border/40 space-y-3">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block truncate" title="Contato de Emergência Primário">Contato de Emergência Primário</p>
                 <p className="text-sm font-semibold text-foreground">{(profile as any)?.nome_emergencia_1 || '—'}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{(profile as any)?.vinculo_emergencia_1 || 'Vínculo 1'}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{(profile as any)?.vinculo_emergencia_1 || 'Vínculo'}</span>
                   <p className="text-xs text-muted-foreground font-mono">{profile?.numero_emergencia_1 || '—'}</p>
                 </div>
               </div>
-              <div className="p-3 rounded-xl bg-muted/30 border border-border/40">
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Contato 2</p>
+              <div className="p-4 rounded-xl bg-muted/30 border border-border/40 space-y-3">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block truncate" title="Contato de Emergência Secundário">Contato de Emergência Secundário</p>
                 <p className="text-sm font-semibold text-foreground">{(profile as any)?.nome_emergencia_2 || '—'}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{(profile as any)?.vinculo_emergencia_2 || 'Vínculo 2'}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{(profile as any)?.vinculo_emergencia_2 || 'Vínculo'}</span>
                   <p className="text-xs text-muted-foreground font-mono">{profile?.numero_emergencia_2 || '—'}</p>
                 </div>
               </div>
@@ -349,39 +349,39 @@ const Perfil = () => {
             </div>
             <Separator className="bg-border/20" />
             <p className="text-[10px] text-muted-foreground uppercase tracking-[0.12em] font-bold">Contatos de Emergência</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-xs font-semibold text-muted-foreground">Emergência 1</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-muted-foreground block truncate" title="Contato de Emergência Primário (Opcional)">Contato de Emergência Primário (Opcional)</Label>
                   <Input value={editForm.numero_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
                 </div>
-                {(editForm.numero_emergencia_1 || '').trim() && (
-                  <div className="animate-fade-in-up grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs font-semibold text-muted-foreground">Nome 1</Label>
+                {(editForm.numero_emergencia_1 || '').replace(/\D/g, '').length > 0 && (
+                  <div className="animate-fade-in-up grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground">Nome</Label>
                       <Input value={editForm.nome_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, nome_emergencia_1: e.target.value }))} placeholder="Nome..." className="h-10" />
                     </div>
-                    <div>
-                      <Label className="text-xs font-semibold text-muted-foreground">Vínculo 1</Label>
-                      <Input value={(editForm as any).vinculo_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, vinculo_emergencia_1: e.target.value }))} placeholder="Vínculo..." className="h-10" />
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground">Vínculo</Label>
+                      <Input value={(editForm as any).vinculo_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, vinculo_emergencia_1: e.target.value }))} placeholder="Ex: Pai..." className="h-10" />
                     </div>
                   </div>
                 )}
               </div>
-              <div className="space-y-3">
-                <div>
-                  <Label className="text-xs font-semibold text-muted-foreground">Emergência 2</Label>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold text-muted-foreground block truncate" title="Contato de Emergência Secundário (Opcional)">Contato de Emergência Secundário (Opcional)</Label>
                   <Input value={editForm.numero_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
                 </div>
-                {(editForm.numero_emergencia_2 || '').trim() && (
-                  <div className="animate-fade-in-up grid grid-cols-2 gap-2">
-                    <div>
-                      <Label className="text-xs font-semibold text-muted-foreground">Nome 2</Label>
+                {(editForm.numero_emergencia_2 || '').replace(/\D/g, '').length > 0 && (
+                  <div className="animate-fade-in-up grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground">Nome</Label>
                       <Input value={editForm.nome_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, nome_emergencia_2: e.target.value }))} placeholder="Nome..." className="h-10" />
                     </div>
-                    <div>
-                      <Label className="text-xs font-semibold text-muted-foreground">Vínculo 2</Label>
-                      <Input value={(editForm as any).vinculo_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, vinculo_emergencia_2: e.target.value }))} placeholder="Vínculo..." className="h-10" />
+                    <div className="space-y-2">
+                      <Label className="text-xs font-semibold text-muted-foreground">Vínculo</Label>
+                      <Input value={(editForm as any).vinculo_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, vinculo_emergencia_2: e.target.value }))} placeholder="Ex: Irmão..." className="h-10" />
                     </div>
                   </div>
                 )}

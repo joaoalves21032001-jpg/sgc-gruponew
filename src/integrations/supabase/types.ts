@@ -92,7 +92,6 @@ export type Database = {
       atividades: {
         Row: {
           cotacoes_enviadas: number
-          cotacoes_fechadas: number
           cotacoes_nao_respondidas: number | null
           created_at: string
           data: string
@@ -101,6 +100,11 @@ export type Database = {
           ligacoes: number
           mensagens: number
           status: string
+          justificativa: string | null
+          justificativa_nao_resposta: string | null
+          justificativa_atraso: string | null
+          justificativa_baixa_resposta: string | null
+          follow_up_realizado: number | null
           updated_at: string
           user_id: string
         }
@@ -115,6 +119,11 @@ export type Database = {
           ligacoes?: number
           mensagens?: number
           status?: string
+          justificativa?: string | null
+          justificativa_nao_resposta?: string | null
+          justificativa_atraso?: string | null
+          justificativa_baixa_resposta?: string | null
+          follow_up_realizado?: number | null
           updated_at?: string
           user_id: string
         }
@@ -129,6 +138,11 @@ export type Database = {
           ligacoes?: number
           mensagens?: number
           status?: string
+          justificativa?: string | null
+          justificativa_nao_resposta?: string | null
+          justificativa_atraso?: string | null
+          justificativa_baixa_resposta?: string | null
+          follow_up_realizado?: number | null
           updated_at?: string
           user_id?: string
         }
@@ -658,6 +672,7 @@ export type Database = {
           resolved_by: string | null
           status: string | null
           user_id: string
+          admin_resposta: string | null
         }
         Insert: {
           encrypted_password: string
@@ -668,6 +683,7 @@ export type Database = {
           resolved_by?: string | null
           status?: string | null
           user_id: string
+          admin_resposta?: string | null
         }
         Update: {
           encrypted_password?: string
@@ -678,6 +694,7 @@ export type Database = {
           resolved_by?: string | null
           status?: string | null
           user_id?: string
+          admin_resposta?: string | null
         }
         Relationships: []
       }

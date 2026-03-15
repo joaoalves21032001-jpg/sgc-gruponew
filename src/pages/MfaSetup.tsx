@@ -5,26 +5,35 @@ import { requestMfaReset } from '@/hooks/useMfaResetRequests';
 import { notifyAdmins } from '@/hooks/useNotifications';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
-import { Shield, Smartphone, CheckCircle2 } from 'lucide-react';
+import { Shield, Smartphone, CheckCircle2, Clock, XCircle, Undo2, ArrowLeft, Send } from 'lucide-react';
 import logo from '@/assets/logo-grupo-new.png';
 
 interface MfaSetupProps {
   onVerified: () => void;
 }
 
+interface PendingMfaReset {
+  id: string;
+  status: 'pendente' | 'aprovado' | 'rejeitado' | 'devolvido' | 'consumido';
+  admin_resposta?: string;
+}
+
 const MfaSetup = ({ onVerified }: MfaSetupProps) => {
-  const [step, setStep] = useState<'loading' | 'enroll' | 'verify'>('loading');
+  const [step, setStep] = useState<'loading' | 'enroll' | 'verify' | 'reset_status'>('loading');
   const [qrCode, setQrCode] = useState('');
   const [secret, setSecret] = useState('');
   const [factorId, setFactorId] = useState('');
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [trustDevice, setTrustDevice] = useState(true);
+  
   const [showLostAuth, setShowLostAuth] = useState(false);
   const [lostReason, setLostReason] = useState('');
   const [submittingReset, setSubmittingReset] = useState(false);
-  const [resetSent, setResetSent] = useState(false);
+  const [pendingReset, setPendingReset] = useState<PendingMfaReset | null>(null);
+  
   const { user, signOut } = useAuth();
   const [enrollFailed, setEnrollFailed] = useState(false);
 
@@ -32,33 +41,73 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
     checkMfaStatus();
   }, []);
 
+  // Listen for realtime updates on an active pending reset
+  useEffect(() => {
+    if (!pendingReset?.id || pendingReset.status === 'consumido') return;
+
+    const channel = supabase
+      .channel(`public:mfa_reset_requests:id=eq.${pendingReset.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'mfa_reset_requests', filter: `id=eq.${pendingReset.id}` },
+        (payload) => {
+          const { status, admin_resposta } = payload.new as any;
+          setPendingReset(prev => prev ? { ...prev, status, admin_resposta } : null);
+          
+          if (status === 'aprovado') {
+            toast.success('MFA resetado com sucesso! Você pode logar e reconfigurá-lo.');
+            sessionStorage.removeItem('pending_mfa_reset');
+            // Server function already unenrolled MFA, now we redirect user out or recreate it
+            setTimeout(() => window.location.reload(), 3000); // the simplest way to clear session state into enroll
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pendingReset?.id, pendingReset?.status]);
+
   const checkMfaStatus = async () => {
-    // Check if the user has an approved MFA reset request
-    let hasApprovedReset = false;
+    // Check if the user has an active MFA reset request
     try {
       const { data: resetReqs } = await supabase
         .from('mfa_reset_requests' as any)
-        .select('id, status')
+        .select('id, status, admin_resposta')
         .eq('user_id', user?.id ?? '')
-        .eq('status', 'aprovado')
-        .order('updated_at', { ascending: false })
+        .neq('status', 'consumido')
+        .order('created_at', { ascending: false })
         .limit(1);
+
       if (resetReqs && (resetReqs as any[]).length > 0) {
-        hasApprovedReset = true;
-        // Mark the reset request as consumed so it doesn't trigger again
-        await supabase
-          .from('mfa_reset_requests' as any)
-          .update({ status: 'consumido' } as any)
-          .eq('id', (resetReqs as any[])[0].id);
+        const req = (resetReqs as any[])[0];
+        if (req.status === 'aprovado') {
+          // Already approved but not consumed - mark as consumed
+          await supabase.from('mfa_reset_requests' as any).update({ status: 'consumido' } as any).eq('id', req.id);
+          sessionStorage.removeItem('pending_mfa_reset');
+          await supabase.auth.refreshSession(); // Refresh session to drop aal2 prompt if server deleted factor
+        } else {
+          // Wait screen or rejected/devolvido screens
+          setPendingReset({ id: req.id, status: req.status, admin_resposta: req.admin_resposta });
+          setStep('reset_status');
+          sessionStorage.setItem('pending_mfa_reset', JSON.stringify({ id: req.id, status: req.status }));
+          return;
+        }
+      } else {
+        // Hydrate from session storage just in case if nothing active found (edge case)
+        const stored = sessionStorage.getItem('pending_mfa_reset');
+        if (stored) {
+         try {
+           const parsed = JSON.parse(stored);
+           setPendingReset(parsed);
+           setStep('reset_status');
+           return;
+         } catch(e) {}
+        }
       }
     } catch (e) {
       console.warn('Could not check mfa_reset_requests:', e);
-    }
-
-    // If there's an approved reset, refresh the session first so the client
-    // picks up the server-side factor deletion done by reset_user_mfa().
-    if (hasApprovedReset) {
-      await supabase.auth.refreshSession();
     }
 
     const { data, error } = await supabase.auth.mfa.listFactors();
@@ -68,44 +117,18 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
     }
     const totp = data.totp;
 
-    // If the user has an approved reset, unenroll any remaining factors and start fresh
-    if (hasApprovedReset) {
-      // Unenroll any factors the client still sees (they may already be gone server-side)
-      for (const factor of totp) {
-        try {
-          await supabase.auth.mfa.unenroll({ factorId: factor.id });
-        } catch (e) {
-          console.warn('Failed to unenroll factor (may already be deleted):', factor.id, e);
-        }
-      }
-      // Clear trusted devices
-      if (user?.id) {
-        await supabase.from('mfa_trusted_devices').delete().eq('user_id', user.id);
-        localStorage.removeItem('mfa_device_hash');
-      }
-      // Refresh session again after unenrolling so enroll() works clean
-      await supabase.auth.refreshSession();
-      toast.info('Seu MFA foi resetado. Configure novamente.');
-      await enrollMfa();
-      return;
-    }
-
     const verifiedFactor = totp.find(f => (f as any).status === 'verified');
     const unverifiedFactor = totp.find(f => (f as any).status === 'unverified');
 
     if (verifiedFactor) {
-      // Already enrolled with a verified factor — go straight to code entry
       setFactorId(verifiedFactor.id);
       setStep('verify');
     } else if (unverifiedFactor) {
-      // Stale unverified factor from a previous session (e.g. user pressed back or logged out mid-setup).
-      // Unenroll it first — Supabase allows unenrolling UNVERIFIED factors at aal1.
       try {
         await supabase.auth.mfa.unenroll({ factorId: unverifiedFactor.id });
-        // Refresh session so the server reflects the removal before we enroll again
         await supabase.auth.refreshSession();
       } catch (e) {
-        console.warn('Could not unenroll stale factor (will try enrolling with unique name):', e);
+        console.warn('Could not unenroll stale factor:', e);
       }
       await enrollMfa();
     } else {
@@ -114,8 +137,6 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
   };
 
   const enrollMfa = async () => {
-    // Use a unique friendly name each time to avoid 'duplicate friendlyName' errors
-    // if a previous unverified factor wasn't cleaned up
     const uniqueName = `Authenticator-${Date.now().toString(36).toUpperCase()}`;
     try {
       const { data, error } = await supabase.auth.mfa.enroll({
@@ -124,14 +145,11 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
       });
       if (error) {
         console.error('MFA enroll error:', error);
-
-        // Refresh session and retry with a new unique name
         const { data: sessionData, error: refreshError } = await supabase.auth.refreshSession();
         if (refreshError || !sessionData.session) {
           toast.error('Sessão expirada. Por favor, faça logout e entre novamente.');
           return;
         }
-
         const retryName = `Authenticator-${Date.now().toString(36).toUpperCase()}`;
         const retry = await supabase.auth.mfa.enroll({
           factorType: 'totp',
@@ -161,13 +179,9 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
     }
   };
 
-
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (code.length !== 6) {
-      toast.error('Insira o código de 6 dígitos.');
-      return;
-    }
+    if (code.length !== 6) { return toast.error('Insira o código de 6 dígitos.'); }
     setLoading(true);
     try {
       const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
@@ -185,17 +199,14 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
         return;
       }
 
-      // Trust device until next Monday 00:00 BRT (Monday Reset policy)
       if (trustDevice) {
         const deviceHash = await generateDeviceHash();
         const trustedUntil = getTrusted30Days();
-
         await supabase.from('mfa_trusted_devices').insert({
-          user_id: (await supabase.auth.getUser()).data.user!.id,
+          user_id: user!.id,
           device_hash: deviceHash,
           trusted_until: trustedUntil.toISOString(),
         });
-
         localStorage.setItem('mfa_device_hash', deviceHash);
       }
 
@@ -207,22 +218,76 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
     }
     setLoading(false);
   };
+  
+  const handleSubmitReset = async () => {
+    if (!user) return;
+    if (!lostReason.trim()) return toast.error('Informe a justificativa.');
+    setSubmittingReset(true);
+    try {
+      // Create new pending request
+      await requestMfaReset(user.id, lostReason.trim());
+      
+      // Update local state to step into "pending" loop directly, instead of small success prompt
+      const resetReqs = await supabase.from('mfa_reset_requests' as any)
+           .select('id, status').eq('user_id', user.id).eq('status', 'pendente').order('created_at', { ascending: false }).limit(1);
+      
+      if (resetReqs.data && resetReqs.data.length > 0) {
+         setPendingReset(resetReqs.data[0]);
+         sessionStorage.setItem('pending_mfa_reset', JSON.stringify(resetReqs.data[0]));
+      }
+      
+      notifyAdmins('Solicitação de Reset MFA', `Usuário solicitou reset do MFA. Motivo: ${lostReason.trim()}`, 'mfa', '/aprovacoes');
+      setStep('reset_status');
+      setShowLostAuth(false);
+      toast.success('Solicitação enviada! Aguardando aprovação.');
+    } catch (err: any) {
+      toast.error(err.message || 'Erro ao enviar solicitação.');
+    } finally {
+      setSubmittingReset(false);
+    }
+  };
+
+  const handleCancelReset = async () => {
+    if (pendingReset?.id) {
+       await supabase.from('mfa_reset_requests' as any).delete().eq('id', pendingReset.id);
+    }
+    setPendingReset(null);
+    sessionStorage.removeItem('pending_mfa_reset');
+    setStep('verify');
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-6">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <img src={logo} alt="Grupo New" className="h-10 mx-auto mb-6" />
-          <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4 shadow-brand">
-            <Shield className="w-7 h-7 text-white" />
-          </div>
+          
+          {step === 'reset_status' ? (
+             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 
+             ${pendingReset?.status === 'pendente' ? 'bg-warning/10 border border-warning/20' : 
+               pendingReset?.status === 'aprovado' ? 'bg-success/10 border border-success/20' : 
+               pendingReset?.status === 'devolvido' ? 'bg-primary/10 border border-primary/20' :
+               'bg-destructive/10 border border-destructive/20'}`
+             }>
+                 {pendingReset?.status === 'pendente' && <Clock className="w-7 h-7 text-warning animate-pulse" />}
+                 {pendingReset?.status === 'aprovado' && <CheckCircle2 className="w-7 h-7 text-success" />}
+                 {pendingReset?.status === 'devolvido' && <Undo2 className="w-7 h-7 text-primary" />}
+                 {pendingReset?.status === 'rejeitado' && <XCircle className="w-7 h-7 text-destructive" />}
+             </div>
+          ) : (
+            <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4 shadow-brand">
+              <Shield className="w-7 h-7 text-white" />
+            </div>
+          )}
+          
           <h1 className="text-2xl font-bold font-display text-foreground">
-            {step === 'enroll' ? 'Configurar Autenticação' : 'Verificação de Segurança'}
+            {step === 'enroll' && 'Configurar Autenticação'}
+            {step === 'verify' && 'Verificação de Segurança'}
+            {(step === 'loading' || step === 'reset_status') && 'Reset de MFA'}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {step === 'enroll'
-              ? 'Escaneie o QR Code com o Google Authenticator'
-              : 'Insira o código do Google Authenticator'}
+            {step === 'enroll' && 'Escaneie o QR Code com o Google Authenticator'}
+            {step === 'verify' && 'Insira o código do Google Authenticator'}
           </p>
         </div>
 
@@ -232,85 +297,102 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
             {enrollFailed ? (
               <div className="text-center space-y-3">
                 <p className="text-sm text-destructive font-semibold">Não foi possível gerar o QR Code.</p>
-                <Button variant="outline" className="w-full" onClick={async () => { await signOut(); }}>
-                  Fazer Logout e Tentar Novamente
-                </Button>
+                <Button variant="outline" className="w-full" onClick={async () => { await signOut(); }}>Fazer Logout e Tentar Novamente</Button>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={async () => { await signOut(); }}
-                className="text-xs text-muted-foreground hover:text-destructive underline underline-offset-2 transition-colors"
-              >
-                Sair da conta
-              </button>
+              <button type="button" onClick={async () => { await signOut(); }} className="text-xs text-muted-foreground hover:text-destructive underline transition-colors">Sair da conta</button>
             )}
           </div>
+        )}
+
+        {step === 'reset_status' && pendingReset && (
+           <div className="space-y-4">
+               {pendingReset.status === 'pendente' && (
+                   <div className="bg-card rounded-xl border border-warning/20 shadow-card p-6 text-center space-y-4">
+                     <p className="text-sm font-medium text-foreground">Sua solicitação de reset de MFA foi enviada.</p>
+                     <p className="text-xs text-muted-foreground">Aguarde a análise do administrador. A tela atualizará automaticamente quando aprovada.</p>
+                     <Button variant="outline" onClick={handleCancelReset} className="w-full font-semibold border-warning/30 text-warning hover:bg-warning/10">Cancelar Solicitação</Button>
+                   </div>
+               )}
+               {pendingReset.status === 'aprovado' && (
+                   <div className="bg-card rounded-xl border border-success/30 shadow-card p-6 text-center space-y-3">
+                     <p className="text-sm font-semibold text-success">Reset Aprovado!</p>
+                     <p className="text-xs text-muted-foreground">O sistema reiniciará para você reconfigurar em 3 segundos...</p>
+                   </div>
+               )}
+               {pendingReset.status === 'rejeitado' && (
+                   <div className="bg-card rounded-xl border border-destructive/20 shadow-card p-6 space-y-4">
+                     <div className="text-center space-y-1">
+                       <p className="text-sm font-semibold text-destructive">Foi Rejeitado.</p>
+                     </div>
+                     <div className="bg-destructive/5 p-3 rounded-lg border border-destructive/10">
+                       <p className="text-xs font-semibold text-destructive uppercase tracking-wider mb-1">Motivo do Admin</p>
+                       <p className="text-sm text-foreground italic">"{pendingReset.admin_resposta || 'Nenhuma justificativa fornecida.'}"</p>
+                     </div>
+                     <Button variant="outline" onClick={async () => { await handleCancelReset(); setStep('verify'); setShowLostAuth(false); }} className="w-full h-11 font-semibold">Tentar Código Novamente</Button>
+                   </div>
+               )}
+               {pendingReset.status === 'devolvido' && (
+                   <div className="bg-card rounded-xl border border-primary/20 shadow-card p-6 space-y-4">
+                     <div className="text-center space-y-1">
+                       <p className="text-sm font-semibold text-primary">Necessita Correção</p>
+                       <p className="text-xs text-muted-foreground">O administrador solicitou ajustes no seu pedido.</p>
+                     </div>
+                     <div className="bg-primary/5 p-3 rounded-lg border border-primary/10">
+                       <p className="text-[10px] font-semibold text-primary uppercase tracking-wider mb-1">Mensagem do Admin</p>
+                       <p className="text-sm text-foreground italic">"{pendingReset.admin_resposta || 'Forneça mais detalhes sobre a perda de acesso.'}"</p>
+                     </div>
+                     <div className="space-y-3 pt-3 border-t border-border/20">
+                         <label className="text-xs font-semibold text-muted-foreground">Nova Justificativa</label>
+                         <Textarea value={lostReason} onChange={e => setLostReason(e.target.value)} placeholder="Detalhe sua justificativa..." rows={3} />
+                         <Button onClick={handleSubmitReset} disabled={submittingReset || !lostReason.trim()} className="w-full text-sm font-semibold h-11">
+                           {submittingReset ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Send className="w-4 h-4 mr-2" /> Reenviar Solicitação</>}
+                         </Button>
+                         <Button variant="ghost" onClick={handleCancelReset} className="w-full text-xs text-muted-foreground hover:text-foreground">Voltar</Button>
+                     </div>
+                   </div>
+               )}
+               <button type="button" onClick={async () => { await signOut(); }} className="w-full text-center text-xs text-muted-foreground hover:text-destructive underline transition-colors pt-2">Sair da conta</button>
+           </div>
         )}
 
         {step === 'enroll' && (
           <div className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-5">
             <div className="flex items-center gap-3 p-3 bg-accent/50 rounded-lg border border-border/20">
               <Smartphone className="w-5 h-5 text-primary shrink-0" />
-              <p className="text-xs text-muted-foreground">
-                Abra o <strong className="text-foreground">Google Authenticator</strong> e escaneie o QR Code abaixo.
-              </p>
+              <p className="text-xs text-muted-foreground">Abra o <strong className="text-foreground">Google Authenticator</strong> e escaneie o QR Code abaixo.</p>
             </div>
-
             <div className="flex justify-center p-4 bg-white rounded-lg">
               <img src={qrCode} alt="QR Code MFA" className="w-48 h-48" />
             </div>
-
             <details className="text-xs">
-              <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">
-                Não consegue escanear? Use a chave manual
-              </summary>
-              <code className="block mt-2 p-3 bg-muted rounded-lg text-foreground font-mono text-[11px] break-all select-all">
-                {secret}
-              </code>
+              <summary className="cursor-pointer text-muted-foreground hover:text-foreground transition-colors">Não consegue escanear? Use a chave manual</summary>
+              <code className="block mt-2 p-3 bg-muted rounded-lg text-foreground font-mono text-[11px] break-all select-all">{secret}</code>
             </details>
-
             <form onSubmit={(e) => { e.preventDefault(); setStep('verify'); }} className="pt-2">
               <Button type="button" onClick={() => setStep('verify')} className="w-full h-12 font-semibold shadow-brand">
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                Já escaneei, continuar
+                <CheckCircle2 className="w-4 h-4 mr-2" /> Já escaneei, continuar
               </Button>
             </form>
-            <button
-              type="button"
-              onClick={async () => { await signOut(); }}
-              className="w-full text-center text-xs text-muted-foreground hover:text-destructive underline underline-offset-2 transition-colors pt-1"
-            >
-              Sair da conta
-            </button>
+            <button type="button" onClick={async () => { await signOut(); }} className="w-full text-center text-xs text-muted-foreground hover:text-destructive underline transition-colors pt-1">Sair da conta</button>
           </div>
         )}
 
         {step === 'verify' && (
           <form onSubmit={handleVerify} className="bg-card rounded-xl border border-border/30 shadow-card p-6 space-y-5">
-            <div className="space-y-2">
-              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Código de verificação
-              </label>
+            <div className="space-y-1.5 flex flex-col gap-1 items-stretch">
+              <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Código de verificação</label>
               <Input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                value={code}
+                type="text" inputMode="numeric" maxLength={6} value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                 placeholder="000000"
-                className="h-14 text-center text-2xl font-mono tracking-[0.5em] bg-muted/50 border-border/60 focus:border-primary"
+                className="h-14 text-center text-2xl font-mono tracking-[0.5em] bg-muted/50 border-border/60 focus:border-primary w-full"
                 autoFocus
               />
             </div>
 
             <label className="flex items-center gap-3 p-3 bg-accent/50 rounded-lg border border-border/20 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={trustDevice}
-                onChange={(e) => setTrustDevice(e.target.checked)}
-                className="w-4 h-4 rounded border-border text-primary focus:ring-primary"
-              />
+              <input type="checkbox" checked={trustDevice} onChange={(e) => setTrustDevice(e.target.checked)} className="w-4 h-4 rounded border-border text-primary focus:ring-primary" />
               <div>
                 <p className="text-xs font-semibold text-foreground">Confiar neste navegador</p>
                 <p className="text-[10px] text-muted-foreground">Não pedir MFA novamente por 30 dias</p>
@@ -318,79 +400,27 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
             </label>
 
             <Button type="submit" disabled={loading || code.length !== 6} className="w-full h-12 font-semibold shadow-brand">
-              {loading ? (
-                <div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Shield className="w-4 h-4 mr-2" />
-                  Verificar
-                </>
-              )}
+              {loading ? <div className="h-5 w-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" /> : <><Shield className="w-4 h-4 mr-2" /> Verificar</>}
             </Button>
 
-            {/* Lost authenticator flow */}
-            {!showLostAuth && !resetSent && (
-              <button
-                type="button"
-                onClick={() => setShowLostAuth(true)}
-                className="w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors underline underline-offset-2 pt-2"
-              >
-                Perdi meu autenticador
-              </button>
+            {!showLostAuth && (
+              <button type="button" onClick={() => setShowLostAuth(true)} className="w-full text-center text-xs text-muted-foreground hover:text-primary transition-colors underline pt-2">Perdi meu autenticador</button>
             )}
 
-            {showLostAuth && !resetSent && (
-              <div className="space-y-3 pt-2 border-t border-border/20 mt-2">
-                <p className="text-xs text-muted-foreground">Descreva o motivo para solicitar o reset do seu MFA. Um aprovador irá analisar e autorizar.</p>
-                <textarea
-                  value={lostReason}
-                  onChange={(e) => setLostReason(e.target.value)}
-                  placeholder="Ex: Troquei de celular e perdi acesso ao authenticator..."
-                  rows={3}
-                  className="w-full rounded-lg border border-border/60 bg-muted/50 px-3 py-2 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary"
-                />
+            {showLostAuth && (
+              <div className="space-y-3 pt-4 border-t border-border/20 mt-2">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Solicitar Reset do MFA</p>
+                <Textarea value={lostReason} onChange={(e) => setLostReason(e.target.value)} placeholder="Explique por que precisa do reset..." rows={3} />
                 <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1 h-10"
-                    onClick={() => { setShowLostAuth(false); setLostReason(''); }}
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="button"
-                    className="flex-1 h-10 font-semibold"
-                    disabled={submittingReset || !lostReason.trim()}
-                    onClick={async () => {
-                      if (!user) return;
-                      setSubmittingReset(true);
-                      try {
-                        await requestMfaReset(user.id, lostReason.trim());
-                        notifyAdmins('Solicitação de Reset MFA', `Usuário solicitou reset do MFA. Motivo: ${lostReason.trim()}`, 'mfa', '/aprovacoes');
-                        setResetSent(true);
-                        setShowLostAuth(false);
-                        toast.success('Solicitação enviada!');
-                      } catch (err: any) {
-                        toast.error(err.message || 'Erro ao enviar solicitação.');
-                      } finally {
-                        setSubmittingReset(false);
-                      }
-                    }}
-                  >
-                    {submittingReset ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Enviar Solicitação'}
+                  <Button type="button" variant="ghost" className="flex-1 h-10 text-xs" onClick={() => { setShowLostAuth(false); setLostReason(''); }}>Cancelar</Button>
+                  <Button type="button" className="flex-1 h-10 font-semibold" disabled={submittingReset || !lostReason.trim()} onClick={handleSubmitReset}>
+                    {submittingReset ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : 'Enviar'}
                   </Button>
                 </div>
               </div>
             )}
-
-            {resetSent && (
-              <div className="p-3 bg-success/10 rounded-lg border border-success/20 text-center">
-                <CheckCircle2 className="w-5 h-5 text-success mx-auto mb-1" />
-                <p className="text-xs font-semibold text-success">Solicitação enviada ao aprovador</p>
-                <p className="text-[10px] text-muted-foreground mt-1">Você receberá uma notificação quando o reset for aprovado.</p>
-              </div>
-            )}
+            
+            <button type="button" onClick={async () => { await signOut(); }} className="w-full text-center text-[11px] text-muted-foreground hover:text-destructive underline pt-2">Fazer Logout</button>
           </form>
         )}
       </div>
@@ -400,20 +430,13 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
 
 function getTrusted30Days(): Date {
   const now = new Date();
-  const trusted = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
+  const trusted = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
   return trusted;
 }
 
 async function generateDeviceHash(): Promise<string> {
   const nav = navigator;
-  // Only use stable attributes — screen dimensions change when window is resized
-  // or the user moves to a different monitor, which would break the trusted-device
-  // lookup and force MFA every time.
-  const raw = [
-    nav.userAgent,
-    nav.language,
-    Intl.DateTimeFormat().resolvedOptions().timeZone,
-  ].join('|');
+  const raw = [ nav.userAgent, nav.language, Intl.DateTimeFormat().resolvedOptions().timeZone ].join('|');
   const encoder = new TextEncoder();
   const data = encoder.encode(raw);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);

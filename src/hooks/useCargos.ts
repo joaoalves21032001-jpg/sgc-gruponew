@@ -14,6 +14,7 @@ export interface Cargo {
     is_protected?: boolean;
     protection_password?: string | null;
     protection_mfa_secret?: string | null;
+    nivel_supervisao?: 'ninguem' | 'supervisor' | 'gerente' | 'diretor';
     created_at: string;
     updated_at: string;
 }
@@ -229,7 +230,7 @@ export function useCargos() {
         queryFn: async () => {
             const { data, error } = await supabase
                 .from('cargos' as any)
-                .select('id, nome, description, requires_leader, security_profile_id, is_protected, protection_password, protection_mfa_secret, created_at')
+                .select('id, nome, description, requires_leader, security_profile_id, is_protected, protection_password, protection_mfa_secret, nivel_supervisao, created_at')
                 .order('created_at');
             if (error) {
                 if (error.message?.includes('relation "public.cargos" does not exist') || error.code === '42P01') return [];
@@ -320,10 +321,10 @@ export function hasCargoPermission(
 export function useCreateCargo() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ nome, description, requires_leader = true }: { nome: string; description?: string; requires_leader?: boolean }) => {
+        mutationFn: async ({ nome, description, requires_leader = true, nivel_supervisao = 'supervisor' }: { nome: string; description?: string; requires_leader?: boolean; nivel_supervisao?: 'ninguem' | 'supervisor' | 'gerente' | 'diretor' }) => {
             const { data, error } = await supabase
                 .from('cargos' as any)
-                .insert({ nome, description, requires_leader } as any)
+                .insert({ nome, description, requires_leader, nivel_supervisao } as any)
                 .select()
                 .single();
             if (error) throw error;
@@ -338,19 +339,21 @@ export function useCreateCargo() {
 export function useUpdateCargo() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ id, nome, description, requires_leader, protection_password, protection_mfa_secret }: { 
+        mutationFn: async ({ id, nome, description, requires_leader, protection_password, protection_mfa_secret, nivel_supervisao }: { 
             id: string; 
             nome: string; 
             description?: string; 
             requires_leader?: boolean;
             protection_password?: string | null;
             protection_mfa_secret?: string | null;
+            nivel_supervisao?: 'ninguem' | 'supervisor' | 'gerente' | 'diretor';
         }) => {
             const updateProps: any = { nome };
             if (description !== undefined) updateProps.description = description;
             if (requires_leader !== undefined) updateProps.requires_leader = requires_leader;
             if (protection_password !== undefined) updateProps.protection_password = protection_password;
             if (protection_mfa_secret !== undefined) updateProps.protection_mfa_secret = protection_mfa_secret;
+            if (nivel_supervisao !== undefined) updateProps.nivel_supervisao = nivel_supervisao;
             const { error } = await supabase
                 .from('cargos' as any)
                 .update(updateProps)

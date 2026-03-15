@@ -8,12 +8,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from 'sonner';
-import { Shield, UserPlus, Info } from 'lucide-react';
+import { Shield, UserPlus, Info, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { maskCPF, maskRG, maskPhone } from '@/lib/masks';
 import { AuthService } from '@/services/authService';
 import logoWhite from '@/assets/logo-grupo-new-white.png';
 import logo from '@/assets/logo-grupo-new.png';
+
+interface PendingResetState {
+  id: string;
+  status: string;
+  admin_resposta?: string;
+  email: string;
+}
 
 interface LeaderOption {
   id: string;
@@ -46,6 +54,7 @@ const Login = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotForm, setForgotForm] = useState({ email: '', nova_senha: '', confirmacao_senha: '', motivo: '' });
   const [submittingForgot, setSubmittingForgot] = useState(false);
+  const [pendingReset, setPendingReset] = useState<PendingResetState | null>(null);
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('rememberedEmail');
@@ -55,7 +64,74 @@ const Login = () => {
       setPassword(savedPassword);
       setRememberMe(true);
     }
+
+    const savedReset = sessionStorage.getItem('pending_reset');
+    if (savedReset) {
+      try {
+        setPendingReset(JSON.parse(savedReset));
+      } catch (e) {
+        console.error("Failed to parse stored pending reset", e);
+      }
+    }
   }, []);
+
+  useEffect(() => {
+    if (!pendingReset?.id) return;
+
+    const fetchStatus = async () => {
+      const { data, error } = await supabase
+        .from('password_reset_requests')
+        .select('status, admin_resposta')
+        .eq('id', pendingReset.id)
+        .single();
+      
+      if (!error && data) {
+         setPendingReset(prev => prev ? ({ ...prev, status: data.status || 'pendente', admin_resposta: data.admin_resposta || undefined }) : null);
+      }
+    };
+    fetchStatus();
+
+    const channel = supabase
+      .channel(`public:password_reset_requests:id=eq.${pendingReset.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'password_reset_requests', filter: `id=eq.${pendingReset.id}` },
+        (payload) => {
+          const { status, admin_resposta } = payload.new as any;
+          setPendingReset(prev => prev ? { ...prev, status, admin_resposta } : null);
+          
+          if (status === 'aprovado') {
+             toast.success('Senha redefinida com sucesso! Acesso liberado.');
+             setTimeout(() => handleClearPending(), 3000);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pendingReset?.id]);
+
+  const handleClearPending = () => {
+    setPendingReset(null);
+    sessionStorage.removeItem('pending_reset');
+  };
+
+  const handleCancelReset = async () => {
+    if (!pendingReset?.id) { handleClearPending(); return; }
+    try {
+      await supabase.from('password_reset_requests').delete().eq('id', pendingReset.id);
+    } catch { /* silently ignore – local state is still cleared */ }
+    handleClearPending();
+    toast.info('Solicitação cancelada.');
+  };
+
+  const handleCorrigirReset = () => {
+    setForgotForm(prev => ({ ...prev, email: pendingReset?.email || '' }));
+    handleClearPending();
+    setShowForgotPassword(true);
+  };
 
   useEffect(() => {
     if (!showRequest) return;
@@ -73,7 +149,7 @@ const Login = () => {
         setSupervisores(leaders.filter(p => p.cargo === 'Supervisor'));
         setGerentes(leaders.filter(p => p.cargo === 'Gerente' || p.cargo === 'Diretor'));
         
-        setCargosData(cargosRes.data || []);
+        setCargosData((cargosRes.data as any) || []);
       } catch (err) {
         console.error('Error fetching data for request access form:', err);
       }
@@ -125,7 +201,12 @@ const Login = () => {
     }
     setSubmittingForgot(true);
     try {
-      await AuthService.requestPasswordReset(forgotForm.email, forgotForm.nova_senha, forgotForm.motivo);
+      const resp = await AuthService.requestPasswordReset(forgotForm.email, forgotForm.nova_senha, forgotForm.motivo);
+      
+      const resetState = { id: resp.id, status: 'pendente', email: forgotForm.email };
+      setPendingReset(resetState);
+      sessionStorage.setItem('pending_reset', JSON.stringify(resetState));
+
       toast.success('Solicitação de troca de senha enviada aos administradores.');
       setShowForgotPassword(false);
       setForgotForm({ email: '', nova_senha: '', confirmacao_senha: '', motivo: '' });
@@ -277,23 +358,26 @@ const Login = () => {
         </div>
       </div>
 
-      {/* Right Panel - Login */}
+      {/* Right Panel - Login or Pending Reset Status */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12 bg-background">
         <div className="w-full max-w-[420px] space-y-8 page-enter" style={{ animationDelay: '0.1s' }}>
           <div className="lg:hidden mb-8">
             <img src={logo} alt="Grupo New" className="h-12 mx-auto" />
           </div>
-          <div className="text-center space-y-2">
-            <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4 shadow-brand animate-[pulse_3s_ease-in-out_infinite]">
-              <Shield className="w-7 h-7 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold font-display text-foreground tracking-tight">
-              Bem-vindo ao SGC
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Acesse com seu e-mail corporativo
-            </p>
-          </div>
+
+          {!pendingReset ? (
+            <>
+              <div className="text-center space-y-2">
+                <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4 shadow-brand animate-[pulse_3s_ease-in-out_infinite]">
+                  <Shield className="w-7 h-7 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold font-display text-foreground tracking-tight">
+                  Bem-vindo ao SGC
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Acesse com seu e-mail corporativo
+                </p>
+              </div>
 
           <form onSubmit={handleEmailLogin} className="space-y-4">
             <div className="space-y-2">
@@ -369,18 +453,81 @@ const Login = () => {
             </div>
           </div>
 
-          <div className="text-center space-y-3">
-            <p className="text-xs text-muted-foreground/60">
-              Somente usuários pré-cadastrados por um administrador podem acessar o sistema.
-            </p>
-            <button
-              onClick={() => setShowRequest(true)}
-              className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-semibold transition-colors"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              Não tem acesso? Solicitar ao administrador
-            </button>
-          </div>
+              <div className="text-center space-y-3">
+                <p className="text-xs text-muted-foreground/60">
+                  Somente usuários pré-cadastrados por um administrador podem acessar o sistema.
+                </p>
+                <button
+                  onClick={() => setShowRequest(true)}
+                  className="inline-flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 font-semibold transition-colors"
+                >
+                  <UserPlus className="w-3.5 h-3.5" />
+                  Não tem acesso? Solicitar ao administrador
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-6 text-center animate-in fade-in zoom-in duration-500">
+               {pendingReset.status === 'pendente' && (
+                 <>
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
+                    <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                  </div>
+                  <h2 className="text-2xl font-bold font-display tracking-tight text-foreground">Solicitação em Análise</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Sua redefinição de senha foi enviada para o administrador.<br/>
+                    Aguarde nesta tela, você será avisado assim que for finalizada.
+                  </p>
+                  <Button onClick={handleCancelReset} variant="outline" className="w-full mt-4 font-semibold text-destructive border-destructive/30 hover:bg-destructive/5">
+                    Cancelar Solicitação
+                  </Button>
+                 </>
+               )}
+               {pendingReset.status === 'aprovado' && (
+                 <>
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                  </div>
+                  <h2 className="text-2xl font-bold font-display tracking-tight text-foreground">Acesso Liberado</h2>
+                  <p className="text-sm text-muted-foreground">Sua senha foi atualizada com sucesso. Redirecionando...</p>
+                 </>
+               )}
+               {pendingReset.status === 'devolvido' && (
+                 <>
+                  <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-6">
+                    <AlertCircle className="w-8 h-8 text-amber-500" />
+                  </div>
+                  <h2 className="text-2xl font-bold font-display tracking-tight text-foreground">Solicitação Devolvida</h2>
+                  <p className="text-sm text-muted-foreground">O administrador solicitou ajustes na sua redefinição.</p>
+                  <Alert variant="destructive" className="bg-amber-500/10 border-amber-500/30 text-left mt-4">
+                    <AlertTitle className="text-amber-600 font-semibold">Justificativa do Administrador</AlertTitle>
+                    <AlertDescription className="text-amber-600/90">{pendingReset.admin_resposta}</AlertDescription>
+                  </Alert>
+                  <Button onClick={handleCorrigirReset} className="w-full mt-6 bg-amber-500 hover:bg-amber-600 text-white font-semibold">
+                    Corrigir e Reenviar
+                  </Button>
+                 </>
+               )}
+               {pendingReset.status === 'rejeitado' && (
+                 <>
+                  <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-6">
+                    <AlertCircle className="w-8 h-8 text-red-500" />
+                  </div>
+                  <h2 className="text-2xl font-bold font-display tracking-tight text-foreground">Solicitação Rejeitada</h2>
+                  <p className="text-sm text-muted-foreground">Sua solicitação de nova senha foi negada.</p>
+                  {pendingReset.admin_resposta && (
+                    <Alert variant="destructive" className="text-left mt-4">
+                      <AlertTitle className="font-semibold">Justificativa do Administrador</AlertTitle>
+                      <AlertDescription>{pendingReset.admin_resposta}</AlertDescription>
+                    </Alert>
+                  )}
+                  <Button onClick={handleClearPending} variant="outline" className="w-full mt-6 font-semibold">
+                    Voltar ao Login
+                  </Button>
+                 </>
+               )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -439,39 +586,39 @@ const Login = () => {
             </div>
 
             {/* Contatos de Emergência */}
-            <div>
-              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Contatos de Emergência</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Emergência 1 (Opcional)</label>
+            <div className="space-y-4">
+              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Contatos de Emergência</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block truncate" title="Contato de Emergência Primário (Opcional)">Contato de Emergência Primário (Opcional)</label>
                     <Input value={requestForm.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
                   </div>
-                  {requestForm.numero_emergencia_1.trim() && (
-                    <div className="space-y-3 animate-fade-in-up">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome do Contato 1</label>
+                  {requestForm.numero_emergencia_1.replace(/\D/g, '').length > 0 && (
+                    <div className="space-y-4 animate-fade-in-up">
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome</label>
                         <Input value={requestForm.nome_emergencia_1} onChange={(e) => setField('nome_emergencia_1', e.target.value)} placeholder="Nome do contato..." className="h-10" />
                       </div>
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vínculo</label>
                         <Input value={requestForm.vinculo_emergencia_1} onChange={(e) => setField('vinculo_emergencia_1', e.target.value)} placeholder="Ex: Mãe, Pai..." className="h-10" />
                       </div>
                     </div>
                   )}
                 </div>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Emergência 2 (Opcional)</label>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block truncate" title="Contato de Emergência Secundário (Opcional)">Contato de Emergência Secundário (Opcional)</label>
                     <Input value={requestForm.numero_emergencia_2} onChange={(e) => setField('numero_emergencia_2', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
                   </div>
-                  {requestForm.numero_emergencia_2.trim() && (
-                    <div className="space-y-3 animate-fade-in-up">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome do Contato 2</label>
+                  {requestForm.numero_emergencia_2.replace(/\D/g, '').length > 0 && (
+                    <div className="space-y-4 animate-fade-in-up">
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome</label>
                         <Input value={requestForm.nome_emergencia_2} onChange={(e) => setField('nome_emergencia_2', e.target.value)} placeholder="Nome do contato..." className="h-10" />
                       </div>
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Vínculo</label>
                         <Input value={requestForm.vinculo_emergencia_2} onChange={(e) => setField('vinculo_emergencia_2', e.target.value)} placeholder="Ex: Irmão, Tio..." className="h-10" />
                       </div>

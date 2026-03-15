@@ -21,30 +21,7 @@
 
   <body>
     <div id="root"></div>
-    <div id="error-overlay" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(255,0,0,0.9); color:white; padding:40px; z-index:99999; font-family:monospace; white-space:pre-wrap; overflow-y:auto;">
-      <h2>CRITICAL REACT ERROR</h2>
-      <div id="error-message"></div>
-    </div>
-    <script>
-      window.addEventListener('error', function(event) {
-        document.getElementById('error-overlay').style.display = 'block';
-        document.getElementById('error-message').innerText += '\n' + event.message + '\n' + (event.error?.stack || '') + '\n---------';
-      });
-      window.addEventListener('unhandledrejection', function(event) {
-        document.getElementById('error-overlay').style.display = 'block';
-        document.getElementById('error-message').innerText += '\nUnhandled Promise: ' + (event.reason?.message || event.reason) + '\n' + (event.reason?.stack || '');
-      });
-      const originalConsoleError = console.error;
-      console.error = function() {
-        const msg = Array.from(arguments).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
-        // Ignore specific expected warnings to avoid false positives
-        if (!msg.includes('Third-party cookie') && !msg.includes('React Router')) {
-          document.getElementById('error-overlay').style.display = 'block';
-          document.getElementById('error-message').innerText += '\nConsole Error: ' + msg + '\n---------';
-        }
-        originalConsoleError.apply(console, arguments);
-      };
-    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

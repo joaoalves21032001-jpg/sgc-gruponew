@@ -1,6 +1,12 @@
 import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { QueryClient } from '@tanstack/react-query';
 import type { User, Session } from '@supabase/supabase-js';
+
+// Module-level singleton so AuthContext can clear it without prop drilling
+let _queryClient: QueryClient | null = null;
+export function registerQueryClient(qc: QueryClient) { _queryClient = qc; }
+
 
 interface AuthContextType {
   user: User | null;
@@ -214,7 +220,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const { currentLevel, nextLevel } = aalData;
 
-        if (nextLevel === 'aal2' && currentLevel === 'aal1') {
+        // User already authenticated at aal2 — fully verified
+        if (currentLevel === 'aal2') {
+          setMfaVerified(true);
+          setNeedsMfa(false);
+          setMfaChecked(true);
+          setLoading(false);
+          return;
+        }
+
+        // Server requires aal2 (user has TOTP enrolled) but session is still aal1
+        if (nextLevel === 'aal2') {
           const deviceHash = localStorage.getItem('mfa_device_hash');
           if (deviceHash) {
             const { data: trusted } = await supabase
@@ -233,6 +249,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               return;
             }
           }
+          // Must complete MFA verification
           setNeedsMfa(true);
           setMfaVerified(false);
           setMfaChecked(true);
@@ -240,19 +257,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        if (currentLevel === 'aal2') {
-          setMfaVerified(true);
-          setNeedsMfa(false);
-          setMfaChecked(true);
-          setLoading(false);
-          return;
-        }
-
-        setNeedsMfa(true);
+        // nextLevel === 'aal1' — no MFA enrolled, user is fine with password only
+        setNeedsMfa(true); // Prompt to enroll MFA (policy: all users must enroll)
         setMfaVerified(false);
         setMfaChecked(true);
         setLoading(false);
-        
+
       } catch (err) {
         console.error('MFA validation error:', err);
         setNeedsMfa(false);
@@ -267,6 +277,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, hasProfile, mfaChecked]);
 
   const signOut = async () => {
+    _queryClient?.clear();
     await supabase.auth.signOut();
   };
 

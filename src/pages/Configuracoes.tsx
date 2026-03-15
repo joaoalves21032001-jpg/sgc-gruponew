@@ -56,10 +56,11 @@ import {
     useCreateCargo,
     useUpdateCargo,
     useDeleteCargo,
-    useToggleCargoPermission,
     useBulkSetCargoPermissions,
     CARGO_MODULES_DEF,
-    hasCargoPermission
+    hasCargoPermission,
+    useMyCargoPermissions,
+    useToggleCargoPermission
 } from '@/hooks/useCargos';
 import { MultiSelect } from '@/components/ui/multi-select';
 import {
@@ -81,6 +82,7 @@ const Configuracoes = () => {
     const logAction = useLogAction();
     const queryClient = useQueryClient();
     const { data: myPermissions } = useMyPermissions();
+    const { data: myCargoPermissions } = useMyCargoPermissions();
 
     // Log Retention
     const [retentionMonths, setRetentionMonths] = useState('6');
@@ -222,7 +224,7 @@ const Configuracoes = () => {
     const [newCargoNome, setNewCargoNome] = useState('');
     const [newCargoDesc, setNewCargoDesc] = useState('');
     const [newCargoRequiresLeader, setNewCargoRequiresLeader] = useState(true);
-    const [editingCargo, setEditingCargo] = useState<{ id: string; nome: string; description: string; requires_leader: boolean; is_protected?: boolean } | null>(null);
+    const [editingCargo, setEditingCargo] = useState<{ id: string; nome: string; description: string; requires_leader: boolean; is_protected?: boolean; nivel_supervisao?: 'ninguem' | 'supervisor' | 'gerente' | 'diretor' } | null>(null);
 
     const [adminProtectionDialog, setAdminProtectionDialog] = useState<{
         open: boolean;
@@ -734,7 +736,8 @@ const Configuracoes = () => {
                 description: editingCargo.description,
                 requires_leader: editingCargo.requires_leader,
                 protection_password: passwordToSave,
-                protection_mfa_secret: (editingCargo as any).new_protection_mfa_secret || (editingCargo as any).protection_mfa_secret
+                protection_mfa_secret: (editingCargo as any).new_protection_mfa_secret || (editingCargo as any).protection_mfa_secret,
+                nivel_supervisao: editingCargo.nivel_supervisao
             });
             // Also save is_protected (not in hook yet)
             await supabase.from('cargos' as any).update({ is_protected: !!editingCargo.is_protected } as any).eq('id', editingCargo.id);
@@ -1189,17 +1192,24 @@ const Configuracoes = () => {
                                                 <ShieldCheck className={`w-4 h-4 ${selectedProfileId === sp.id ? 'text-primary' : 'text-muted-foreground'}`} />
                                                 <h3 className="text-sm font-bold text-foreground">{sp.name}</h3>
                                             </div>
-                                            {sp.is_system && (
-                                                <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/20">Sistema</Badge>
-                                            )}
-                                            {sp.name?.toLowerCase().includes(SUPER_ADMIN_PROFILE_NAME) && (
-                                                <Badge variant="outline" className="text-[9px] bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" /> Mestre</Badge>
-                                            )}
-                                            {!sp.is_system && sp.is_protected && (
-                                                <span title="Perfil protegido">
-                                                    <ShieldAlert className="w-3.5 h-3.5 text-destructive" />
-                                                </span>
-                                            )}
+                                            <div className="flex items-center gap-1">
+                                                {sp.is_system && (
+                                                    <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/20">Sistema</Badge>
+                                                )}
+                                                {sp.is_protected && sp.protection_password && (
+                                                    <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-400/20 flex items-center gap-0.5">
+                                                        <Lock className="w-2.5 h-2.5" /> Senha
+                                                    </Badge>
+                                                )}
+                                                {sp.is_protected && sp.protection_mfa_secret && (
+                                                    <Badge variant="outline" className="text-[9px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-400/20 flex items-center gap-0.5">
+                                                        <Shield className="w-2.5 h-2.5" /> MFA
+                                                    </Badge>
+                                                )}
+                                                {sp.name?.toLowerCase().includes(SUPER_ADMIN_PROFILE_NAME) && (
+                                                    <Badge variant="outline" className="text-[9px] bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" /> Mestre</Badge>
+                                                )}
+                                            </div>
                                         </div>
                                         <p className="text-[11px] text-muted-foreground line-clamp-2">{sp.description || 'Sem descrição'}</p>
                                         <div className="flex items-center gap-1 mt-2">
@@ -1538,7 +1548,8 @@ const Configuracoes = () => {
                                                 requires_leader: selectedCargo.requires_leader !== false,
                                                 is_protected: !!selectedCargo.is_protected,
                                                 protection_password: (selectedCargo as any).protection_password,
-                                                protection_mfa_secret: (selectedCargo as any).protection_mfa_secret
+                                                protection_mfa_secret: (selectedCargo as any).protection_mfa_secret,
+                                                nivel_supervisao: (selectedCargo as any).nivel_supervisao
                                             } as any);
                                             if (selectedCargo.is_protected) {
                                                 requireAdminAuth(
@@ -2460,6 +2471,27 @@ const Configuracoes = () => {
                                 <Label className="text-xs font-semibold text-muted-foreground">Descrição</Label>
                                 <Input value={editingCargo.description || ''} onChange={e => setEditingCargo({ ...editingCargo, description: e.target.value })} className="h-9 text-sm" />
                             </div>
+
+                            <div className="p-3 bg-primary/5 rounded-lg border border-primary/10 mb-4">
+                                <Label className="font-bold text-sm text-primary mb-2 flex items-center gap-2">
+                                    <Users className="w-4 h-4" />
+                                    Hierarquia e Supervisão
+                                </Label>
+                                <div className="space-y-1.5 mt-2 text-sm text-muted-foreground leading-relaxed">
+                                    <Label className="text-xs font-semibold">Reporta-se a:</Label>
+                                    <select
+                                        className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                        value={editingCargo.nivel_supervisao || 'supervisor'}
+                                        onChange={(e) => setEditingCargo({ ...editingCargo, nivel_supervisao: e.target.value as any })}
+                                    >
+                                        <option value="ninguem">Ninguém (Administração Mestra)</option>
+                                        <option value="diretor">Diretor</option>
+                                        <option value="gerente">Gerente</option>
+                                        <option value="supervisor">Supervisor</option>
+                                    </select>
+                                    <p className="text-[10px] mt-1 pt-1 border-t border-border/50">Esta configuração define quais campos de liderança o usuário deverá preencher no cadastro.</p>
+                                </div>
+                            </div>
                             
                             <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg border border-border/40">
                                 <div className="flex items-center gap-2">
@@ -2505,7 +2537,7 @@ const Configuracoes = () => {
                                         <div className="mt-3 p-4 bg-white/5 rounded-lg flex flex-col items-center justify-center gap-2 border border-border/40">
                                             <div className="bg-white p-2 rounded">
                                                 <QRCodeSVG 
-                                                    value={`otpauth://totp/SGC%20Protegido%20(Cargo):${encodeURIComponent(editingCargo.nome)}?secret=${(editingCargo as any).new_protection_mfa_secret || (editingCargo as any).protection_mfa_secret}&issuer=SGC`} 
+                                                    value={`otpauth://totp/SGC:${encodeURIComponent(editingCargo.nome)}?secret=${(editingCargo as any).new_protection_mfa_secret || (editingCargo as any).protection_mfa_secret}&issuer=SGC`} 
                                                     size={120} 
                                                 />
                                             </div>
@@ -2624,7 +2656,7 @@ const Configuracoes = () => {
                                                 <div className="mt-3 p-4 bg-white/5 rounded-lg flex flex-col items-center justify-center gap-2 border border-border/40">
                                                     <div className="bg-white p-2 rounded">
                                                         <QRCodeSVG 
-                                                            value={`otpauth://totp/SGC%20Protegido%20(Perfil):${encodeURIComponent(editingProfile.name)}?secret=${editingProfile.new_protection_mfa_secret || editingProfile.protection_mfa_secret}&issuer=SGC`} 
+                                                            value={`otpauth://totp/SGC:${encodeURIComponent(editingProfile.name)}?secret=${editingProfile.new_protection_mfa_secret || editingProfile.protection_mfa_secret}&issuer=SGC`} 
                                                             size={120} 
                                                         />
                                                     </div>
