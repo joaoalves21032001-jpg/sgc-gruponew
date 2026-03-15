@@ -1487,10 +1487,10 @@ const Configuracoes = () => {
                                                     {cargo.is_protected && (
                                                         <div className="flex items-center gap-1">
                                                             {(cargo as any).protection_password && (
-                                                                <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20 uppercase">Senha</Badge>
+                                                                <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20 flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" /> Senha</Badge>
                                                             )}
                                                             {(cargo as any).protection_mfa_secret && (
-                                                                <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-500 border-blue-500/20 uppercase">Mfa</Badge>
+                                                                <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-500 border-blue-500/20 flex items-center gap-0.5"><Shield className="w-2.5 h-2.5" /> MFA</Badge>
                                                             )}
                                                         </div>
                                                     )}
@@ -2156,8 +2156,9 @@ const Configuracoes = () => {
                                             />
                                             <Button size="sm" variant="outline" onClick={() => {
                                                 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-                                                let secret = '';
-                                                for (let i = 0; i < 16; i++) secret += chars.charAt(Math.floor(Math.random() * chars.length));
+                                                const array = new Uint8Array(16);
+                                                crypto.getRandomValues(array);
+                                                const secret = Array.from(array).map(b => chars[b % 32]).join('');
                                                 setEditingProfile({ ...editingProfile, new_protection_mfa_secret: secret } as any);
                                             }}>Gerar</Button>
                                         </div>
@@ -2554,8 +2555,9 @@ const Configuracoes = () => {
                                             />
                                             <Button size="sm" variant="outline" onClick={() => {
                                                 const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-                                                let secret = '';
-                                                for (let i = 0; i < 16; i++) secret += chars.charAt(Math.floor(Math.random() * chars.length));
+                                                const array = new Uint8Array(16);
+                                                crypto.getRandomValues(array);
+                                                const secret = Array.from(array).map(b => chars[b % 32]).join('');
                                                 setEditingCargo({ ...editingCargo, new_protection_mfa_secret: secret } as any);
                                             }}>Gerar</Button>
                                         </div>

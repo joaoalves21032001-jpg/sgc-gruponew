@@ -31,7 +31,7 @@ import { maskCPF, maskRG, maskPhone } from '@/lib/masks';
 import {
   UserPlus, Users, Mail, Phone, CreditCard, FileText,
   MapPin, AlertTriangle, Shield, Building, Camera, Search, Info, Trash2,
-  Ban, CheckCircle2, Plus, KeyRound
+  Ban, CheckCircle2, Plus, KeyRound, Lock
 } from 'lucide-react';
 import { resetMfaFactors } from '@/hooks/useMfaResetRequests';
 import { directPasswordReset } from '@/hooks/usePasswordResetRequests';
@@ -520,10 +520,10 @@ const AdminUsuarios = () => {
                       <p className="text-sm font-semibold text-foreground truncate">{p.nome_completo}</p>
                       {isDisabled && <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive border-destructive/20">Desabilitado</Badge>}
                       {(p as any).is_protected && (
-                         <div className="flex gap-1">
-                            <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">Senha</Badge>
+                         <div className="flex items-center gap-1">
+                            <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20 flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" /> Senha</Badge>
                             {(p as any).protection_mfa_secret && (
-                                <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-500 border-blue-500/20">MFA</Badge>
+                                <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-500 border-blue-500/20 flex items-center gap-0.5"><Shield className="w-2.5 h-2.5" /> MFA</Badge>
                             )}
                          </div>
                       )}
@@ -807,7 +807,10 @@ const AdminUsuarios = () => {
                                     <div className="flex items-center justify-between">
                                         <Label className="text-xs text-warning font-semibold">Autenticador (MFA Secret)</Label>
                                         <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] border-warning/30 hover:bg-warning/10" onClick={() => {
-                                            const secret = Array.from(crypto.getRandomValues(new Uint8Array(20))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().substring(0, 16);
+                                            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+                                            const array = new Uint8Array(16);
+                                            crypto.getRandomValues(array);
+                                            const secret = Array.from(array).map(b => chars[b % 32]).join('');
                                             setField('new_protection_mfa_secret', secret);
                                         }}>Gerar Novo Segredo</Button>
                                     </div>
