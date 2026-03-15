@@ -97,18 +97,21 @@ const Login = () => {
     let isMounted = true;
 
     const fetchStatus = async () => {
-      const { data, error } = await supabase
-        .from('password_reset_requests')
-        .select('status, admin_resposta')
-        .eq('id', pendingReset.id)
-        .single();
-      
-      if (!error && data && isMounted) {
-         setPendingReset(prev => prev ? ({ ...prev, status: data.status || 'pendente', admin_resposta: data.admin_resposta || undefined }) : null);
-         if (data.status === 'aprovado') {
-           toast.success('Senha redefinida com sucesso! Acesso liberado.');
-           setTimeout(() => handleClearPending(), 3000);
-         }
+      try {
+        const { data: funcData, error } = await supabase.functions.invoke('get-password-reset-status', {
+          body: { request_id: pendingReset.id }
+        });
+        
+        if (!error && funcData?.data && isMounted) {
+           const { status, admin_resposta } = funcData.data;
+           setPendingReset(prev => prev ? ({ ...prev, status: status || 'pendente', admin_resposta: admin_resposta || undefined }) : null);
+           if (status === 'aprovado') {
+             toast.success('Senha redefinida com sucesso! Acesso liberado.');
+             setTimeout(() => handleClearPending(), 3000);
+           }
+        }
+      } catch (e) {
+        console.error('Error polling status:', e);
       }
     };
     fetchStatus();
@@ -154,7 +157,18 @@ const Login = () => {
   const handleCancelReset = async () => {
     if (!pendingReset?.id) { handleClearPending(); return; }
     try {
-      await supabase.from('password_reset_requests').delete().eq('id', pendingReset.id);
+      // Call a function to cancel - bypasses RLS issues for anon users
+      // Falls back to direct update if function not available
+      const { error } = await supabase.functions.invoke('cancel-password-reset', {
+        body: { request_id: pendingReset.id },
+      });
+      if (error) {
+        // Fallback: try direct update (works if RLS allows it)
+        await supabase
+          .from('password_reset_requests')
+          .update({ status: 'cancelado' } as any)
+          .eq('id', pendingReset.id);
+      }
     } catch { /* silently ignore – local state is still cleared */ }
     handleClearPending();
     toast.info('Solicitação cancelada.');
@@ -274,8 +288,8 @@ const Login = () => {
       }
       toast.success('Login realizado com sucesso!');
       
-      // Force hard navigation to clear the react tree state
-      window.location.href = '/';
+      // Let React Router and PublicRoute handle the redirect to '/' automatically
+      // Removing hard navigation to prevent wiping the internal auth state.
       
     } catch (err: any) {
       toast.error(err.message || 'Erro inesperado. Tente novamente.');

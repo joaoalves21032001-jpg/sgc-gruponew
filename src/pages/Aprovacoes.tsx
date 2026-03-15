@@ -2700,10 +2700,12 @@ const Aprovacoes = () => {
                 if (!rejectPwdReq || !rejectPwdReason.trim()) return;
                 setSavingPwdReset(true);
                 try {
-                  const { error } = await supabase.from('password_reset_requests' as any)
-                    .update({ status: 'rejeitado', admin_resposta: rejectPwdReason.trim() } as any)
-                    .eq('id', rejectPwdReq.id);
+                  const { data, error } = await supabase.functions.invoke('resolve-password-reset', {
+                    body: { request_id: rejectPwdReq.id, action: 'recusado', admin_resposta: rejectPwdReason.trim() }
+                  });
                   if (error) throw error;
+                  if (data?.error) throw new Error(data.error);
+                  
                   toast.success('Solicitação de senha recusada.');
                   dispatchNotification('senha_recusada', rejectPwdReq.user_id, 'Solicitação de Senha Recusada', `Sua solicitação de troca de senha foi recusada: ${rejectPwdReason.trim()}`, 'seguranca', '/');
                   queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
@@ -2736,10 +2738,12 @@ const Aprovacoes = () => {
                 if (!devolverPwdReq || !devolverPwdReason.trim()) return;
                 setSavingPwdReset(true);
                 try {
-                  const { error } = await supabase.from('password_reset_requests' as any)
-                    .update({ status: 'devolvido', admin_resposta: devolverPwdReason.trim() } as any)
-                    .eq('id', devolverPwdReq.id);
+                  const { data, error } = await supabase.functions.invoke('resolve-password-reset', {
+                    body: { request_id: devolverPwdReq.id, action: 'devolvido', admin_resposta: devolverPwdReason.trim() }
+                  });
                   if (error) throw error;
+                  if (data?.error) throw new Error(data.error);
+                  
                   toast.success('Solicitação de senha devolvida.');
                   dispatchNotification('senha_devolvida', devolverPwdReq.user_id, 'Solicitação de Senha Devolvida', `Sua solicitação precisa de ajustes: ${devolverPwdReason.trim()}`, 'seguranca', '/');
                   queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });

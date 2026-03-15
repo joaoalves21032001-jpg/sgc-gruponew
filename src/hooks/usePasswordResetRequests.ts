@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -20,25 +21,23 @@ export interface PasswordResetRequest {
 export function usePasswordResetRequests() {
   const queryClient = useQueryClient();
 
-  // Set up real-time subscription for password_reset_requests
-  import('react').then(({ useEffect }) => {
-    useEffect(() => {
-      const channel = supabase
-        .channel('public:password_reset_requests:all')
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'password_reset_requests' },
-          (payload) => {
-            queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
-          }
-        )
-        .subscribe();
+  // Real-time subscription: invalidate cache whenever any row changes/is deleted
+  useEffect(() => {
+    const channel = supabase
+      .channel('pwd-reset-admin-watch')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'password_reset_requests' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
+        }
+      )
+      .subscribe();
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }, [queryClient]);
-  });
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   return useQuery({
     queryKey: ['password-reset-requests'],
@@ -47,6 +46,8 @@ export function usePasswordResetRequests() {
         const { data, error } = await supabase
           .from('password_reset_requests' as any)
           .select(`*`)
+          // Filter out cancelled requests so they don't clutter the admin view
+          .not('status', 'eq', 'cancelado')
           .order('requested_at', { ascending: false });
           
         if (error) {
@@ -84,6 +85,7 @@ export function usePasswordResetRequests() {
     retry: 1,
   });
 }
+
 
 export async function resolvePasswordResetRequest(requestId: string, action: 'aprovado' | 'recusado') {
   const { data, error } = await supabase.functions.invoke('resolve-password-reset', {

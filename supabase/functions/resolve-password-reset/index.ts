@@ -41,7 +41,7 @@ serve(async (req) => {
       throw new Error(`Não autorizado: Token inválido ou expirado. Detalhes: ${authError?.message || 'user is null'}`);
     }
 
-    const { request_id, action, target_user_id, force_new_password } = await req.json();
+    const { request_id, action, target_user_id, force_new_password, admin_resposta } = await req.json();
 
     // Direct admin action from AdminUsuarios page (force password reset)
     if (force_new_password && target_user_id && action === 'force_reset') {
@@ -59,23 +59,29 @@ serve(async (req) => {
       throw new Error('Parâmetros inválidos.');
     }
 
-    // Check if the request exists and is pending
+    // Check if the request exists and is pending or devolvido
     const { data: request, error: reqErr } = await supabaseAdmin
       .from('password_reset_requests')
-      .select('user_id, status, encrypted_password') // Added encrypted_password back
+      .select('user_id, status, encrypted_password')
       .eq('id', request_id)
       .single();
 
-    if (reqErr || !request || request.status !== 'pendente') {
+    if (reqErr || !request || (request.status !== 'pendente' && request.status !== 'devolvido')) {
       throw new Error('Solicitação inválida ou já resolvida.');
     }
 
-    if (action === 'recusado') {
+    if (action === 'rejeitado' || action === 'recusado') {
       const { error: rejectErr } = await supabaseAdmin
         .from('password_reset_requests')
-        .update({ status: 'recusado', resolved_at: new Date().toISOString(), resolved_by: user.id })
+        .update({ status: 'rejeitado', admin_resposta: admin_resposta || null, resolved_at: new Date().toISOString(), resolved_by: user.id })
         .eq('id', request_id);
       if (rejectErr) throw rejectErr;
+    } else if (action === 'devolvido') {
+      const { error: devolveErr } = await supabaseAdmin
+        .from('password_reset_requests')
+        .update({ status: 'devolvido', admin_resposta: admin_resposta || null, resolved_at: null, resolved_by: user.id })
+        .eq('id', request_id);
+      if (devolveErr) throw devolveErr;
     } else if (action === 'aprovado') {
       const bytes = decode(request.encrypted_password);
       const decryptedPassword = new TextDecoder().decode(bytes);
@@ -98,7 +104,7 @@ serve(async (req) => {
         .eq('id', request_id);
       if (approveErr) throw approveErr;
     } else {
-      throw new Error('Ação inválida. Use "aprovado" ou "recusado".');
+      throw new Error('Ação inválida. Use "aprovado", "rejeitado" ou "devolvido".');
     }
 
     return new Response(JSON.stringify({ success: true }), {

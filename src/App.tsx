@@ -92,14 +92,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, mfaVerified, needsMfa, hasProfile } = useAuth();
+  const { user, loading, hasProfile } = useAuth();
   if (loading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
       <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
       <p className="text-sm font-medium animate-pulse">Carregando...</p>
     </div>
   );
-  if (user && hasProfile === true && (!needsMfa || mfaVerified)) return <Navigate to="/" replace />;
+  if (user && hasProfile === true) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
