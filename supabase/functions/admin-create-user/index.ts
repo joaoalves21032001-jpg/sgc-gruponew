@@ -98,13 +98,22 @@ serve(async (req) => {
       }
     }
 
-    // Generate next codigo
-    const { data: allProfiles } = await supabaseAdmin.from("profiles").select("codigo").order("codigo", { ascending: false }).limit(1);
-    let nextCode = "GN001";
-    if (allProfiles && allProfiles.length > 0 && allProfiles[0].codigo) {
-      const num = parseInt(allProfiles[0].codigo.replace("GN", ""), 10);
-      nextCode = `GN${String(num + 1).padStart(3, "0")}`;
+    // Generate next codigo — fetch all non-null codes, parse numerically to avoid string-sort bugs
+    const { data: allProfiles } = await supabaseAdmin
+      .from("profiles")
+      .select("codigo")
+      .not("codigo", "is", null);
+    let maxNum = 0;
+    if (allProfiles && allProfiles.length > 0) {
+      for (const p of allProfiles) {
+        if (p.codigo) {
+          const num = parseInt(String(p.codigo).replace(/[^0-9]/g, ""), 10);
+          if (!isNaN(num) && num > maxNum) maxNum = num;
+        }
+      }
     }
+    const nextCode = `GN${String(maxNum + 1).padStart(3, "0")}`;
+
 
     // Update profile with full data and enable the user (Active from the start)
     const { error: profileError } = await supabaseAdmin.from("profiles").update({

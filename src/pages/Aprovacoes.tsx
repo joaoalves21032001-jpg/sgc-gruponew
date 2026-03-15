@@ -98,10 +98,31 @@ function useCargosList() {
 }
 
 function useAccessRequests() {
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const channel = supabase.channel('access-requests-watch-admin')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'access_requests' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['access-requests'] });
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['access-requests'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('access_requests').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('access_requests')
+        .select('*')
+        .neq('status', 'cancelado')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return (data ?? []) as AccessRequest[];
     },

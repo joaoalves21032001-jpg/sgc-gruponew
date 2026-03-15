@@ -693,7 +693,7 @@ const Login = () => {
                   <div className="space-y-4">
                     <h3 className="text-2xl font-bold font-display text-foreground">Solicitação em Análise</h3>
                     <p className="text-sm text-muted-foreground leading-relaxed">
-                      Sua solicitação de acesso foi enviada. O administrador, supervisor e gerente foram notificados. Aguarde a aprovação.
+                      Sua solicitação de acesso foi enviada. O acesso está em análise e em breve você irá obter o retorno.
                     </p>
                   </div>
                 </div>

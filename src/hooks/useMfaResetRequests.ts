@@ -13,8 +13,28 @@ export interface MfaResetRequest {
     updated_at: string;
 }
 
+import { useEffect } from 'react';
+
 /** Fetch all MFA reset requests (for Aprovações) */
 export function useMfaResetRequests() {
+    const queryClient = useQueryClient();
+
+    useEffect(() => {
+        const channel = supabase.channel('mfa-reset-watch-admin')
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'mfa_reset_requests' },
+                () => {
+                    queryClient.invalidateQueries({ queryKey: ['mfa-reset-requests'] });
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [queryClient]);
+
     return useQuery({
         queryKey: ['mfa-reset-requests'],
         queryFn: async () => {
@@ -22,6 +42,8 @@ export function useMfaResetRequests() {
                 const { data, error } = await supabase
                     .from('mfa_reset_requests' as any)
                     .select('*')
+                    .neq('status', 'cancelado')
+                    .neq('status', 'consumido')
                     .order('created_at', { ascending: false });
                 if (error) return [];
                 return (data ?? []) as unknown as MfaResetRequest[];
