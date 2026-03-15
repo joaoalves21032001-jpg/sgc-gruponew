@@ -2607,7 +2607,7 @@ const Aprovacoes = () => {
                       >
                         <SelectTrigger className="h-10"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="__none__">Nenhum (responde ao Gerente)</SelectItem>
+                          <SelectItem value="__none__">Nenhum</SelectItem>
                           {supervisores.map(p => <SelectItem key={p.id} value={p.id}>{p.nome_completo || p.apelido}</SelectItem>)}
                         </SelectContent>
                       </Select>
