@@ -91,7 +91,10 @@ export function useMoveLeadToStage() {
     mutationFn: async ({ leadId, stageId }: { leadId: string; stageId: string | null }) => {
       const { error } = await supabase
         .from('leads')
-        .update({ stage_id: stageId } as any)
+        .update({ 
+          stage_id: stageId,
+          data_ultimo_contato: new Date().toISOString()
+        } as any)
         .eq('id', leadId);
       if (error) throw error;
     },

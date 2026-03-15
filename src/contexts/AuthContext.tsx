@@ -86,9 +86,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initAuth();
 
+    const currentUserRef = useRef<string | null>(null);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!mounted) return;
       
+      const newUserId = newSession?.user?.id ?? null;
       setSession(newSession);
       setUser(newSession?.user ?? null);
       
@@ -98,11 +101,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setNeedsMfa(false);
         setMfaVerified(false);
         setLoading(false);
-      } else if (event === 'SIGNED_IN') {
-        // Reset check states to evaluate the new user
-        setHasProfile(null);
-        setMfaChecked(false);
-        setLoading(true); // Restart loading flow for profile + mfa
+        currentUserRef.current = null;
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        // Only restart loading if the user actually changed or we didn't have one in state
+        const isNewUser = currentUserRef.current !== newUserId;
+        if (isNewUser) {
+          setHasProfile(null);
+          setMfaChecked(false);
+          setLoading(true); // Restart loading flow for profile + mfa
+          currentUserRef.current = newUserId;
+        }
+      }
+    });
+
+    // Initial check to populate ref if sesssion already exists
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted && session?.user) {
+        currentUserRef.current = session.user.id;
       }
     });
 

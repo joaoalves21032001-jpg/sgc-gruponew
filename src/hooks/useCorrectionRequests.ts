@@ -48,7 +48,7 @@ export function useSubmitCorrectionRequest() {
                 const updateObj: Record<string, any> = {};
 
                 // Convert string values to appropriate types based on column
-                const numericCols = ['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'vidas', 'valor'];
+                const numericCols = ['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'vidas', 'valor', 'tempo_follow_up_dias'];
 
                 for (const a of payload.alteracoesPropostas) {
                     let val = a.valorNovo;
@@ -100,8 +100,10 @@ export function useSubmitCorrectionRequest() {
         onSuccess: (data) => {
             if (data.autoApproved) {
                 toast.success(`Alteração aplicada automaticamente!`);
-                queryClient.invalidateQueries({ queryKey: [data.tipo === 'atividade' ? 'atividades' : 'vendas'] });
-                queryClient.invalidateQueries({ queryKey: [data.tipo === 'atividade' ? 'team-atividades' : 'team-vendas'] });
+                const queryKey = data.tipo === 'atividade' ? 'atividades' : data.tipo === 'venda' ? 'vendas' : 'leads';
+                const teamQueryKey = data.tipo === 'atividade' ? 'team-atividades' : data.tipo === 'venda' ? 'team-vendas' : 'leads';
+                queryClient.invalidateQueries({ queryKey: [queryKey] });
+                queryClient.invalidateQueries({ queryKey: [teamQueryKey] });
             } else {
                 toast.success('Solicitação de alteração enviada ao supervisor!');
             }

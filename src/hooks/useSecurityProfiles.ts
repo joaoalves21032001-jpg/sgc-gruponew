@@ -348,10 +348,11 @@ export function useCreateSecurityProfile() {
 export function useUpdateSecurityProfile() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ id, name, description, protection_password, protection_mfa_secret }: { 
+        mutationFn: async ({ id, name, description, is_protected, protection_password, protection_mfa_secret }: { 
             id: string; 
             name: string; 
             description?: string;
+            is_protected?: boolean;
             protection_password?: string | null;
             protection_mfa_secret?: string | null;
         }) => {
@@ -360,6 +361,7 @@ export function useUpdateSecurityProfile() {
                 .update({ 
                     name, 
                     description, 
+                    is_protected,
                     protection_password,
                     protection_mfa_secret,
                     updated_at: new Date().toISOString() 

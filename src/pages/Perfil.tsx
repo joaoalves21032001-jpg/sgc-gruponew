@@ -65,6 +65,8 @@ const Perfil = () => {
       numero_emergencia_2: profile.numero_emergencia_2 || '',
       nome_emergencia_1: (profile as any).nome_emergencia_1 || '',
       nome_emergencia_2: (profile as any).nome_emergencia_2 || '',
+      vinculo_emergencia_1: (profile as any).vinculo_emergencia_1 || '',
+      vinculo_emergencia_2: (profile as any).vinculo_emergencia_2 || '',
       data_admissao: (profile as any).data_admissao || '',
       data_nascimento: (profile as any).data_nascimento || '',
     });
@@ -108,6 +110,8 @@ const Perfil = () => {
         numero_emergencia_2: 'Emergência 2',
         nome_emergencia_1: 'Nome Contato Emerg. 1',
         nome_emergencia_2: 'Nome Contato Emerg. 2',
+        vinculo_emergencia_1: 'Vínculo Emergência 1',
+        vinculo_emergencia_2: 'Vínculo Emergência 2',
         data_admissao: 'Data de Admissão',
         data_nascimento: 'Data de Nascimento',
       };
@@ -229,14 +233,27 @@ const Perfil = () => {
 
           {/* Emergência */}
           <div>
-            <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-4 flex items-center gap-2">
-              <AlertTriangle className="w-3.5 h-3.5" /> Contatos de Emergência
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8">
-              <InfoRow icon={Phone} label="Emergência 1" value={profile.numero_emergencia_1 || '—'} />
-              {(profile as any).nome_emergencia_1 && <InfoRow icon={User} label="Nome Contato 1" value={(profile as any).nome_emergencia_1} />}
-              <InfoRow icon={Phone} label="Emergência 2" value={profile.numero_emergencia_2 || '—'} />
-              {(profile as any).nome_emergencia_2 && <InfoRow icon={User} label="Nome Contato 2" value={(profile as any).nome_emergencia_2} />}
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-muted-foreground" />
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Contatos de Emergência</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-3 rounded-xl bg-muted/30 border border-border/40">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Contato 1</p>
+                <p className="text-sm font-semibold text-foreground">{profile?.nome_emergencia_1 || '—'}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{(profile as any)?.vinculo_emergencia_1 || 'Vínculo 1'}</span>
+                  <p className="text-xs text-muted-foreground font-mono">{profile?.numero_emergencia_1 || '—'}</p>
+                </div>
+              </div>
+              <div className="p-3 rounded-xl bg-muted/30 border border-border/40">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Contato 2</p>
+                <p className="text-sm font-semibold text-foreground">{profile?.nome_emergencia_2 || '—'}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{(profile as any)?.vinculo_emergencia_2 || 'Vínculo 2'}</span>
+                  <p className="text-xs text-muted-foreground font-mono">{profile?.numero_emergencia_2 || '—'}</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -342,9 +359,15 @@ const Perfil = () => {
                   <Input value={editForm.numero_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
                 </div>
                 {(editForm.numero_emergencia_1 || '').trim() && (
-                  <div className="animate-fade-in-up">
-                    <Label className="text-xs font-semibold text-muted-foreground">Nome do Contato 1</Label>
-                    <Input value={editForm.nome_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, nome_emergencia_1: e.target.value }))} placeholder="Nome do contato..." className="h-10" />
+                  <div className="animate-fade-in-up grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs font-semibold text-muted-foreground">Nome 1</Label>
+                      <Input value={editForm.nome_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, nome_emergencia_1: e.target.value }))} placeholder="Nome..." className="h-10" />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-semibold text-muted-foreground">Vínculo 1</Label>
+                      <Input value={(editForm as any).vinculo_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, vinculo_emergencia_1: e.target.value }))} placeholder="Vínculo..." className="h-10" />
+                    </div>
                   </div>
                 )}
               </div>
@@ -354,9 +377,15 @@ const Perfil = () => {
                   <Input value={editForm.numero_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
                 </div>
                 {(editForm.numero_emergencia_2 || '').trim() && (
-                  <div className="animate-fade-in-up">
-                    <Label className="text-xs font-semibold text-muted-foreground">Nome do Contato 2</Label>
-                    <Input value={editForm.nome_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, nome_emergencia_2: e.target.value }))} placeholder="Nome do contato..." className="h-10" />
+                  <div className="animate-fade-in-up grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs font-semibold text-muted-foreground">Nome 2</Label>
+                      <Input value={editForm.nome_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, nome_emergencia_2: e.target.value }))} placeholder="Nome..." className="h-10" />
+                    </div>
+                    <div>
+                      <Label className="text-xs font-semibold text-muted-foreground">Vínculo 2</Label>
+                      <Input value={(editForm as any).vinculo_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, vinculo_emergencia_2: e.target.value }))} placeholder="Vínculo..." className="h-10" />
+                    </div>
                   </div>
                 )}
               </div>

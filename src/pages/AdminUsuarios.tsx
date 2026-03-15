@@ -37,6 +37,9 @@ import { resetMfaFactors } from '@/hooks/useMfaResetRequests';
 import { directPasswordReset } from '@/hooks/usePasswordResetRequests';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Profile } from '@/hooks/useProfile';
+import { AdminProtectionDialog } from '@/components/AdminProtectionDialog';
+import { QRCodeSVG } from 'qrcode.react';
+import { validatePasswordComplexity } from '@/lib/password';
 
 function FieldWithTooltip({ label, tooltip, required, children }: { label: string; tooltip: string; required?: boolean; children: React.ReactNode }) {
   return (
@@ -77,7 +80,9 @@ interface FormData {
   numero_emergencia_2: string;
   nome_emergencia_1: string;
   nome_emergencia_2: string;
-  supervisor_id: string;
+  vinculo_emergencia_1: string;
+  vinculo_emergencia_2: string;
+  supervisor_id: string | null;
   gerente_id: string;
   meta_faturamento: string;
   atividades_desabilitadas: boolean;
@@ -85,6 +90,11 @@ interface FormData {
   data_nascimento: string;
   senha?: string;
   confirmacao_senha?: string;
+  is_protected?: boolean;
+  new_protection_password?: string;
+  protection_password?: string;
+  new_protection_mfa_secret?: string;
+  protection_mfa_secret?: string;
 }
 
 const emptyForm: FormData = {
@@ -92,10 +102,12 @@ const emptyForm: FormData = {
   endereco: '', cargo: '', cargo_id: '', codigo: '', role: 'consultor',
   numero_emergencia_1: '', numero_emergencia_2: '',
   nome_emergencia_1: '', nome_emergencia_2: '',
-  supervisor_id: '', gerente_id: '',
+  vinculo_emergencia_1: '', vinculo_emergencia_2: '',
+  supervisor_id: null, gerente_id: '',
   meta_faturamento: '', atividades_desabilitadas: false,
   data_admissao: '', data_nascimento: '',
-  senha: '', confirmacao_senha: ''
+  senha: '', confirmacao_senha: '',
+  is_protected: false,
 };
 
 
@@ -124,6 +136,26 @@ const AdminUsuarios = () => {
   const [newPassword, setNewPassword] = useState('');
   const [resettingPwd, setResettingPwd] = useState(false);
   const queryClient = useQueryClient();
+
+  const [unlockedSession, setUnlockedSession] = useState<{ id: string; until: number } | null>(null);
+  const [adminProtectionDialog, setAdminProtectionDialog] = useState<{
+      open: boolean;
+      targetName?: string;
+      customProtection?: { passwordHash?: string | null; mfaSecret?: string | null };
+      onUnlocked: () => void;
+  }>({ open: false, onUnlocked: () => {} });
+
+  const requireAdminAuth = (id: string, targetName: string, onUnlocked: () => void, customProtection?: { passwordHash?: string | null; mfaSecret?: string | null }) => {
+      if (unlockedSession && unlockedSession.id === id && Date.now() < unlockedSession.until) {
+          onUnlocked();
+          return;
+      }
+      const handleSuccess = () => {
+          setUnlockedSession({ id, until: Date.now() + 5 * 60 * 1000 });
+          onUnlocked();
+      };
+      setAdminProtectionDialog({ open: true, targetName, customProtection, onUnlocked: handleSuccess });
+  };
 
   if (!hasPermission(myPermissions, 'usuarios', 'view')) {
     return (
@@ -193,39 +225,57 @@ const AdminUsuarios = () => {
   };
 
   const handleEdit = async (profile: Profile) => {
-    setEditingId(profile.id);
-    const { data: roleData } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', profile.id)
-      .maybeSingle();
-    const currentRole = (roleData?.role as FormData['role']) || 'consultor';
-    setForm({
-      email: profile.email,
-      nome_completo: profile.nome_completo,
-      apelido: profile.apelido || '',
-      celular: profile.celular || '',
-      cpf: profile.cpf || '',
-      rg: profile.rg || '',
-      endereco: profile.endereco || '',
-      cargo: profile.cargo || '',
-      cargo_id: profile.cargo_id || '',
-      codigo: profile.codigo || '',
-      role: currentRole,
-      numero_emergencia_1: profile.numero_emergencia_1 || '',
-      numero_emergencia_2: profile.numero_emergencia_2 || '',
-      nome_emergencia_1: (profile as any).nome_emergencia_1 || '',
-      nome_emergencia_2: (profile as any).nome_emergencia_2 || '',
-      supervisor_id: profile.supervisor_id || 'none',
-      gerente_id: profile.gerente_id || 'none',
-      meta_faturamento: profile.meta_faturamento?.toString() || '',
-      atividades_desabilitadas: (profile as any).atividades_desabilitadas === true,
-      data_admissao: (profile as any).data_admissao || '',
-      data_nascimento: (profile as any).data_nascimento || '',
-    });
-    setAvatarPreview(profile.avatar_url);
-    setAvatarFile(null);
-    setOpen(true);
+    const doEdit = async () => {
+      setEditingId(profile.id);
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', profile.id)
+        .maybeSingle();
+      const currentRole = (roleData?.role as FormData['role']) || 'consultor';
+      setForm({
+        email: profile.email,
+        nome_completo: profile.nome_completo,
+        apelido: profile.apelido || '',
+        celular: profile.celular || '',
+        cpf: profile.cpf || '',
+        rg: profile.rg || '',
+        endereco: profile.endereco || '',
+        cargo: profile.cargo || '',
+        cargo_id: profile.cargo_id || '',
+        codigo: profile.codigo || '',
+        role: currentRole,
+        numero_emergencia_1: profile.numero_emergencia_1 || '',
+        numero_emergencia_2: profile.numero_emergencia_2 || '',
+        nome_emergencia_1: (profile as any).nome_emergencia_1 || '',
+        nome_emergencia_2: (profile as any).nome_emergencia_2 || '',
+        vinculo_emergencia_1: (profile as any).vinculo_emergencia_1 || '',
+        vinculo_emergencia_2: (profile as any).vinculo_emergencia_2 || '',
+        supervisor_id: profile.supervisor_id || 'none',
+        gerente_id: profile.gerente_id || 'none',
+        meta_faturamento: profile.meta_faturamento?.toString() || '',
+        atividades_desabilitadas: (profile as any).atividades_desabilitadas === true,
+        data_admissao: (profile as any).data_admissao || '',
+        data_nascimento: (profile as any).data_nascimento || '',
+        is_protected: !!(profile as any).is_protected,
+        protection_password: (profile as any).protection_password,
+        protection_mfa_secret: (profile as any).protection_mfa_secret,
+        new_protection_password: '',
+        new_protection_mfa_secret: ''
+      });
+      setAvatarPreview(profile.avatar_url);
+      setAvatarFile(null);
+      setOpen(true);
+    };
+
+    if ((profile as any).is_protected) {
+      requireAdminAuth(profile.id, profile.nome_completo, doEdit, {
+         passwordHash: (profile as any).protection_password,
+         mfaSecret: (profile as any).protection_mfa_secret
+      });
+    } else {
+      doEdit();
+    }
   };
 
    const handleSave = async () => {
@@ -255,19 +305,32 @@ const AdminUsuarios = () => {
          toast.error('Preencha a senha e confirmação para o novo usuário.');
          return;
       }
-      if (form.senha !== form.confirmacao_senha) {
-         toast.error('As senhas não coincidem.');
+      const pwdCheck = validatePasswordComplexity(form.senha);
+      if (!pwdCheck.isValid) {
+         toast.error(pwdCheck.message);
          return;
       }
-      if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*(),.?":{}|<>]).{12,}$/.test(form.senha)) {
-         toast.error('A senha deve ter no mínimo 12 caracteres, incluir uma letra maiúscula, uma minúscula e um caractere especial.');
-         return;
-      }
+    }
+
+    if (editingId && form.is_protected && form.new_protection_password) {
+       const protoPwdCheck = validatePasswordComplexity(form.new_protection_password);
+       if (!protoPwdCheck.isValid) {
+          toast.error(`Na senha de proteção: ${protoPwdCheck.message}`);
+          return;
+       }
     }
 
     setSaving(true);
     try {
       let avatarUrl = avatarPreview;
+      let passwordToSave = form.protection_password;
+      
+      if (form.new_protection_password) {
+          const msgUint8 = new TextEncoder().encode(form.new_protection_password);
+          const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+          const hashArray = Array.from(new Uint8Array(hashBuffer));
+          passwordToSave = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      }
 
       if (editingId) {
         // EDITING existing user
@@ -295,6 +358,8 @@ const AdminUsuarios = () => {
           numero_emergencia_2: form.numero_emergencia_2,
           nome_emergencia_1: form.nome_emergencia_1 || null,
           nome_emergencia_2: form.nome_emergencia_2 || null,
+          vinculo_emergencia_1: form.vinculo_emergencia_1 || null,
+          vinculo_emergencia_2: form.vinculo_emergencia_2 || null,
           supervisor_id: form.supervisor_id && form.supervisor_id !== 'none' ? form.supervisor_id : null,
           gerente_id: form.gerente_id && form.gerente_id !== 'none' ? form.gerente_id : null,
           meta_faturamento: form.meta_faturamento ? parseFloat(form.meta_faturamento) : null,
@@ -302,6 +367,9 @@ const AdminUsuarios = () => {
           atividades_desabilitadas: form.atividades_desabilitadas,
           data_admissao: form.data_admissao || null,
           data_nascimento: form.data_nascimento || null,
+          is_protected: !!(form.is_protected),
+          protection_password: passwordToSave,
+          protection_mfa_secret: form.new_protection_mfa_secret || form.protection_mfa_secret
         }).eq('id', editingId);
 
         if (error) throw error;
@@ -367,19 +435,30 @@ const AdminUsuarios = () => {
       toast.error('Você não tem permissão para desabilitar usuários.');
       return;
     }
-    setToggling(true);
-    try {
-      const isDisabled = (profile as any).disabled === true;
-      const { error } = await supabase.from('profiles').update({ disabled: !isDisabled } as any).eq('id', profile.id);
-      if (error) throw error;
-      await logAction(isDisabled ? 'reativar_usuario' : 'desabilitar_usuario', 'profile', profile.id, { nome: profile.nome_completo });
-      toast.success(isDisabled ? 'Usuário reativado!' : 'Usuário desabilitado!');
-      queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
-      setDisableConfirm(null);
-    } catch (err: any) {
-      toast.error(err.message || 'Erro ao alterar status.');
-    } finally {
-      setToggling(false);
+    const doToggle = async () => {
+      setToggling(true);
+      try {
+        const isDisabled = (profile as any).disabled === true;
+        const { error } = await supabase.from('profiles').update({ disabled: !isDisabled } as any).eq('id', profile.id);
+        if (error) throw error;
+        await logAction(isDisabled ? 'reativar_usuario' : 'desabilitar_usuario', 'profile', profile.id, { nome: profile.nome_completo });
+        toast.success(isDisabled ? 'Usuário reativado!' : 'Usuário desabilitado!');
+        queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
+        setDisableConfirm(null);
+      } catch (err: any) {
+        toast.error(err.message || 'Erro ao alterar status.');
+      } finally {
+        setToggling(false);
+      }
+    };
+
+    if ((profile as any).is_protected) {
+      requireAdminAuth(profile.id, profile.nome_completo, doToggle, {
+         passwordHash: (profile as any).protection_password,
+         mfaSecret: (profile as any).protection_mfa_secret
+      });
+    } else {
+      doToggle();
     }
   };
 
@@ -586,9 +665,14 @@ const AdminUsuarios = () => {
                     <Input value={form.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
                   </FieldWithTooltip>
                   {form.numero_emergencia_1.trim() && (
-                    <FieldWithTooltip label="Nome do Contato 1" tooltip="Nome completo do contato de emergência 1.">
-                      <Input value={form.nome_emergencia_1} onChange={(e) => setField('nome_emergencia_1', e.target.value)} placeholder="Nome do contato..." className="h-10 animate-fade-in-up" />
-                    </FieldWithTooltip>
+                    <div className="grid grid-cols-2 gap-2 animate-fade-in-up">
+                      <FieldWithTooltip label="Nome Contato 1" tooltip="Nome do contato de emergência 1.">
+                        <Input value={form.nome_emergencia_1} onChange={(e) => setField('nome_emergencia_1', e.target.value)} placeholder="Nome..." className="h-10" />
+                      </FieldWithTooltip>
+                      <FieldWithTooltip label="Vínculo 1" tooltip="Relação (ex: Pai, Esposa, Amigo).">
+                        <Input value={form.vinculo_emergencia_1} onChange={(e) => setField('vinculo_emergencia_1', e.target.value)} placeholder="Vínculo..." className="h-10" />
+                      </FieldWithTooltip>
+                    </div>
                   )}
                 </div>
                 <div className="space-y-3">
@@ -596,9 +680,14 @@ const AdminUsuarios = () => {
                     <Input value={form.numero_emergencia_2} onChange={(e) => setField('numero_emergencia_2', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
                   </FieldWithTooltip>
                   {form.numero_emergencia_2.trim() && (
-                    <FieldWithTooltip label="Nome do Contato 2" tooltip="Nome completo do contato de emergência 2.">
-                      <Input value={form.nome_emergencia_2} onChange={(e) => setField('nome_emergencia_2', e.target.value)} placeholder="Nome do contato..." className="h-10 animate-fade-in-up" />
-                    </FieldWithTooltip>
+                    <div className="grid grid-cols-2 gap-2 animate-fade-in-up">
+                      <FieldWithTooltip label="Nome Contato 2" tooltip="Nome do contato de emergência 2.">
+                        <Input value={form.nome_emergencia_2} onChange={(e) => setField('nome_emergencia_2', e.target.value)} placeholder="Nome..." className="h-10" />
+                      </FieldWithTooltip>
+                      <FieldWithTooltip label="Vínculo 2" tooltip="Relação (ex: Pai, Esposa, Amigo).">
+                        <Input value={form.vinculo_emergencia_2} onChange={(e) => setField('vinculo_emergencia_2', e.target.value)} placeholder="Vínculo..." className="h-10" />
+                      </FieldWithTooltip>
+                    </div>
                   )}
                 </div>
               </div>
@@ -680,6 +769,68 @@ const AdminUsuarios = () => {
 
 
 
+            {/* Proteção (Admin) */}
+            {editingId && hasPermission(myPermissions, 'configuracoes', 'edit') && (
+                <div className="pt-2">
+                    <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3 flex items-center gap-2">
+                        <Shield className="w-3.5 h-3.5 text-warning" /> Proteção de Usuário
+                    </h3>
+                    <div className="p-4 rounded-xl border border-warning/20 bg-warning/5 space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                                <Label className="text-sm font-bold text-warning">Usuário Protegido</Label>
+                                <p className="text-xs text-muted-foreground">Exigir senha de proteção e MFA para editar ou excluir este usuário.</p>
+                            </div>
+                            <Switch checked={form.is_protected} onCheckedChange={(v) => setField('is_protected', v)} />
+                        </div>
+
+                        {form.is_protected && (
+                            <div className="animate-in fade-in slide-in-from-top-2 duration-300 space-y-4 pt-2 border-t border-warning/10">
+                                <div className="space-y-2">
+                                    <Label className="text-xs text-warning font-semibold">Senhar de Proteção (Opcional se já tiver)</Label>
+                                    <Input 
+                                        type="password" 
+                                        placeholder="Min. 12 caracteres (Aa#)" 
+                                        value={form.new_protection_password || ''}
+                                        onChange={(e) => setField('new_protection_password', e.target.value)}
+                                        className="h-9 border-warning/30 focus-visible:ring-warning"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground">Deixe em branco para manter a atual.</p>
+                                </div>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs text-warning font-semibold">Autenticador (MFA Secret)</Label>
+                                        <Button type="button" variant="outline" size="sm" className="h-7 text-[10px] border-warning/30 hover:bg-warning/10" onClick={() => {
+                                            const secret = Array.from(crypto.getRandomValues(new Uint8Array(20))).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase().substring(0, 16);
+                                            setField('new_protection_mfa_secret', secret);
+                                        }}>Gerar Novo Segredo</Button>
+                                    </div>
+                                    <Input 
+                                        type="text" 
+                                        readOnly
+                                        placeholder="Nenhum segredo definido"
+                                        value={form.new_protection_mfa_secret || form.protection_mfa_secret || ''}
+                                        className="h-9 font-mono text-xs border-warning/30 bg-background/50"
+                                    />
+                                    
+                                    {(form.new_protection_mfa_secret || form.protection_mfa_secret) && (
+                                        <div className="mt-3 p-4 bg-white/5 rounded-lg flex flex-col items-center justify-center gap-2 border border-border/40">
+                                            <div className="bg-white p-2 rounded">
+                                                <QRCodeSVG 
+                                                    value={`otpauth://totp/SGC%20Protegido%20(Usuario):${encodeURIComponent(form.nome_completo)}?secret=${form.new_protection_mfa_secret || form.protection_mfa_secret}&issuer=SGC`} 
+                                                    size={120} 
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground text-center">Escaneie o QR Code usando o Google Authenticator ou similar.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+
              <Button 
                 onClick={handleSave} 
                 disabled={saving || (editingId ? !hasPermission(myPermissions, 'usuarios', 'edit') : !hasPermission(myPermissions, 'usuarios', 'create'))} 
@@ -746,22 +897,32 @@ const AdminUsuarios = () => {
                   toast.error('Você não tem permissão para excluir usuários.');
                   return;
                 }
-                setDeleting(true);
-                try {
-                  // Edge function handles all cleanup (user_roles, profiles, notifications, etc.)
-                  const { data: delResult, error: delError } = await supabase.functions.invoke('admin-delete-user', {
-                    body: { user_id: deleteConfirm.id },
+                const doDelete = async () => {
+                    setDeleting(true);
+                    try {
+                      const { data: delResult, error: delError } = await supabase.functions.invoke('admin-delete-user', {
+                        body: { user_id: deleteConfirm.id },
+                      });
+                      if (delError) throw delError;
+                      if (delResult?.error) throw new Error(delResult.error);
+                      await logAction('excluir_usuario', 'profile', deleteConfirm.id, { nome: deleteConfirm.nome_completo, email: deleteConfirm.email });
+                      toast.success('Usuário excluído!');
+                      queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
+                      setDeleteConfirm(null);
+                    } catch (err: any) {
+                      toast.error(err.message || 'Erro ao excluir usuário.');
+                    } finally {
+                      setDeleting(false);
+                    }
+                };
+
+                if ((deleteConfirm as any).is_protected) {
+                  requireAdminAuth(deleteConfirm.id, deleteConfirm.nome_completo, doDelete, {
+                     passwordHash: (deleteConfirm as any).protection_password,
+                     mfaSecret: (deleteConfirm as any).protection_mfa_secret
                   });
-                  if (delError) throw delError;
-                  if (delResult?.error) throw new Error(delResult.error);
-                  await logAction('excluir_usuario', 'profile', deleteConfirm.id, { nome: deleteConfirm.nome_completo, email: deleteConfirm.email });
-                  toast.success('Usuário excluído!');
-                  queryClient.invalidateQueries({ queryKey: ['team-profiles'] });
-                  setDeleteConfirm(null);
-                } catch (err: any) {
-                  toast.error(err.message || 'Erro ao excluir usuário.');
-                } finally {
-                  setDeleting(false);
+                } else {
+                  doDelete();
                 }
               }}
             >
@@ -790,16 +951,27 @@ const AdminUsuarios = () => {
                   toast.error('Você não tem permissão para resetar MFA.');
                   return;
                 }
-                setResettingMfa(true);
-                try {
-                  await resetMfaFactors(mfaResetConfirm.id);
-                  await logAction('resetar_mfa', 'profile', mfaResetConfirm.id, { nome: mfaResetConfirm.nome_completo });
-                  toast.success(`MFA de ${mfaResetConfirm.apelido || mfaResetConfirm.nome_completo} foi resetado!`);
-                  setMfaResetConfirm(null);
-                } catch (err: any) {
-                  toast.error(err.message || 'Erro ao resetar MFA.');
-                } finally {
-                  setResettingMfa(false);
+                const doReset = async () => {
+                    setResettingMfa(true);
+                    try {
+                      await resetMfaFactors(mfaResetConfirm.id);
+                      await logAction('resetar_mfa', 'profile', mfaResetConfirm.id, { nome: mfaResetConfirm.nome_completo });
+                      toast.success(`MFA de ${mfaResetConfirm.apelido || mfaResetConfirm.nome_completo} foi resetado!`);
+                      setMfaResetConfirm(null);
+                    } catch (err: any) {
+                      toast.error(err.message || 'Erro ao resetar MFA.');
+                    } finally {
+                      setResettingMfa(false);
+                    }
+                };
+
+                if ((mfaResetConfirm as any).is_protected) {
+                  requireAdminAuth(mfaResetConfirm.id, mfaResetConfirm.nome_completo, doReset, {
+                     passwordHash: (mfaResetConfirm as any).protection_password,
+                     mfaSecret: (mfaResetConfirm as any).protection_mfa_secret
+                  });
+                } else {
+                  doReset();
                 }
               }}
             >
@@ -823,7 +995,7 @@ const AdminUsuarios = () => {
               <Label>Nova Senha</Label>
               <Input
                 type="password"
-                placeholder="Mínimo 6 caracteres"
+                placeholder="Exemplo#12345"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
               />
@@ -832,24 +1004,40 @@ const AdminUsuarios = () => {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setPwdResetConfirm(null)}>Cancelar</Button>
             <Button
-              disabled={resettingPwd || newPassword.length < 6}
+              disabled={resettingPwd}
               onClick={async () => {
                 if (!pwdResetConfirm) return;
                 if (!hasPermission(myPermissions, 'usuarios', 'reset_password')) {
                   toast.error('Você não tem permissão para configurar novas senhas.');
                   return;
                 }
-                setResettingPwd(true);
-                try {
-                  await directPasswordReset(pwdResetConfirm.id, newPassword);
-                  await logAction('resetar_senha', 'profile', pwdResetConfirm.id, { nome: pwdResetConfirm.nome_completo });
-                  toast.success(`Senha de ${pwdResetConfirm.apelido || pwdResetConfirm.nome_completo} alterada com sucesso!`);
-                  setPwdResetConfirm(null);
-                  setNewPassword('');
-                } catch (err: any) {
-                  toast.error(err.message || 'Erro ao redefinir a senha.');
-                } finally {
-                  setResettingPwd(false);
+                const pwdCheck = validatePasswordComplexity(newPassword);
+                if (!pwdCheck.isValid) {
+                  toast.error(pwdCheck.message);
+                  return;
+                }
+                const doResetPwd = async () => {
+                    setResettingPwd(true);
+                    try {
+                      await directPasswordReset(pwdResetConfirm.id, newPassword);
+                      await logAction('resetar_senha', 'profile', pwdResetConfirm.id, { nome: pwdResetConfirm.nome_completo });
+                      toast.success(`Senha de ${pwdResetConfirm.apelido || pwdResetConfirm.nome_completo} alterada com sucesso!`);
+                      setPwdResetConfirm(null);
+                      setNewPassword('');
+                    } catch (err: any) {
+                      toast.error(err.message || 'Erro ao redefinir a senha.');
+                    } finally {
+                      setResettingPwd(false);
+                    }
+                };
+
+                if ((pwdResetConfirm as any).is_protected) {
+                  requireAdminAuth(pwdResetConfirm.id, pwdResetConfirm.nome_completo, doResetPwd, {
+                     passwordHash: (pwdResetConfirm as any).protection_password,
+                     mfaSecret: (pwdResetConfirm as any).protection_mfa_secret
+                  });
+                } else {
+                  doResetPwd();
                 }
               }}
             >
@@ -858,6 +1046,18 @@ const AdminUsuarios = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Re-Auth Dialog */}
+      <AdminProtectionDialog
+        open={adminProtectionDialog.open}
+        targetName={adminProtectionDialog.targetName}
+        customProtection={adminProtectionDialog.customProtection}
+        onOpenChange={(v) => !v && setAdminProtectionDialog(prev => ({ ...prev, open: false }))}
+        onSuccess={() => {
+          setAdminProtectionDialog(prev => ({ ...prev, open: false }));
+          adminProtectionDialog.onUnlocked();
+        }}
+      />
     </div>
   );
 };

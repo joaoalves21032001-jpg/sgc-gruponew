@@ -61,6 +61,8 @@ interface AccessRequest {
   mensagem: string | null; cpf: string | null; rg: string | null;
   endereco: string | null; cargo: string | null; nivel_acesso: string | null;
   numero_emergencia_1: string | null; numero_emergencia_2: string | null;
+  nome_emergencia_1: string | null; nome_emergencia_2: string | null;
+  vinculo_emergencia_1: string | null; vinculo_emergencia_2: string | null;
   motivo_recusa: string | null; status: string; created_at: string;
   encrypted_password?: string;
   supervisor_id: string | null; gerente_id: string | null;
@@ -773,7 +775,11 @@ const Aprovacoes = () => {
           supervisor_id: req.supervisor_id,
           gerente_id: req.gerente_id,
           numero_emergencia_1: req.numero_emergencia_1,
+          nome_emergencia_1: req.nome_emergencia_1,
+          vinculo_emergencia_1: req.vinculo_emergencia_1,
           numero_emergencia_2: req.numero_emergencia_2,
+          nome_emergencia_2: req.nome_emergencia_2,
+          vinculo_emergencia_2: req.vinculo_emergencia_2,
           data_admissao: req.data_admissao,
           data_nascimento: req.data_nascimento,
           encrypted_password: req.encrypted_password,
@@ -832,13 +838,18 @@ const Aprovacoes = () => {
   // ─── Correction Request Actions ───
   const handleViewAlteracao = async (cr: CorrectionRequest) => {
     try {
-      const table = cr.tipo === 'atividade' ? 'atividades' : 'vendas';
+      const table = cr.tipo === 'atividade' ? 'atividades' : cr.tipo === 'venda' ? 'vendas' : 'leads';
       const { data, error } = await supabase.from(table).select('*').eq('id', cr.registro_id).single();
       if (error || !data) throw new Error('Registro original não encontrado no banco.');
       if (cr.tipo === 'venda') {
         setSelectedVenda(data as Venda);
-      } else {
+      } else if (cr.tipo === 'atividade') {
         setSelectedAtiv(data as Atividade);
+      } else if (cr.tipo === 'lead') {
+        // For leads, we can use the Edit Lead dialog from Kanban if we had it exported, 
+        // but for now let's just show a toast or a simple view if needed.
+        // Actually, the user can see the changes in the CR reason.
+        toast.info('Visualização detalhada de lead em aprovação em breve. Use o board para editar.');
       }
     } catch (err: any) {
       toast.error(err.message);
@@ -854,11 +865,12 @@ const Aprovacoes = () => {
       // Valid columns per table to avoid schema errors
       const ativCols = ['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'data', 'observacoes'];
       const vendaCols = ['nome_titular', 'modalidade', 'vidas', 'valor', 'observacoes', 'data_lancamento', 'justificativa_retroativo'];
-      const validCols = cr.tipo === 'atividade' ? ativCols : vendaCols;
+      const leadCols = ['tempo_follow_up_dias'];
+      const validCols = cr.tipo === 'atividade' ? ativCols : cr.tipo === 'venda' ? vendaCols : leadCols;
       for (const a of alteracoes) {
         if (!validCols.includes(a.campo)) continue; // skip unknown columns
         let val: any = a.valorNovo;
-        if (['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'follow_up', 'vidas'].includes(a.campo)) {
+        if (['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'follow_up', 'vidas', 'tempo_follow_up_dias'].includes(a.campo)) {
           val = parseInt(val) || 0;
         }
         if (a.campo === 'valor') {
@@ -866,10 +878,12 @@ const Aprovacoes = () => {
         }
         updateObj[a.campo] = val;
       }
-      const table = cr.tipo === 'atividade' ? 'atividades' : 'vendas';
+      const table = cr.tipo === 'atividade' ? 'atividades' : cr.tipo === 'venda' ? 'vendas' : 'leads';
       // When approving a correction: apply the changes and put the record back into the approval queue
-      const resetStatus = cr.tipo === 'atividade' ? 'pendente' : 'analise';
-      updateObj.status = resetStatus;
+      if (cr.tipo !== 'lead') {
+        const resetStatus = cr.tipo === 'atividade' ? 'pendente' : 'analise';
+        updateObj.status = resetStatus;
+      }
       if (Object.keys(updateObj).length > 0) {
         const { error: updateError } = await supabase.from(table).update(updateObj as any).eq('id', cr.registro_id);
         if (updateError) throw updateError;
@@ -1109,20 +1123,23 @@ const Aprovacoes = () => {
               const updateObj: Record<string, any> = {};
               const ativCols = ['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'cotacoes_nao_respondidas', 'follow_up', 'data', 'observacoes'];
               const vendaCols = ['nome_titular', 'modalidade', 'vidas', 'valor', 'observacoes', 'data_lancamento', 'justificativa_retroativo'];
-              const validCols = cr.tipo === 'atividade' ? ativCols : vendaCols;
+              const leadCols = ['tempo_follow_up_dias'];
+              const validCols = cr.tipo === 'atividade' ? ativCols : cr.tipo === 'venda' ? vendaCols : leadCols;
               
               for (const a of alteracoes) {
                 if (!validCols.includes(a.campo)) continue;
                 let val: any = a.valorNovo;
-                if (['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'follow_up', 'vidas'].includes(a.campo)) val = parseInt(val) || 0;
+                if (['ligacoes', 'mensagens', 'cotacoes_enviadas', 'cotacoes_fechadas', 'follow_up', 'vidas', 'tempo_follow_up_dias'].includes(a.campo)) val = parseInt(val) || 0;
                 if (a.campo === 'valor') val = parseFloat(val) || 0;
                 updateObj[a.campo] = val;
               }
               
-              const resetStatus = cr.tipo === 'atividade' ? 'pendente' : 'analise';
-              updateObj.status = resetStatus;
+              if (cr.tipo !== 'lead') {
+                const resetStatus = cr.tipo === 'atividade' ? 'pendente' : 'analise';
+                updateObj.status = resetStatus;
+              }
               
-              const table = cr.tipo === 'atividade' ? 'atividades' : 'vendas';
+              const table = cr.tipo === 'atividade' ? 'atividades' : cr.tipo === 'venda' ? 'vendas' : 'leads';
               if (Object.keys(updateObj).length > 0) {
                 const { error: updateError } = await supabase.from(table).update(updateObj as any).eq('id', cr.registro_id);
                 if (updateError) throw updateError;
@@ -2162,18 +2179,43 @@ const Aprovacoes = () => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground">Data de Admissão na Corretora</label>
-                  <Input type="date" value={viewAccess.data_admissao || ''} disabled className="h-10 bg-muted/50" />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground">Emergência 1</label>
+                    <Input value={viewAccess.numero_emergencia_1 || ''} disabled className="h-10 bg-muted/50" />
+                  </div>
+                  {viewAccess.nome_emergencia_1 && (
+                    <div className="grid grid-cols-2 gap-2 animate-fade-in">
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground">Nome 1</label>
+                        <Input value={viewAccess.nome_emergencia_1 || ''} disabled className="h-10 bg-muted/50" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground">Vínculo 1</label>
+                        <Input value={viewAccess.vinculo_emergencia_1 || ''} disabled className="h-10 bg-muted/50" />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground">Telefone de Emergência 1</label>
-                  <Input value={viewAccess.numero_emergencia_1 || ''} disabled className="h-10 bg-muted/50" />
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground">Emergência 2</label>
+                    <Input value={viewAccess.numero_emergencia_2 || ''} disabled className="h-10 bg-muted/50" />
+                  </div>
+                  {viewAccess.nome_emergencia_2 && (
+                    <div className="grid grid-cols-2 gap-2 animate-fade-in">
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground">Nome 2</label>
+                        <Input value={viewAccess.nome_emergencia_2 || ''} disabled className="h-10 bg-muted/50" />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-muted-foreground">Vínculo 2</label>
+                        <Input value={viewAccess.vinculo_emergencia_2 || ''} disabled className="h-10 bg-muted/50" />
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground">Telefone de Emergência 2</label>
-                <Input value={viewAccess.numero_emergencia_2 || ''} disabled className="h-10 bg-muted/50" />
               </div>
               {viewAccess.mensagem && (
                 <div>

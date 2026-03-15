@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import { validatePasswordComplexity } from '@/lib/password';
 import { useUserRole, useTeamProfiles, useProfile } from '@/hooks/useProfile';
 import { supabase } from '@/integrations/supabase/client';
 import { useLogAction } from '@/hooks/useAuditLog';
@@ -575,6 +577,11 @@ const Configuracoes = () => {
             let passwordToSave = editingProfile.protection_password;
             
             if (editingProfile.new_protection_password) {
+                const pwdCheck = validatePasswordComplexity(editingProfile.new_protection_password);
+                if (!pwdCheck.isValid) {
+                    toast.error(`Na senha de proteção: ${pwdCheck.message}`);
+                    return;
+                }
                 const encoder = new TextEncoder();
                 const data = encoder.encode(editingProfile.new_protection_password);
                 const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -586,12 +593,10 @@ const Configuracoes = () => {
                 id: editingProfile.id, 
                 name: editingProfile.name, 
                 description: editingProfile.description,
+                is_protected: !!(editingProfile.is_protected),
                 protection_password: passwordToSave,
                 protection_mfa_secret: editingProfile.new_protection_mfa_secret || editingProfile.protection_mfa_secret
             });
-            
-            // Also save is_protected
-            await supabase.from('security_profiles' as any).update({ is_protected: !!(editingProfile.is_protected) } as any).eq('id', editingProfile.id);
             
             logAction('editar_perfil_seguranca', 'security_profiles', editingProfile.id);
             toast.success('Perfil atualizado!');
@@ -610,13 +615,27 @@ const Configuracoes = () => {
             return;
         }
         if (!confirmDeleteId) return;
-        try {
-            await deleteProfile.mutateAsync(confirmDeleteId);
-            logAction('excluir_perfil_seguranca', 'security_profiles', confirmDeleteId);
-            toast.success('Perfil excluído!');
-            if (selectedProfileId === confirmDeleteId) setSelectedProfileId(null);
-            setConfirmDeleteId(null);
-        } catch (err: any) { toast.error(err.message); }
+
+        const sp = securityProfiles.find(p => p.id === confirmDeleteId);
+        
+        const performDelete = async () => {
+            try {
+                await deleteProfile.mutateAsync(confirmDeleteId);
+                logAction('excluir_perfil_seguranca', 'security_profiles', confirmDeleteId);
+                toast.success('Perfil excluído!');
+                if (selectedProfileId === confirmDeleteId) setSelectedProfileId(null);
+                setConfirmDeleteId(null);
+            } catch (err: any) { toast.error(err.message); }
+        };
+
+        if (sp?.is_protected) {
+            requireAdminAuth(sp.id, sp.name, performDelete, {
+                passwordHash: sp.protection_password,
+                mfaSecret: sp.protection_mfa_secret
+            });
+        } else {
+            performDelete();
+        }
     };
 
     const handleTogglePerm = (resource: string, action: string) => {
@@ -696,6 +715,11 @@ const Configuracoes = () => {
             let passwordToSave = (editingCargo as any).protection_password;
             
             if ((editingCargo as any).new_protection_password) {
+                const pwdCheck = validatePasswordComplexity((editingCargo as any).new_protection_password);
+                if (!pwdCheck.isValid) {
+                    toast.error(`Na senha de proteção: ${pwdCheck.message}`);
+                    return;
+                }
                 const encoder = new TextEncoder();
                 const data = encoder.encode((editingCargo as any).new_protection_password);
                 const hashBuffer = await crypto.subtle.digest('SHA-256', data);
@@ -791,25 +815,50 @@ const Configuracoes = () => {
     };
 
     const handleAssignCargo = (cargoId: string) => {
-        if (!selectedProfileId) return;
-        assignProfileToCargo.mutate({ cargoId, profileId: selectedProfileId }, {
-            onSuccess: () => {
-                const cargoName = cargos.find((c: any) => c.id === cargoId)?.nome;
-                logAction('vincular_perfil_seguranca', 'security_profiles', selectedProfileId, { cargo: cargoName });
-                toast.success('Cargo vinculado!');
-                setAssignCargoOpen(false);
-                queryClient.invalidateQueries({ queryKey: ['security-profile-cargos', selectedProfileId] });
-            },
-        });
+        if (!selectedProfileId || !selectedProfile) return;
+
+        const performAssign = () => {
+            assignProfileToCargo.mutate({ cargoId, profileId: selectedProfileId }, {
+                onSuccess: () => {
+                    const cargoName = cargos.find((c: any) => c.id === cargoId)?.nome;
+                    logAction('vincular_perfil_seguranca', 'security_profiles', selectedProfileId, { cargo: cargoName });
+                    toast.success('Cargo vinculado!');
+                    setAssignCargoOpen(false);
+                    queryClient.invalidateQueries({ queryKey: ['security-profile-cargos', selectedProfileId] });
+                },
+            });
+        };
+
+        if (selectedProfile.is_protected) {
+            requireAdminAuth(selectedProfile.id, selectedProfile.name, performAssign, {
+                passwordHash: selectedProfile.protection_password,
+                mfaSecret: selectedProfile.protection_mfa_secret
+            });
+        } else {
+            performAssign();
+        }
     };
 
     const handleRemoveCargo = (cargoId: string) => {
-        assignProfileToCargo.mutate({ cargoId, profileId: null }, {
-            onSuccess: () => {
-                toast.success('Cargo removido do perfil.');
-                queryClient.invalidateQueries({ queryKey: ['security-profile-cargos', selectedProfileId] });
-            },
-        });
+        if (!selectedProfileId || !selectedProfile) return;
+
+        const performRemove = () => {
+            assignProfileToCargo.mutate({ cargoId, profileId: null }, {
+                onSuccess: () => {
+                    toast.success('Cargo removido do perfil.');
+                    queryClient.invalidateQueries({ queryKey: ['security-profile-cargos', selectedProfileId] });
+                },
+            });
+        };
+
+        if (selectedProfile.is_protected) {
+            requireAdminAuth(selectedProfile.id, selectedProfile.name, performRemove, {
+                passwordHash: selectedProfile.protection_password,
+                mfaSecret: selectedProfile.protection_mfa_secret
+            });
+        } else {
+            performRemove();
+        }
     };
 
     const activeProfiles = profiles.filter(p => !p.disabled).length;
@@ -1222,20 +1271,7 @@ const Configuracoes = () => {
                                         }}>
                                             <Pencil className="w-3 h-3" /> Editar
                                         </Button>
-                                        <Button variant="outline" size="sm" className="gap-1 text-destructive hover:bg-destructive/10" onClick={() => {
-                                            if (selectedProfile.is_protected) {
-                                                requireAdminAuth(
-                                                    selectedProfile.name, 
-                                                    () => setConfirmDeleteId(selectedProfile.id),
-                                                    { 
-                                                        passwordHash: selectedProfile.protection_password,
-                                                        mfaSecret: selectedProfile.protection_mfa_secret
-                                                    }
-                                                );
-                                            } else {
-                                                setConfirmDeleteId(selectedProfile.id);
-                                            }
-                                        }}>
+                                        <Button variant="outline" size="sm" className="gap-1 text-destructive hover:bg-destructive/10" onClick={() => setConfirmDeleteId(selectedProfile.id)}>
                                             <Trash2 className="w-3 h-3" /> Excluir
                                         </Button>
                                     </>
@@ -2107,6 +2143,17 @@ const Configuracoes = () => {
                                             }}>Gerar</Button>
                                         </div>
                                     </div>
+                                    {((editingProfile as any).new_protection_mfa_secret || (editingProfile as any).protection_mfa_secret) && (
+                                        <div className="mt-3 p-4 bg-white/5 rounded-lg flex flex-col items-center justify-center gap-2 border border-border/40">
+                                            <div className="bg-white p-2 rounded">
+                                                <QRCodeSVG 
+                                                    value={`otpauth://totp/SGC%20Protegido%20(Perfil):${encodeURIComponent(editingProfile.name)}?secret=${(editingProfile as any).new_protection_mfa_secret || (editingProfile as any).protection_mfa_secret}&issuer=SGC`} 
+                                                    size={120} 
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground text-center">Escaneie o QR Code usando o Google Authenticator ou similar.</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -2453,6 +2500,17 @@ const Configuracoes = () => {
                                             }}>Gerar</Button>
                                         </div>
                                     </div>
+                                    {((editingCargo as any).new_protection_mfa_secret || (editingCargo as any).protection_mfa_secret) && (
+                                        <div className="mt-3 p-4 bg-white/5 rounded-lg flex flex-col items-center justify-center gap-2 border border-border/40">
+                                            <div className="bg-white p-2 rounded">
+                                                <QRCodeSVG 
+                                                    value={`otpauth://totp/SGC%20Protegido%20(Cargo):${encodeURIComponent(editingCargo.nome)}?secret=${(editingCargo as any).new_protection_mfa_secret || (editingCargo as any).protection_mfa_secret}&issuer=SGC`} 
+                                                    size={120} 
+                                                />
+                                            </div>
+                                            <p className="text-[10px] text-muted-foreground text-center">Escaneie o QR Code usando o Google Authenticator ou similar.</p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

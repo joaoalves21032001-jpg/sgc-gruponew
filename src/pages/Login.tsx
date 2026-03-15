@@ -173,9 +173,6 @@ const Login = () => {
     }
     setSubmitting(true);
     try {
-      const nomeEmergencia1Concat = requestForm.vinculo_emergencia_1 ? `${requestForm.nome_emergencia_1} (${requestForm.vinculo_emergencia_1})` : requestForm.nome_emergencia_1;
-      const nomeEmergencia2Concat = requestForm.vinculo_emergencia_2 ? `${requestForm.nome_emergencia_2} (${requestForm.vinculo_emergencia_2})` : requestForm.nome_emergencia_2;
-
       const { data, error } = await supabase.functions.invoke('request-access', {
         body: {
           nome: requestForm.nome, email: requestForm.email, telefone: requestForm.telefone,
@@ -183,9 +180,11 @@ const Login = () => {
           endereco: requestForm.endereco, cargo: requestForm.cargo,
           nivel_acesso: requestForm.nivel_acesso,
           numero_emergencia_1: requestForm.numero_emergencia_1 || null,
+          nome_emergencia_1: requestForm.nome_emergencia_1 || null,
+          vinculo_emergencia_1: requestForm.vinculo_emergencia_1 || null,
           numero_emergencia_2: requestForm.numero_emergencia_2 || null,
-          nome_emergencia_1: nomeEmergencia1Concat || null,
-          nome_emergencia_2: nomeEmergencia2Concat || null,
+          nome_emergencia_2: requestForm.nome_emergencia_2 || null,
+          vinculo_emergencia_2: requestForm.vinculo_emergencia_2 || null,
           supervisor_id: selectedSupervisor === 'nenhum' ? null : selectedSupervisor || null,
           gerente_id: selectedGerente || null,
           data_admissao: requestForm.data_admissao || null,

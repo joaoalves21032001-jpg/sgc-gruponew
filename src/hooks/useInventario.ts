@@ -214,13 +214,19 @@ export interface Lead {
   companhia_nome: string | null;
   valor: number | null;
   plano_anterior: boolean;
+  tempo_follow_up_dias: number;
+  data_ultimo_contato: string | null;
+  _stage_name?: string | null;
 }
 
 export function useLeads() {
   return useQuery({
     queryKey: ['leads'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('leads').select('*').order('nome');
+      const { data, error } = await supabase
+        .from('leads')
+        .select('*, lead_stages(nome)')
+        .order('nome');
       if (error) throw error;
       // Hydrate virtual fields from origem JSON
       return (data ?? []).map((row: any) => {
@@ -233,6 +239,9 @@ export function useLeads() {
           quantidade_vidas: ext.quantidade_vidas || null,
           valor: ext.valor || null,
           plano_anterior: ext.plano_anterior || false,
+          tempo_follow_up_dias: row.tempo_follow_up_dias || 0,
+          data_ultimo_contato: row.data_ultimo_contato || null,
+          _stage_name: (row.lead_stages as any)?.nome || null,
         } as Lead;
       });
     },

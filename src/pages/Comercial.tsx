@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { format, isToday, parse, isValid } from 'date-fns';
+import { format, isToday, parse, isValid, parseISO, addDays, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   Phone, MessageSquare, FileText, CheckCircle2, RotateCcw, Info, Save, Send,
@@ -88,6 +88,7 @@ interface AtividadesForm {
   justificativa: string; // Cenários A + retroativo
   justificativa_nao_resposta: string; // Cenário B
   justificativa_atraso: string; // Cenário C
+  justificativa_baixa_resposta: string; // Cenário D
 }
 
 function calcRate(a: string, b: string): string {
@@ -112,7 +113,17 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   
   const followUpAgendado = useMemo(() => {
     if (!leads || !user) return 0;
-    return leads.filter((l: any) => l.created_by === user.id && ['Aguardando retorno', 'Declinado'].includes(l.status)).length;
+    return leads.filter((l: any) => {
+      if (l.created_by !== user.id) return false;
+      // Excluir leads em estágios finais (RN-03)
+      const stage = l._stage_name?.toLowerCase() || '';
+      if (stage.includes('venda realizada') || stage.includes('implantada')) return false;
+
+      if (!l.tempo_follow_up_dias || !l.data_ultimo_contato) return false;
+      const lastContact = parseISO(l.data_ultimo_contato);
+      const dueDate = addDays(lastContact, l.tempo_follow_up_dias);
+      return isPast(dueDate);
+    }).length;
   }, [leads, user]);
 
   const { data: myVendas } = useMyVendas();
@@ -179,6 +190,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
         justificativa: '',
         justificativa_nao_resposta: '',
         justificativa_atraso: '',
+        justificativa_baixa_resposta: '',
       });
       try {
         const d = parse(editAtividade.data, 'yyyy-MM-dd', new Date());
@@ -240,9 +252,9 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
     if (isRetroativo) {
       cenarioA = true;
       cenarioAReason = 'A justificativa é obrigatória para lançamentos fora da data atual e será enviada à diretoria.';
-    } else if ((lig + msg) > 0 && cotRealizadas < Math.floor((lig + msg) * 0.1)) {
+    } else if ((lig + msg) > 0 && cotRealizadas < Math.ceil((lig + msg) * 0.1)) {
       cenarioA = true;
-      cenarioAReason = 'A taxa de cotações realizadas está abaixo da meta (10% dos contatos). Justifique o baixo rendimento.';
+      cenarioAReason = 'A taxa de cotações realizadas está abaixo do mínimo (10% dos contatos). Justifique o rendimento para liberar o registro.';
     } else if (cotRealizadas > 0 && cotEnviadas < cotRealizadas) {
       cenarioA = true;
       cenarioAReason = 'Cotações Enviadas deve ser igual a Cotações Realizadas (meta 100%). Justifique o motivo de não ter enviado todas as cotações.';
@@ -256,10 +268,11 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
     const cenarioC = followUpAgendado > 0 && followUpRealizado < followUpAgendado;
     const cenarioCReason = `Você realizou ${followUpRealizado} follow-up(s), mas havia ${followUpAgendado} agendado(s). Justifique os atrasos.`;
 
-    // Visual Alert (não bloqueante): Respondidas < 50% das Enviadas
-    const showRespondidosAlert = cotEnviadas > 0 && cotRespondidas < Math.ceil(cotEnviadas * 0.5);
+    // Cenário D: Respondidas < 50% das Enviadas (Meta 50%)
+    const cenarioD = cotEnviadas > 0 && cotRespondidas < Math.ceil(cotEnviadas * 0.5);
+    const cenarioDReason = 'A sua taxa de resposta está abaixo de 50%. Por favor, justifique o motivo da baixa conversão para enviar as atividades.';
 
-    return { cenarioA, cenarioAReason, cenarioB, cenarioBReason, cenarioC, cenarioCReason, showRespondidosAlert };
+    return { cenarioA, cenarioAReason, cenarioB, cenarioBReason, cenarioC, cenarioCReason, cenarioD, cenarioDReason, showRespondidosAlert: cenarioD };
   }, [isRetroativo, form.ligacoes, form.mensagens, form.cotacoes_realizadas, form.cotacoes_enviadas, form.cotacoes_respondidas, form.cotacoes_nao_respondidas, form.follow_up_realizado, followUpAgendado]);
 
   const canSave = useMemo(() => {
@@ -267,8 +280,9 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
     if (validations.cenarioA && !form.justificativa.trim()) return false;
     if (validations.cenarioB && !form.justificativa_nao_resposta.trim()) return false;
     if (validations.cenarioC && !form.justificativa_atraso.trim()) return false;
+    if (validations.cenarioD && !form.justificativa_baixa_resposta.trim()) return false;
     return true;
-  }, [allFilled, validations, form.justificativa, form.justificativa_nao_resposta, form.justificativa_atraso]);
+  }, [allFilled, validations, form.justificativa, form.justificativa_nao_resposta, form.justificativa_atraso, form.justificativa_baixa_resposta]);
 
   const conversionRates = [
     { label: 'Ligações → Cotações Enviadas', value: calcRate(form.ligacoes, form.cotacoes_enviadas) },
@@ -281,10 +295,11 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
       const missingJustification = 
         (validations.cenarioA && !form.justificativa.trim()) ||
         (validations.cenarioB && !form.justificativa_nao_resposta.trim()) ||
-        (validations.cenarioC && !form.justificativa_atraso.trim());
+        (validations.cenarioC && !form.justificativa_atraso.trim()) ||
+        (validations.cenarioD && !form.justificativa_baixa_resposta.trim());
 
       toast.error(needsJustification && missingJustification 
-        ? 'A justificativa é obrigatória para os cenários atípicos.' 
+        ? 'A justificativa é obrigatória para os cenários atípicos (retroativo, metas baixas ou atrasos).' 
         : 'Preencha todos os campos obrigatórios.');
       return; 
     }
@@ -356,6 +371,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
         justificativa: form.justificativa || null,
         justificativa_nao_resposta: form.justificativa_nao_resposta || null,
         justificativa_atraso: form.justificativa_atraso || null,
+        justificativa_baixa_resposta: form.justificativa_baixa_resposta || null,
       } as any);
       
       // Clear session draft after successful save
@@ -403,7 +419,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
           '/aprovacoes'
         );
       }
-      setForm({ ligacoes: '', mensagens: '', cotacoes_realizadas: '', cotacoes_enviadas: '', cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '' });
+      setForm({ ligacoes: '', mensagens: '', cotacoes_realizadas: '', cotacoes_enviadas: '', cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '', justificativa_nao_resposta: '', justificativa_atraso: '', justificativa_baixa_resposta: '' });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao registrar atividades.');
     } finally {
@@ -520,6 +536,18 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
             <Textarea placeholder="Explique o motivo de não ter realizado todos os follow-ups agendados..." value={form.justificativa_atraso} onChange={(e) => update('justificativa_atraso', e.target.value)} rows={3} disabled={!canEdit} className="border-blue-200 focus:border-blue-400 disabled:opacity-60 disabled:cursor-not-allowed" />
           </div>
         )}
+        
+        {/* Cenário D: Baixa Taxa de Resposta */}
+        {allFilled && validations.cenarioD && (
+          <div className="mt-3 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-lg space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+              <p className="text-sm font-medium text-foreground">Justificativa de Baixa Taxa de Resposta (obrigatória)</p>
+            </div>
+            <p className="text-xs text-muted-foreground">{validations.cenarioDReason}</p>
+            <Textarea placeholder="Explique por que os clientes não estão respondendo às cotações enviadas..." value={form.justificativa_baixa_resposta} onChange={(e) => update('justificativa_baixa_resposta', e.target.value)} rows={3} disabled={!canEdit} className="border-amber-200 focus:border-amber-400 disabled:opacity-60 disabled:cursor-not-allowed" />
+          </div>
+        )}
 
         {allFilled && (
           <>
@@ -527,8 +555,33 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <BarChart3 className="w-4 h-4 text-primary" />
-                <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em]">Desempenho do Dia</h3>
+                <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em]">Resumo de Performance e Gamificação</h3>
               </div>
+              
+              {/* Performance Tier & Phrase Summary */}
+              {(() => {
+                const totalVol = (parseInt(form.ligacoes) || 0) + (parseInt(form.mensagens) || 0);
+                const tier = getPerformanceTierInfo(totalVol);
+                const frase = getDailyFraseMotivacional(totalVol);
+                return (
+                  <div className="mb-4 p-4 rounded-xl border border-border/40 bg-muted/20 relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 w-32 h-32 -mr-16 -mt-16 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-700" />
+                    <div className="flex items-start gap-4">
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg" style={{ backgroundColor: tier.color }}>
+                        <Flag className="w-6 h-6 text-white" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-bold font-display uppercase tracking-widest" style={{ color: tier.color }}>{tier.name}</span>
+                          <Badge variant="outline" className="text-[10px] font-mono py-0 h-4 bg-card/50">{totalVol} contatos</Badge>
+                        </div>
+                        <p className="text-xs italic text-muted-foreground leading-relaxed">"{frase}"</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {conversionRates.map((r) => (
                   <div key={r.label} className="flex items-center justify-between p-3 bg-muted/40 rounded-lg border border-border/20">
@@ -601,10 +654,12 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
                 <span className="font-medium text-foreground">{form[m.key] || '0'}</span>
               </div>
             ))}
-            {requiresJustification && (
-              <div className="pt-2 border-t border-border/20">
-                <p className="text-xs font-semibold text-muted-foreground mb-1">Justificativa Exigida</p>
-                <p className="text-xs text-foreground bg-warning/10 p-2 rounded border border-warning/20">{form.justificativa}</p>
+            {(validations.cenarioA || validations.cenarioB || validations.cenarioC) && (
+              <div className="pt-2 border-t border-border/20 space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground mb-1">Justificativas</p>
+                {validations.cenarioA && form.justificativa && <p className="text-xs text-foreground bg-warning/10 p-2 rounded border border-warning/20">{form.justificativa}</p>}
+                {validations.cenarioB && form.justificativa_nao_resposta && <p className="text-xs text-foreground bg-warning/10 p-2 rounded border border-warning/20">{form.justificativa_nao_resposta}</p>}
+                {validations.cenarioC && form.justificativa_atraso && <p className="text-xs text-foreground bg-warning/10 p-2 rounded border border-warning/20">{form.justificativa_atraso}</p>}
               </div>
             )}
           </div>

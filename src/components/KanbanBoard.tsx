@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { differenceInDays, addDays, isPast, parseISO } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import confetti from 'canvas-confetti';
@@ -66,7 +67,18 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, onAssume, lead
   const canAssume = lead.livre && lead.created_by !== currentUserId && canEditOwn; // need edit permission to assume
   const isOwner = lead.created_by === currentUserId;
   const canEditLead = isAdmin || (canEditOwn && isOwner);
-  const showMenu = canEditLead || isAdmin; // Admin can always delete/edit. Regular user can edit if owner.
+  const showMenu = canEditLead || isAdmin;
+
+  const followUpStatus = useMemo(() => {
+    const stage = stageName?.toLowerCase() || '';
+    if (stage.includes('venda realizada') || stage.includes('implantada')) return null;
+    if (!lead.tempo_follow_up_dias || !lead.data_ultimo_contato) return null;
+    const lastContact = parseISO(lead.data_ultimo_contato);
+    const dueDate = addDays(lastContact, lead.tempo_follow_up_dias);
+    const isDue = isPast(dueDate);
+    const daysOverdue = differenceInDays(new Date(), dueDate);
+    return { isDue, daysOverdue };
+  }, [lead.tempo_follow_up_dias, lead.data_ultimo_contato, stageName]);
 
   return (
     <div
@@ -84,6 +96,11 @@ function LeadCard({ lead, isAdmin, onEdit, onDelete, onDragStart, onAssume, lead
             <Badge variant="outline" className="text-[9px]">{lead.tipo}</Badge>
             {lead.produto && <Badge variant="outline" className="text-[9px] bg-primary/10 text-primary border-primary/20">{lead.produto}</Badge>}
             {lead.livre && <Badge className="text-[9px] bg-success/10 text-success border-success/20">Livre</Badge>}
+            {followUpStatus?.isDue && (
+              <Badge className="text-[9px] bg-destructive/10 text-destructive border-destructive/20 animate-pulse">
+                Follow-up {followUpStatus.daysOverdue > 0 ? `${followUpStatus.daysOverdue}d atrasado` : 'hoje'}
+              </Badge>
+            )}
           </div>
           {valor !== null && (
             <p className="text-xs font-bold text-emerald-600 mt-1 flex items-center gap-1">
@@ -353,13 +370,18 @@ export function KanbanBoard({ permissionNamespace = 'crm.leads' }: { permissionN
         if (!s) return 0;
         const name = s.nome.toLowerCase();
         // Peso 7 — Fase Final Absoluta (nenhuma saída permitida)
-        if (name.includes('vendas implantadas') || name.includes('implantadas')) return 7;
-        // Peso 6 — Fechamento comercial (pode avançar para Vendas Implantadas)
-        if (name.includes('venda realizada')) return 6;
+        if (name.includes('vendas implantadas')) return 7;
+        // Peso 6 — Fechamento comercial / Venda Realizada
+        if (name.includes('venda realizada') || name.includes('fechamento comercial')) return 6;
+        // Peso 5 — Aguardando retorno / Declinado
         if (name.includes('aguardando retorno') || name.includes('declinado')) return 5;
+        // Peso 4 — Negociação
         if (name.includes('negociação')) return 4;
+        // Peso 3 — Envio de Cotação
         if (name.includes('envio de cotação') || name.includes('cotação')) return 3;
+        // Peso 2 — Sem retorno (ex-Sem contato)
         if (name.includes('sem retorno') || name.includes('sem contato')) return 2;
+        // Peso 1 — Primeiro contato
         if (name.includes('primeiro contato')) return 1;
         return 0;
       };
@@ -686,7 +708,9 @@ export function KanbanBoard({ permissionNamespace = 'crm.leads' }: { permissionN
         tipo: 'lead',
         statusAtual: (approvalDialog.lead as any).status || 'pendente',
         justificativa: `[${approvalDialog.type === 'edit' ? 'Edição' : 'Exclusão'}] ${approvalJustificativa.trim()}`,
-        alteracoesPropostas: [], // Lead permission request has no specific field diff
+        alteracoesPropostas: approvalDialog.type === 'edit' ? [
+          { campo: 'tempo_follow_up_dias', valorAntigo: approvalDialog.lead.tempo_follow_up_dias, valorNovo: parseInt(form.tempoFollowUpDias) }
+        ] : [],
       });
 
       if (!payload.autoApproved) {
