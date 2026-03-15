@@ -79,7 +79,7 @@ const Configuracoes = () => {
     const { data: profile } = useProfile();
     const logAction = useLogAction();
     const queryClient = useQueryClient();
-    const { data: myPagePermissions } = useMyPermissions();
+    const { data: myPermissions } = useMyPermissions();
 
     // Log Retention
     const [retentionMonths, setRetentionMonths] = useState('6');
@@ -868,7 +868,7 @@ const Configuracoes = () => {
 
     const isCurrentUserSuperadmin = securityProfiles.find(sp => sp.id === (profile as any)?.security_profile_id)?.name.toLowerCase().includes('superadmin');
 
-    if (role !== 'administrador' && !hasPermission(myPagePermissions, 'configuracoes', 'view') && !isCurrentUserSuperadmin) {
+    if (role !== 'administrador' && !hasPermission(myPermissions, 'configuracoes', 'view') && !isCurrentUserSuperadmin) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
                 <div className="text-center space-y-2">
@@ -957,7 +957,7 @@ const Configuracoes = () => {
                                     ))}
                                 </div>
                             </div>
-                            {hasPermission(myPagePermissions, 'configuracoes', 'edit') && (
+                            {hasPermission(myPermissions, 'configuracoes', 'edit') && (
                             <Button
                                 size="sm"
                                 className="shrink-0 gap-2 font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-brand"
@@ -991,7 +991,7 @@ const Configuracoes = () => {
                                 <BrainCircuit className="w-6 h-6 text-primary" />
                                 <h2 className="text-lg font-bold font-display text-foreground">Inteligência Artificial (Stark)</h2>
                             </div>
-                            {hasPermission(myPagePermissions, 'configuracoes', 'edit') && (
+                            {hasPermission(myPermissions, 'configuracoes', 'edit') && (
                             <Button size="sm" className="gap-1.5 font-semibold shadow-brand" onClick={() => setNewKbOpen(true)}>
                                 <Plus className="w-3.5 h-3.5" /> Ensinar a IA
                             </Button>
@@ -1790,7 +1790,7 @@ const Configuracoes = () => {
                             Configure quais eventos geram notificações e para quem. Ative/desative regras e altere o público-alvo conforme necessário.
                         </p>
 
-                        {!hasPermission(myPagePermissions, 'configuracoes', 'edit') && (
+                        {!hasPermission(myPermissions, 'configuracoes', 'edit') && (
                             <div className="p-3 bg-warning/8 border border-warning/20 rounded-lg flex items-center gap-2">
                                 <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
                                 <p className="text-xs text-muted-foreground">Você possui permissão apenas para <strong>visualizar</strong>. Edição desabilitada pelo seu perfil de segurança.</p>
@@ -1813,7 +1813,7 @@ const Configuracoes = () => {
                             <div className="rounded-lg border border-border/30 overflow-hidden">
                                 <div className="p-3 bg-muted/20 border-b flex justify-between items-center">
                                     <h3 className="text-sm font-semibold">Regras Configuradas</h3>
-                                    {hasPermission(myPagePermissions, 'configuracoes', 'edit') && (
+                                    {hasPermission(myPermissions, 'configuracoes', 'edit') && (
                                         <Button size="sm" className="h-8 gap-1.5" onClick={() => setNewRuleOpen(true)}>
                                             <Plus className="w-3.5 h-3.5" /> Nova Regra
                                         </Button>
@@ -1830,7 +1830,7 @@ const Configuracoes = () => {
                                     </thead>
                                     <tbody>
                                         {notifRules.map((rule: NotificationRule) => {
-                                            const canEditRules = hasPermission(myPagePermissions, 'configuracoes', 'edit');
+                                            const canEditRules = hasPermission(myPermissions, 'configuracoes', 'edit');
                                             return (
                                                 <tr key={rule.id} className="border-b border-border/10 hover:bg-muted/10 transition-colors">
                                                     <td className="py-2.5 px-3">
@@ -1887,7 +1887,7 @@ const Configuracoes = () => {
                             Configure quais ações o sistema registra automaticamente nos logs de auditoria. Ative ou desative eventos por categoria conforme a necessidade.
                         </p>
 
-                        {!hasPermission(myPagePermissions, 'logs_auditoria', 'edit') && (
+                        {!hasPermission(myPermissions, 'logs_auditoria', 'edit') && (
                             <div className="p-3 bg-warning/8 border border-warning/20 rounded-lg flex items-center gap-2">
                                 <AlertTriangle className="w-4 h-4 text-warning shrink-0" />
                                 <p className="text-xs text-muted-foreground">Você possui permissão apenas para <strong>visualizar</strong>. Edição desabilitada pelo seu perfil de segurança.</p>
@@ -1910,7 +1910,7 @@ const Configuracoes = () => {
                             <div className="rounded-lg border border-border/30 overflow-hidden">
                                 <div className="p-3 bg-muted/20 border-b flex justify-between items-center">
                                     <h3 className="text-sm font-semibold">Eventos Configurados</h3>
-                                    {hasPermission(myPagePermissions, 'logs_auditoria', 'edit') && (
+                                    {hasPermission(myPermissions, 'logs_auditoria', 'edit') && (
                                         <Button size="sm" className="h-8 gap-1.5" onClick={() => setNewEventOpen(true)}>
                                             <Plus className="w-3.5 h-3.5" /> Novo Evento
                                         </Button>
@@ -1923,7 +1923,7 @@ const Configuracoes = () => {
                                             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{cat.label}</span>
                                         </div>
                                         {auditLogConfig.filter(e => e.category === cat.key).map((event: AuditLogConfig) => {
-                                            const canEdit = hasPermission(myPagePermissions, 'logs_auditoria', 'edit');
+                                            const canEdit = hasPermission(myPermissions, 'logs_auditoria', 'edit');
                                             return (
                                                 <div key={event.id} className="flex items-center justify-between px-3 py-2.5 border-b border-border/10 hover:bg-muted/10 transition-colors">
                                                     <div className="flex-1 min-w-0">
@@ -1949,7 +1949,7 @@ const Configuracoes = () => {
                                 ))}
                                 {/* Uncategorized */}
                                 {auditLogConfig.filter(e => !AUDIT_CATEGORIES.some(c => c.key === e.category)).map((event: AuditLogConfig) => {
-                                    const canEdit = hasPermission(myPagePermissions, 'logs_auditoria', 'edit');
+                                    const canEdit = hasPermission(myPermissions, 'logs_auditoria', 'edit');
                                     return (
                                         <div key={event.id} className="flex items-center justify-between px-3 py-2.5 border-b border-border/10 hover:bg-muted/10 transition-colors">
                                             <div className="flex-1 min-w-0">

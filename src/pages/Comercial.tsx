@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -150,7 +151,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
       } catch { /* ignore */ }
     }
     return { ligacoes: '', mensagens: '', cotacoes_realizadas: '', cotacoes_enviadas: '',
-      cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', follow_up_realizado: '', justificativa: '', justificativa_nao_resposta: '', justificativa_atraso: '' };
+      cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', follow_up_realizado: '', justificativa: '', justificativa_nao_resposta: '', justificativa_atraso: '', justificativa_baixa_resposta: '' };
   };
 
   const [form, setForm] = useState<AtividadesForm>(getInitialForm);
@@ -419,7 +420,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
           '/aprovacoes'
         );
       }
-      setForm({ ligacoes: '', mensagens: '', cotacoes_realizadas: '', cotacoes_enviadas: '', cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '', justificativa_nao_resposta: '', justificativa_atraso: '', justificativa_baixa_resposta: '' });
+      setForm({ ligacoes: '', mensagens: '', cotacoes_realizadas: '', cotacoes_enviadas: '', cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', follow_up_realizado: '', justificativa: '', justificativa_nao_resposta: '', justificativa_atraso: '', justificativa_baixa_resposta: '' });
     } catch (err: any) {
       toast.error(err.message || 'Erro ao registrar atividades.');
     } finally {
@@ -512,40 +513,40 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
             </div>
           </FieldWithTooltip>
         </div>
+        {allFilled && (validations.cenarioB || validations.cenarioC || validations.cenarioD) && (
+          <div className="space-y-3 mt-5">
+            {validations.cenarioB && (
+              <div className="p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/40 rounded-xl space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-orange-500 shrink-0" />
+                  <p className="text-sm font-semibold text-foreground">Justificativa de Não Resposta (obrigatória)</p>
+                </div>
+                <p className="text-xs text-muted-foreground">{validations.cenarioBReason}</p>
+                <Textarea placeholder="Explique por que essas cotações ainda não receberam resposta..." value={form.justificativa_nao_resposta} onChange={(e) => update('justificativa_nao_resposta', e.target.value)} rows={3} disabled={!canEdit} className="border-orange-200 focus:border-orange-400 disabled:opacity-60 disabled:cursor-not-allowed" />
+              </div>
+            )}
 
-        {/* Cenário B: Cotações Não Respondidas */}
-        {allFilled && validations.cenarioB && (
-          <div className="mt-5 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/40 rounded-lg space-y-3">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-orange-500 shrink-0" />
-              <p className="text-sm font-medium text-foreground">Justificativa de Não Resposta (obrigatória)</p>
-            </div>
-            <p className="text-xs text-muted-foreground">{validations.cenarioBReason}</p>
-            <Textarea placeholder="Explique por que essas cotações ainda não receberam resposta..." value={form.justificativa_nao_resposta} onChange={(e) => update('justificativa_nao_resposta', e.target.value)} rows={3} disabled={!canEdit} className="border-orange-200 focus:border-orange-400 disabled:opacity-60 disabled:cursor-not-allowed" />
-          </div>
-        )}
+            {validations.cenarioC && (
+              <div className="p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-xl space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-blue-500 shrink-0" />
+                  <p className="text-sm font-semibold text-foreground">Justificativa de Atraso de Follow-up (obrigatória)</p>
+                </div>
+                <p className="text-xs text-muted-foreground">{validations.cenarioCReason}</p>
+                <Textarea placeholder="Explique o motivo de não ter realizado todos os follow-ups agendados..." value={form.justificativa_atraso} onChange={(e) => update('justificativa_atraso', e.target.value)} rows={3} disabled={!canEdit} className="border-blue-200 focus:border-blue-400 disabled:opacity-60 disabled:cursor-not-allowed" />
+              </div>
+            )}
 
-        {/* Cenário C: Follow-up Realizado < Agendado */}
-        {allFilled && validations.cenarioC && (
-          <div className="mt-3 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-lg space-y-3">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-blue-500 shrink-0" />
-              <p className="text-sm font-medium text-foreground">Justificativa de Atraso de Follow-up (obrigatória)</p>
-            </div>
-            <p className="text-xs text-muted-foreground">{validations.cenarioCReason}</p>
-            <Textarea placeholder="Explique o motivo de não ter realizado todos os follow-ups agendados..." value={form.justificativa_atraso} onChange={(e) => update('justificativa_atraso', e.target.value)} rows={3} disabled={!canEdit} className="border-blue-200 focus:border-blue-400 disabled:opacity-60 disabled:cursor-not-allowed" />
-          </div>
-        )}
-        
-        {/* Cenário D: Baixa Taxa de Resposta */}
-        {allFilled && validations.cenarioD && (
-          <div className="mt-3 p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-lg space-y-3">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
-              <p className="text-sm font-medium text-foreground">Justificativa de Baixa Taxa de Resposta (obrigatória)</p>
-            </div>
-            <p className="text-xs text-muted-foreground">{validations.cenarioDReason}</p>
-            <Textarea placeholder="Explique por que os clientes não estão respondendo às cotações enviadas..." value={form.justificativa_baixa_resposta} onChange={(e) => update('justificativa_baixa_resposta', e.target.value)} rows={3} disabled={!canEdit} className="border-amber-200 focus:border-amber-400 disabled:opacity-60 disabled:cursor-not-allowed" />
+            {validations.cenarioD && (
+              <div className="p-4 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/40 rounded-xl space-y-3">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                  <p className="text-sm font-semibold text-foreground">Justificativa de Baixa Taxa de Resposta (obrigatória)</p>
+                </div>
+                <p className="text-xs text-muted-foreground">{validations.cenarioDReason}</p>
+                <Textarea placeholder="Explique por que os clientes não estão respondendo às cotações enviadas..." value={form.justificativa_baixa_resposta} onChange={(e) => update('justificativa_baixa_resposta', e.target.value)} rows={3} disabled={!canEdit} className="border-amber-200 focus:border-amber-400 disabled:opacity-60 disabled:cursor-not-allowed" />
+              </div>
+            )}
           </div>
         )}
 
@@ -557,42 +558,91 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
                 <BarChart3 className="w-4 h-4 text-primary" />
                 <h3 className="text-xs font-bold text-muted-foreground font-display uppercase tracking-[0.08em]">Resumo de Performance e Gamificação</h3>
               </div>
-              
-              {/* Performance Tier & Phrase Summary */}
+
               {(() => {
-                const totalVol = (parseInt(form.ligacoes) || 0) + (parseInt(form.mensagens) || 0);
+                const ligs = parseInt(form.ligacoes) || 0;
+                const msgs = parseInt(form.mensagens) || 0;
+                const cotsEnv = parseInt(form.cotacoes_enviadas) || 0;
+                const cotsResp = parseInt(form.cotacoes_respondidas) || 0;
+                const totalVol = ligs + msgs;
+
                 const tier = getPerformanceTierInfo(totalVol);
                 const frase = getDailyFraseMotivacional(totalVol);
+
+                const convRate = totalVol > 0 ? (cotsEnv / totalVol) * 100 : 0;
+                const respRate = cotsEnv > 0 ? (cotsResp / cotsEnv) * 100 : 0;
+                const convOk = convRate >= 10;
+                const respOk = respRate >= 50;
+
                 return (
-                  <div className="mb-4 p-4 rounded-xl border border-border/40 bg-muted/20 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 -mr-16 -mt-16 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-700" />
-                    <div className="flex items-start gap-4">
-                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-lg" style={{ backgroundColor: tier.color }}>
-                        <Flag className="w-6 h-6 text-white" />
+                  <div className="space-y-4">
+                    {/* Tier Banner */}
+                    <div className="p-5 rounded-2xl border flex items-center gap-4 relative overflow-hidden" style={{ borderColor: tier.color + '40', backgroundColor: tier.color + '10' }}>
+                      <div className="absolute inset-0 pointer-events-none" style={{ background: `radial-gradient(circle at top right, ${tier.color}20 0%, transparent 60%)` }} />
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg text-white text-2xl font-black" style={{ backgroundColor: tier.color }}>
+                        {totalVol}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-bold font-display uppercase tracking-widest" style={{ color: tier.color }}>{tier.name}</span>
-                          <Badge variant="outline" className="text-[10px] font-mono py-0 h-4 bg-card/50">{totalVol} contatos</Badge>
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-base font-black font-display uppercase tracking-widest" style={{ color: tier.color }}>{tier.name}</span>
+                          <Badge variant="outline" className="text-[10px] font-mono py-0 h-5">{ligs} lig. + {msgs} msgs</Badge>
                         </div>
-                        <p className="text-xs italic text-muted-foreground leading-relaxed">"{frase}"</p>
+                        <p className="text-sm italic text-foreground/75 leading-snug">"{frase}"</p>
+                      </div>
+                    </div>
+
+                    {/* Calculation breakdown */}
+                    <div className="rounded-xl border border-border/30 bg-card/50 divide-y divide-border/20 overflow-hidden">
+                      <div className="px-4 py-2.5 flex items-center justify-between bg-muted/30">
+                        <div className="flex items-center gap-2">
+                          <BarChart3 className="w-3.5 h-3.5 text-muted-foreground" />
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Resumo do Cálculo</span>
+                        </div>
+                      </div>
+
+                      {/* Volume */}
+                      <div className="px-4 py-3 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Volume de Contatos</span>
+                          <span className="text-sm font-bold text-foreground">{ligs} + {msgs} = <span className="text-primary">{totalVol}</span></span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                          <div className="h-1.5 rounded-full transition-all duration-700" style={{ width: `${Math.min((totalVol / 100) * 100, 100)}%`, backgroundColor: tier.color }} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{totalVol >= 60 ? '✅ Volume dentro da meta' : `⚠️ Meta sugerida: 60+ contatos/dia (${60 - totalVol} restantes)`}</p>
+                      </div>
+
+                      {/* Conversion */}
+                      <div className="px-4 py-3 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Conversão (Cotações / Volume)</span>
+                          <span className={`text-sm font-bold ${convOk ? 'text-green-600' : 'text-amber-500'}`}>{cotsEnv} / {totalVol} = {convRate.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                          <div className="h-1.5 rounded-full transition-all duration-700" style={{ width: `${Math.min(convRate * 2, 100)}%`, backgroundColor: convOk ? '#16a34a' : '#f59e0b' }} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{convOk ? '✅ Meta de 10% atingida' : `🎯 Meta: 10% — faltam ${Math.max(0, Math.ceil(totalVol * 0.1) - cotsEnv)} cotações`}</p>
+                      </div>
+
+                      {/* Response Rate */}
+                      <div className="px-4 py-3 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground">Taxa de Resposta (Respondidas / Enviadas)</span>
+                          <span className={`text-sm font-bold ${respOk ? 'text-green-600' : 'text-red-500'}`}>{cotsResp} / {cotsEnv} = {respRate.toFixed(1)}%</span>
+                        </div>
+                        <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                          <div className="h-1.5 rounded-full transition-all duration-700" style={{ width: `${Math.min(respRate * 2, 100)}%`, backgroundColor: respOk ? '#16a34a' : '#ef4444' }} />
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">{respOk ? '✅ Taxa de resposta dentro da meta (≥50%)' : `❌ Abaixo de 50% — faltam ${Math.max(0, Math.ceil(cotsEnv * 0.5) - cotsResp)} respostas`}</p>
                       </div>
                     </div>
                   </div>
                 );
               })()}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {conversionRates.map((r) => (
-                  <div key={r.label} className="flex items-center justify-between p-3 bg-muted/40 rounded-lg border border-border/20">
-                    <span className="text-[11px] text-muted-foreground leading-tight">{r.label}</span>
-                    <span className="text-sm font-bold text-primary font-display ml-3">{r.value}</span>
-                  </div>
-                ))}
-              </div>
             </div>
           </>
         )}
+
 
 
       </div>

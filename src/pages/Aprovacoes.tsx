@@ -2179,7 +2179,6 @@ const Aprovacoes = () => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-3">
                   <div>
                     <label className="text-xs font-semibold text-muted-foreground">Emergência 1</label>

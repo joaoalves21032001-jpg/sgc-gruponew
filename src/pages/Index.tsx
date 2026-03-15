@@ -191,32 +191,6 @@ const Index = () => {
         />
       </div>
 
-      {/* Part 6: Gamification daily tier banner */}
-      <div
-        className="rounded-xl p-4 border flex items-center gap-4 shadow-sm"
-        style={{ borderColor: dailyTier.color + '50', backgroundColor: dailyTier.color + '10' }}
-      >
-        <div
-          className="w-10 h-10 rounded-lg flex items-center justify-center text-lg shrink-0 font-bold"
-          style={{ backgroundColor: dailyTier.color + '25', color: dailyTier.color }}
-        >
-          {dailyVolume}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full"
-              style={{ backgroundColor: dailyTier.color, color: '#fff' }}
-            >
-              {dailyTier.name}
-            </span>
-            <span className="text-[10px] text-muted-foreground">
-              Contatos hoje: {stats.today_ligacoes} ligações + {stats.today_mensagens} msgs
-            </span>
-          </div>
-          <p className="text-xs italic text-foreground/80 mt-1 leading-snug">{dailyFrase}</p>
-        </div>
-      </div>
 
       {/* Progress Bar */}
       <div className="bg-card rounded-xl p-6 shadow-card border border-border/30">

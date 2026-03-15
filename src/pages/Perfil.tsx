@@ -207,7 +207,6 @@ const Perfil = () => {
               <InfoRow icon={Mail} label="E-mail" value={profile.email} />
               <InfoRow icon={Phone} label="Celular" value={profile.celular || '—'} />
               <InfoRow icon={CreditCard} label="CPF" value={profile.cpf || '—'} />
-              <InfoRow icon={FileText} label="RG" value={profile.rg || '—'} />
               <InfoRow icon={CalendarDays} label="Data de Admissão" value={(profile as any).data_admissao ? new Date((profile as any).data_admissao + 'T12:00:00').toLocaleDateString('pt-BR') : '—'} />
               <InfoRow icon={Cake} label="Data de Nascimento" value={(profile as any).data_nascimento ? new Date((profile as any).data_nascimento + 'T12:00:00').toLocaleDateString('pt-BR') : '—'} />
               <div className="sm:col-span-2">
@@ -240,7 +239,7 @@ const Perfil = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="p-3 rounded-xl bg-muted/30 border border-border/40">
                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Contato 1</p>
-                <p className="text-sm font-semibold text-foreground">{profile?.nome_emergencia_1 || '—'}</p>
+                <p className="text-sm font-semibold text-foreground">{(profile as any)?.nome_emergencia_1 || '—'}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{(profile as any)?.vinculo_emergencia_1 || 'Vínculo 1'}</span>
                   <p className="text-xs text-muted-foreground font-mono">{profile?.numero_emergencia_1 || '—'}</p>
@@ -248,7 +247,7 @@ const Perfil = () => {
               </div>
               <div className="p-3 rounded-xl bg-muted/30 border border-border/40">
                 <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Contato 2</p>
-                <p className="text-sm font-semibold text-foreground">{profile?.nome_emergencia_2 || '—'}</p>
+                <p className="text-sm font-semibold text-foreground">{(profile as any)?.nome_emergencia_2 || '—'}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{(profile as any)?.vinculo_emergencia_2 || 'Vínculo 2'}</span>
                   <p className="text-xs text-muted-foreground font-mono">{profile?.numero_emergencia_2 || '—'}</p>
@@ -342,8 +341,6 @@ const Perfil = () => {
                 <Input value={editForm.cpf || ''} onChange={e => setEditForm(p => ({ ...p, cpf: maskCPF(e.target.value) }))} placeholder="000.000.000-00" className="h-10" />
               </div>
               <div>
-                <Label className="text-xs font-semibold text-muted-foreground">RG</Label>
-                <Input value={editForm.rg || ''} onChange={e => setEditForm(p => ({ ...p, rg: e.target.value }))} className="h-10" />
               </div>
             </div>
             <div>

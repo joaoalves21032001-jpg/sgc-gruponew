@@ -48,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [mfaChecked, setMfaChecked] = useState(false);
   const [needsMfa, setNeedsMfa] = useState(false);
   const [mfaVerified, setMfaVerified] = useState(false);
+  const currentUserRef = useRef<string | null>(null);
 
   // Safety failsafe: never load infinitely
   useEffect(() => {
@@ -86,7 +87,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     initAuth();
 
-    const currentUserRef = useRef<string | null>(null);
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       if (!mounted) return;
