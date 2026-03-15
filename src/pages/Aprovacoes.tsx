@@ -2181,17 +2181,17 @@ const Aprovacoes = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground">Emergência 1</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Primário</label>
                     <Input value={viewAccess.numero_emergencia_1 || ''} disabled className="h-10 bg-muted/50" />
                   </div>
                   {viewAccess.nome_emergencia_1 && (
                     <div className="grid grid-cols-2 gap-2 animate-fade-in">
                       <div>
-                        <label className="text-xs font-semibold text-muted-foreground">Nome 1</label>
+                        <label className="text-xs font-semibold text-muted-foreground">Nome</label>
                         <Input value={viewAccess.nome_emergencia_1 || ''} disabled className="h-10 bg-muted/50" />
                       </div>
                       <div>
-                        <label className="text-xs font-semibold text-muted-foreground">Vínculo 1</label>
+                        <label className="text-xs font-semibold text-muted-foreground">Vínculo</label>
                         <Input value={viewAccess.vinculo_emergencia_1 || ''} disabled className="h-10 bg-muted/50" />
                       </div>
                     </div>
@@ -2199,17 +2199,17 @@ const Aprovacoes = () => {
                 </div>
                 <div className="space-y-3">
                   <div>
-                    <label className="text-xs font-semibold text-muted-foreground">Emergência 2</label>
+                    <label className="text-xs font-semibold text-muted-foreground">Secundário</label>
                     <Input value={viewAccess.numero_emergencia_2 || ''} disabled className="h-10 bg-muted/50" />
                   </div>
                   {viewAccess.nome_emergencia_2 && (
                     <div className="grid grid-cols-2 gap-2 animate-fade-in">
                       <div>
-                        <label className="text-xs font-semibold text-muted-foreground">Nome 2</label>
+                        <label className="text-xs font-semibold text-muted-foreground">Nome</label>
                         <Input value={viewAccess.nome_emergencia_2 || ''} disabled className="h-10 bg-muted/50" />
                       </div>
                       <div>
-                        <label className="text-xs font-semibold text-muted-foreground">Vínculo 2</label>
+                        <label className="text-xs font-semibold text-muted-foreground">Vínculo</label>
                         <Input value={viewAccess.vinculo_emergencia_2 || ''} disabled className="h-10 bg-muted/50" />
                       </div>
                     </div>
@@ -2547,14 +2547,14 @@ const Aprovacoes = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Emergência 1 (Opcional)</label>
-                    <Input value={editAccessForm.numero_emergencia_1 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primário (Opcional)</label>
+                    <Input value={editAccessForm.numero_emergencia_1 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="(11) 90000-0000" className="h-10" />
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Emergência 2 (Opcional)</label>
-                    <Input value={editAccessForm.numero_emergencia_2 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Secundário (Opcional)</label>
+                    <Input value={editAccessForm.numero_emergencia_2 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="(11) 90000-0000" className="h-10" />
                   </div>
                 </div>
               </div>

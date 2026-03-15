@@ -224,6 +224,7 @@ const Configuracoes = () => {
     const [newCargoNome, setNewCargoNome] = useState('');
     const [newCargoDesc, setNewCargoDesc] = useState('');
     const [newCargoRequiresLeader, setNewCargoRequiresLeader] = useState(true);
+    const [newCargoNivelSupervisao, setNewCargoNivelSupervisao] = useState<'ninguem' | 'diretor' | 'gerente' | 'supervisor'>('supervisor');
     const [editingCargo, setEditingCargo] = useState<{ id: string; nome: string; description: string; requires_leader: boolean; is_protected?: boolean; nivel_supervisao?: 'ninguem' | 'supervisor' | 'gerente' | 'diretor' } | null>(null);
 
     const [adminProtectionDialog, setAdminProtectionDialog] = useState<{
@@ -690,7 +691,8 @@ const Configuracoes = () => {
             const result = await createCargo.mutateAsync({ 
                 nome: newCargoNome.trim(), 
                 description: newCargoDesc.trim() || undefined,
-                requires_leader: newCargoRequiresLeader 
+                requires_leader: newCargoRequiresLeader,
+                nivel_supervisao: newCargoNivelSupervisao
             });
             logAction('criar_cargo', 'cargos', undefined, { nome: newCargoNome });
             toast.success(`Cargo "${newCargoNome}" criado!`);
@@ -698,6 +700,7 @@ const Configuracoes = () => {
             setNewCargoNome('');
             setNewCargoDesc('');
             setNewCargoRequiresLeader(true);
+            setNewCargoNivelSupervisao('supervisor');
             setSelectedCargoId(result.id);
         } catch (err: any) {
             toast.error(err.message || 'Erro ao criar cargo.');
@@ -1193,21 +1196,15 @@ const Configuracoes = () => {
                                                 <h3 className="text-sm font-bold text-foreground">{sp.name}</h3>
                                             </div>
                                             <div className="flex items-center gap-1">
-                                                {sp.is_system && (
-                                                    <Badge variant="outline" className="text-[9px] bg-warning/10 text-warning border-warning/20">Sistema</Badge>
-                                                )}
                                                 {sp.is_protected && sp.protection_password && (
-                                                    <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-400/20 flex items-center gap-0.5">
+                                                    <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20 flex items-center gap-0.5">
                                                         <Lock className="w-2.5 h-2.5" /> Senha
                                                     </Badge>
                                                 )}
                                                 {sp.is_protected && sp.protection_mfa_secret && (
-                                                    <Badge variant="outline" className="text-[9px] bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-400/20 flex items-center gap-0.5">
+                                                    <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-500 border-blue-500/20 flex items-center gap-0.5">
                                                         <Shield className="w-2.5 h-2.5" /> MFA
                                                     </Badge>
-                                                )}
-                                                {sp.name?.toLowerCase().includes(SUPER_ADMIN_PROFILE_NAME) && (
-                                                    <Badge variant="outline" className="text-[9px] bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5"><Lock className="w-2.5 h-2.5" /> Mestre</Badge>
                                                 )}
                                             </div>
                                         </div>
@@ -1487,6 +1484,16 @@ const Configuracoes = () => {
                                                 <div className="flex items-center gap-2">
                                                     <ShieldCheck className={`w-4 h-4 ${selectedCargoId === cargo.id ? 'text-primary' : 'text-muted-foreground'}`} />
                                                     <h3 className="text-sm font-bold text-foreground">{cargo.nome}</h3>
+                                                    {cargo.is_protected && (
+                                                        <div className="flex items-center gap-1">
+                                                            {(cargo as any).protection_password && (
+                                                                <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20 uppercase">Senha</Badge>
+                                                            )}
+                                                            {(cargo as any).protection_mfa_secret && (
+                                                                <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-500 border-blue-500/20 uppercase">Mfa</Badge>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 {cargo.is_protected && (
                                                     <span title="Cargo protegido">
@@ -2443,6 +2450,26 @@ const Configuracoes = () => {
                         <div className="space-y-1.5">
                             <Label className="text-xs font-semibold text-muted-foreground">Descrição (Opcional)</Label>
                             <Input value={newCargoDesc} onChange={e => setNewCargoDesc(e.target.value)} placeholder="Ex: Acesso total a aprovações" className="h-9 text-sm" />
+                        </div>
+                        <div className="p-3 bg-primary/5 rounded-lg border border-primary/10 mt-4 mb-2">
+                            <Label className="font-bold text-sm text-primary mb-2 flex items-center gap-2">
+                                <Users className="w-4 h-4" />
+                                Hierarquia e Supervisão
+                            </Label>
+                            <div className="space-y-1.5 mt-2 text-sm text-muted-foreground leading-relaxed">
+                                <Label className="text-xs font-semibold">Reporta-se a:</Label>
+                                <select
+                                    className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                    value={newCargoNivelSupervisao}
+                                    onChange={(e) => setNewCargoNivelSupervisao(e.target.value as any)}
+                                >
+                                    <option value="ninguem">Ninguém (Administração Mestra)</option>
+                                    <option value="diretor">Diretor</option>
+                                    <option value="gerente">Gerente</option>
+                                    <option value="supervisor">Supervisor</option>
+                                </select>
+                                <p className="text-[10px] mt-1 pt-1 border-t border-border/50">Esta configuração define quais campos de liderança o usuário deverá preencher no cadastro.</p>
+                            </div>
                         </div>
                     </div>
                     <DialogFooter className="gap-2">

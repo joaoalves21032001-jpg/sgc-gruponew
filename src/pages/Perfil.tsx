@@ -59,7 +59,6 @@ const Perfil = () => {
       email: profile.email || '',
       celular: profile.celular || '',
       cpf: profile.cpf || '',
-      rg: profile.rg || '',
       endereco: profile.endereco || '',
       numero_emergencia_1: profile.numero_emergencia_1 || '',
       numero_emergencia_2: profile.numero_emergencia_2 || '',
@@ -104,7 +103,6 @@ const Perfil = () => {
         email: 'E-mail',
         celular: 'Celular',
         cpf: 'CPF',
-        rg: 'RG',
         endereco: 'Endereço',
         numero_emergencia_1: 'Emergência 1',
         numero_emergencia_2: 'Emergência 2',
@@ -238,7 +236,7 @@ const Perfil = () => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="p-4 rounded-xl bg-muted/30 border border-border/40 space-y-3">
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block truncate" title="Contato de Emergência Primário">Contato de Emergência Primário</p>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block">Primário</p>
                 <p className="text-sm font-semibold text-foreground">{(profile as any)?.nome_emergencia_1 || '—'}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{(profile as any)?.vinculo_emergencia_1 || 'Vínculo'}</span>
@@ -246,7 +244,7 @@ const Perfil = () => {
                 </div>
               </div>
               <div className="p-4 rounded-xl bg-muted/30 border border-border/40 space-y-3">
-                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block truncate" title="Contato de Emergência Secundário">Contato de Emergência Secundário</p>
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider block">Secundário</p>
                 <p className="text-sm font-semibold text-foreground">{(profile as any)?.nome_emergencia_2 || '—'}</p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-muted text-muted-foreground font-medium">{(profile as any)?.vinculo_emergencia_2 || 'Vínculo'}</span>
@@ -352,7 +350,7 @@ const Perfil = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-muted-foreground block truncate" title="Contato de Emergência Primário (Opcional)">Contato de Emergência Primário (Opcional)</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground block">Primário (Opcional)</Label>
                   <Input value={editForm.numero_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
                 </div>
                 {(editForm.numero_emergencia_1 || '').replace(/\D/g, '').length > 0 && (
@@ -370,7 +368,7 @@ const Perfil = () => {
               </div>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-semibold text-muted-foreground block truncate" title="Contato de Emergência Secundário (Opcional)">Contato de Emergência Secundário (Opcional)</Label>
+                  <Label className="text-xs font-semibold text-muted-foreground block">Secundário (Opcional)</Label>
                   <Input value={editForm.numero_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
                 </div>
                 {(editForm.numero_emergencia_2 || '').replace(/\D/g, '').length > 0 && (

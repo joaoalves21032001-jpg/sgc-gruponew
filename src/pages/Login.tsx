@@ -37,7 +37,7 @@ const Login = () => {
   const [showRequest, setShowRequest] = useState(false);
   const [requestForm, setRequestForm] = useState({
     nome: '', email: '', telefone: '', mensagem: '',
-    cpf: '', rg: '', endereco: '', cargo: '',
+    cpf: '', endereco: '', cargo: '',
     nivel_acesso: '', numero_emergencia_1: '', numero_emergencia_2: '',
     nome_emergencia_1: '', vinculo_emergencia_1: '', 
     nome_emergencia_2: '', vinculo_emergencia_2: '',
@@ -47,7 +47,7 @@ const Login = () => {
   const [submitting, setSubmitting] = useState(false);
   const [supervisores, setSupervisores] = useState<LeaderOption[]>([]);
   const [gerentes, setGerentes] = useState<LeaderOption[]>([]);
-  const [cargosData, setCargosData] = useState<{ id: string, nome: string, requires_leader: boolean }[]>([]);
+  const [cargosData, setCargosData] = useState<{ id: string, nome: string, requires_leader: boolean, nivel_supervisao?: 'ninguem' | 'supervisor' | 'gerente' | 'diretor' }[]>([]);
   const [selectedSupervisor, setSelectedSupervisor] = useState('');
   const [selectedGerente, setSelectedGerente] = useState('');
   
@@ -139,7 +139,7 @@ const Login = () => {
       try {
         const [leadersRes, cargosRes] = await Promise.all([
           supabase.functions.invoke('get-leaders'),
-          supabase.from('cargos').select('id, nome, requires_leader')
+          supabase.from('cargos').select('id, nome, requires_leader, nivel_supervisao')
         ]);
         
         if (leadersRes.error) throw leadersRes.error;
@@ -201,6 +201,27 @@ const Login = () => {
     }
     setSubmittingForgot(true);
     try {
+      // Verificação Inteligente: Tentar logar com a "nova" senha. 
+      // Se der sucesso, significa que o usuário digitou a própria senha atual sem saber!
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: forgotForm.email,
+        password: forgotForm.nova_senha
+      });
+
+      if (!signInError && signInData?.user) {
+         // O usuário "descobriu" a senha atual sem querer ao tentar resetar.
+         // Faremos logout rápido para não cruzar estados de sessão na tela de esqueci senha,
+         // e avisaremos o usuário.
+         await supabase.auth.signOut();
+         toast.info('Atenção: A nova senha informada JÁ É a sua senha atual! Não enviamos a solicitação porque você já tem acesso com ela.', { duration: 8000 });
+         setShowForgotPassword(false);
+         setForgotForm({ email: '', nova_senha: '', confirmacao_senha: '', motivo: '' });
+         setSubmittingForgot(false);
+         return;
+      }
+
+      // Se falhou no login (erro de credencial inválida), a senha é de fato diferente da atual.
+      // E podemos seguir com a solicitação de troca.
       const resp = await AuthService.requestPasswordReset(forgotForm.email, forgotForm.nova_senha, forgotForm.motivo);
       
       const resetState = { id: resp.id, status: 'pendente', email: forgotForm.email };
@@ -219,7 +240,7 @@ const Login = () => {
 
   const handleAccessRequest = async () => {
     if (!requestForm.nome.trim() || !requestForm.email.trim() || !requestForm.telefone.trim() ||
-      !requestForm.cpf.trim() || !requestForm.rg.trim() || !requestForm.endereco.trim() ||
+      !requestForm.cpf.trim() || !requestForm.endereco.trim() ||
       !requestForm.senha.trim() || !requestForm.confirmacao_senha.trim()) {
       toast.error('Preencha todos os campos obrigatórios (incluindo a senha).');
       return;
@@ -238,26 +259,38 @@ const Login = () => {
       toast.error('Selecione um cargo.');
       return;
     }
-    const isManagerOrDirector = cargo.toLowerCase().includes('gerente') || cargo.toLowerCase().includes('diretor');
     const selectedCargoObj = cargosData.find(c => c.nome === cargo);
     const requiresLeader = selectedCargoObj ? selectedCargoObj.requires_leader !== false : true;
 
-    if (requiresLeader) {
-        if (!isManagerOrDirector && !['Supervisor'].includes(cargo) && !selectedSupervisor) {
-          toast.error('Selecione o Supervisor ou "Nenhum".');
-          return;
+    let needSupervisor = false;
+    let needGerente = false;
+
+    if (selectedCargoObj) {
+        if (selectedCargoObj.nivel_supervisao === 'supervisor' || (!selectedCargoObj.nivel_supervisao && requiresLeader)) {
+            needSupervisor = true;
+            needGerente = true;
+        } else if (selectedCargoObj.nivel_supervisao === 'gerente') {
+            needGerente = true;
         }
-        if (!isManagerOrDirector && !selectedGerente) {
-          toast.error('Selecione o Gerente.');
-          return;
-        }
+    } else if (requiresLeader) {
+        needSupervisor = true;
+        needGerente = true;
+    }
+
+    if (needSupervisor && !selectedSupervisor) {
+        toast.error('Selecione o Supervisor ou "Nenhum".');
+        return;
+    }
+    if (needGerente && !selectedGerente) {
+        toast.error('Selecione o Gerente.');
+        return;
     }
     setSubmitting(true);
     try {
       const { data, error } = await supabase.functions.invoke('request-access', {
         body: {
           nome: requestForm.nome, email: requestForm.email, telefone: requestForm.telefone,
-          mensagem: requestForm.mensagem || null, cpf: requestForm.cpf, rg: requestForm.rg,
+          mensagem: requestForm.mensagem || null, cpf: requestForm.cpf,
           endereco: requestForm.endereco, cargo: requestForm.cargo,
           nivel_acesso: requestForm.nivel_acesso,
           numero_emergencia_1: requestForm.numero_emergencia_1 || null,
@@ -279,7 +312,7 @@ const Login = () => {
       setShowRequest(false);
       setRequestForm({
         nome: '', email: '', telefone: '', mensagem: '',
-        cpf: '', rg: '', endereco: '', cargo: '',
+        cpf: '', endereco: '', cargo: '',
         nivel_acesso: '', numero_emergencia_1: '', numero_emergencia_2: '',
         nome_emergencia_1: '', vinculo_emergencia_1: '', 
         nome_emergencia_2: '', vinculo_emergencia_2: '',
@@ -543,42 +576,39 @@ const Login = () => {
               Preencha seus dados. O administrador, supervisor e gerente serão notificados.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-5 py-2">
+          <div className="space-y-8 py-2">
             {/* Dados Pessoais */}
-            <div>
-              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Dados Pessoais</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="sm:col-span-2 space-y-1.5">
+            <div className="space-y-4">
+              <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Dados Pessoais</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="sm:col-span-2 space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nome Completo *</label>
                   <Input value={requestForm.nome} onChange={(e) => setField('nome', e.target.value)} placeholder="Seu nome completo" className="h-10" />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">E-mail *</label>
                   <Input type="email" value={requestForm.email} onChange={(e) => setField('email', e.target.value)} placeholder="seu.email@gmail.com" className="h-10" />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Celular *</label>
                   <Input value={requestForm.telefone} onChange={(e) => setField('telefone', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CPF *</label>
                   <Input value={requestForm.cpf} onChange={(e) => setField('cpf', maskCPF(e.target.value))} placeholder="000.000.000-00" className="h-10" />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">RG *</label>
-                  <Input value={requestForm.rg} onChange={(e) => setField('rg', maskRG(e.target.value))} placeholder="00.000.000-0" className="h-10" />
-                </div>
-                <div className="sm:col-span-2 space-y-1.5">
+
+                <div className="sm:col-span-2 space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Endereço *</label>
                   <Input value={requestForm.endereco} onChange={(e) => setField('endereco', e.target.value)} placeholder="Rua, número, bairro, cidade - UF" className="h-10" />
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data de Nascimento *</label>
                   <Input type="date" value={requestForm.data_nascimento} onChange={(e) => setField('data_nascimento', e.target.value)} className="h-10" />
                 </div>
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Data de Admissão</label>
                   <Input type="date" value={requestForm.data_admissao} onChange={(e) => setField('data_admissao', e.target.value)} className="h-10" />
                 </div>
@@ -588,10 +618,10 @@ const Login = () => {
             {/* Contatos de Emergência */}
             <div className="space-y-4">
               <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em]">Contatos de Emergência</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block truncate" title="Contato de Emergência Primário (Opcional)">Contato de Emergência Primário (Opcional)</label>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Primário (Opcional)</label>
                     <Input value={requestForm.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
                   </div>
                   {requestForm.numero_emergencia_1.replace(/\D/g, '').length > 0 && (
@@ -609,7 +639,7 @@ const Login = () => {
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block truncate" title="Contato de Emergência Secundário (Opcional)">Contato de Emergência Secundário (Opcional)</label>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Secundário (Opcional)</label>
                     <Input value={requestForm.numero_emergencia_2} onChange={(e) => setField('numero_emergencia_2', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
                   </div>
                   {requestForm.numero_emergencia_2.replace(/\D/g, '').length > 0 && (

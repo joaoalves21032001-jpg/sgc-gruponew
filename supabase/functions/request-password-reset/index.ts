@@ -28,6 +28,16 @@ serve(async (req) => {
       throw new Error('E-mail, nova senha e motivo são obrigatórios.');
     }
 
+    // Verifica se a nova senha já não é a senha atual do usuário testando o login
+    const { data: signInData } = await supabaseClient.auth.signInWithPassword({
+      email,
+      password: nova_senha
+    });
+
+    if (signInData?.user) {
+      throw new Error('A senha informada já é a sua senha atual. Você pode fazer o login normalmente no sistema.');
+    }
+
     // Ache o user_id baseado no e-mail (buscando na tabela de profiles pública, ou auth admin)
     // Buscando pelo profiles, já que a Edge Function com service role ignora o RLS
     const { data: profile, error: profileErr } = await supabaseAdmin

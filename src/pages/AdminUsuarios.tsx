@@ -70,7 +70,6 @@ interface FormData {
   apelido: string;
   celular: string;
   cpf: string;
-  rg: string;
   endereco: string;
   cargo: string;
   cargo_id: string;
@@ -98,7 +97,7 @@ interface FormData {
 }
 
 const emptyForm: FormData = {
-  email: '', nome_completo: '', apelido: '', celular: '', cpf: '', rg: '',
+  email: '', nome_completo: '', apelido: '', celular: '', cpf: '',
   endereco: '', cargo: '', cargo_id: '', codigo: '', role: 'consultor',
   numero_emergencia_1: '', numero_emergencia_2: '',
   nome_emergencia_1: '', nome_emergencia_2: '',
@@ -239,7 +238,6 @@ const AdminUsuarios = () => {
         apelido: profile.apelido || '',
         celular: profile.celular || '',
         cpf: profile.cpf || '',
-        rg: profile.rg || '',
         endereco: profile.endereco || '',
         cargo: profile.cargo || '',
         cargo_id: profile.cargo_id || '',
@@ -289,7 +287,7 @@ const AdminUsuarios = () => {
     }
 
     const required: (keyof FormData)[] = [
-      'email', 'nome_completo', 'apelido', 'celular', 'cpf', 'rg',
+      'email', 'nome_completo', 'apelido', 'celular', 'cpf',
       'endereco', 'cargo',
     ];
     for (const field of required) {
@@ -350,7 +348,6 @@ const AdminUsuarios = () => {
           apelido: form.apelido,
           celular: form.celular,
           cpf: form.cpf,
-          rg: form.rg,
           endereco: form.endereco,
           cargo: form.cargo,
           cargo_id: form.cargo_id || null,
@@ -382,7 +379,6 @@ const AdminUsuarios = () => {
             nome_completo: form.nome_completo,
             celular: form.celular,
             cpf: form.cpf,
-            rg: form.rg,
             endereco: form.endereco,
             cargo: form.cargo,
             cargo_id: form.cargo_id || null,
@@ -520,9 +516,17 @@ const AdminUsuarios = () => {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold text-foreground truncate">{p.nome_completo}</p>
                       {isDisabled && <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive border-destructive/20">Desabilitado</Badge>}
+                      {(p as any).is_protected && (
+                         <div className="flex gap-1">
+                            <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-500 border-emerald-500/20">Senha</Badge>
+                            {(p as any).protection_mfa_secret && (
+                                <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-500 border-blue-500/20">MFA</Badge>
+                            )}
+                         </div>
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{p.email}</p>
                   </div>
@@ -635,9 +639,7 @@ const AdminUsuarios = () => {
                 <FieldWithTooltip label="CPF" tooltip="Cadastro de Pessoa Física. Formato: 000.000.000-00." required>
                   <Input value={form.cpf} onChange={(e) => setField('cpf', maskCPF(e.target.value))} placeholder="000.000.000-00" className="h-10" />
                 </FieldWithTooltip>
-                <FieldWithTooltip label="RG" tooltip="Registro Geral (identidade). Formato: 000.000.000-0." required>
-                  <Input value={form.rg} onChange={(e) => setField('rg', maskRG(e.target.value))} placeholder="000.000.000-0" className="h-10" />
-                </FieldWithTooltip>
+
                 <div className="sm:col-span-2">
                   <FieldWithTooltip label="Endereço" tooltip="Endereço completo do colaborador (rua, número, bairro, cidade, estado)." required>
                     <Input value={form.endereco} onChange={(e) => setField('endereco', e.target.value)} className="h-10" />
@@ -658,31 +660,37 @@ const AdminUsuarios = () => {
                 <AlertTriangle className="w-3.5 h-3.5" /> Contatos de Emergência
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-3">
-                  <FieldWithTooltip label="Emergência 1 (Opcional)" tooltip="Número de um contato de emergência (familiar ou próximo).">
-                    <Input value={form.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
-                  </FieldWithTooltip>
-                  {(form.numero_emergencia_1 ?? '').trim() && (
-                    <div className="grid grid-cols-2 gap-2 animate-fade-in-up">
-                      <FieldWithTooltip label="Nome Contato 1" tooltip="Nome do contato de emergência 1.">
+                  <div className="space-y-4">
+                    <FieldWithTooltip label="Primário (Opcional)" tooltip="Número de um contato de emergência (familiar ou próximo).">
+                      <Input value={form.numero_emergencia_1} onChange={e => {
+                        setForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }));
+                        setFormUnsaved(true);
+                      }} placeholder="(11) 90000-0000" className="h-10 border-input bg-background/50 shadow-sm" />
+                    </FieldWithTooltip>
+                    {form.numero_emergencia_1.replace(/\D/g, '').length > 0 && (
+                      <div className="space-y-4 animate-fade-in-up">
+                        <FieldWithTooltip label="Nome" tooltip="Nome do contato primário.">
                         <Input value={form.nome_emergencia_1} onChange={(e) => setField('nome_emergencia_1', e.target.value)} placeholder="Nome..." className="h-10" />
                       </FieldWithTooltip>
-                      <FieldWithTooltip label="Vínculo 1" tooltip="Relação (ex: Pai, Esposa, Amigo).">
+                      <FieldWithTooltip label="Vínculo" tooltip="Relação (ex: Pai, Esposa, Amigo).">
                         <Input value={form.vinculo_emergencia_1} onChange={(e) => setField('vinculo_emergencia_1', e.target.value)} placeholder="Vínculo..." className="h-10" />
                       </FieldWithTooltip>
                     </div>
                   )}
-                </div>
-                <div className="space-y-3">
-                  <FieldWithTooltip label="Emergência 2 (Opcional)" tooltip="Segundo contato de emergência. Deve ser diferente do primeiro.">
-                    <Input value={form.numero_emergencia_2} onChange={(e) => setField('numero_emergencia_2', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
-                  </FieldWithTooltip>
-                  {(form.numero_emergencia_2 ?? '').trim() && (
-                    <div className="grid grid-cols-2 gap-2 animate-fade-in-up">
-                      <FieldWithTooltip label="Nome Contato 2" tooltip="Nome do contato de emergência 2.">
+                              </div>
+                  <div className="space-y-4">
+                    <FieldWithTooltip label="Secundário (Opcional)" tooltip="Segundo contato de emergência. Deve ser diferente do primeiro.">
+                      <Input value={form.numero_emergencia_2} onChange={e => {
+                        setForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }));
+                        setFormUnsaved(true);
+                      }} placeholder="(11) 90000-0000" className="h-10 border-input bg-background/50 shadow-sm" />
+                    </FieldWithTooltip>
+                    {form.numero_emergencia_2.replace(/\D/g, '').length > 0 && (
+                      <div className="space-y-4 animate-fade-in-up">
+                        <FieldWithTooltip label="Nome" tooltip="Nome do contato secundário.">
                         <Input value={form.nome_emergencia_2} onChange={(e) => setField('nome_emergencia_2', e.target.value)} placeholder="Nome..." className="h-10" />
                       </FieldWithTooltip>
-                      <FieldWithTooltip label="Vínculo 2" tooltip="Relação (ex: Pai, Esposa, Amigo).">
+                      <FieldWithTooltip label="Vínculo" tooltip="Relação (ex: Pai, Esposa, Amigo).">
                         <Input value={form.vinculo_emergencia_2} onChange={(e) => setField('vinculo_emergencia_2', e.target.value)} placeholder="Vínculo..." className="h-10" />
                       </FieldWithTooltip>
                     </div>
