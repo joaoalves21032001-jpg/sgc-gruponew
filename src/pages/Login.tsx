@@ -266,10 +266,11 @@ const Login = () => {
     let needGerente = false;
 
     if (selectedCargoObj) {
-        if (selectedCargoObj.nivel_supervisao === 'supervisor' || (!selectedCargoObj.nivel_supervisao && requiresLeader)) {
+        if (selectedCargoObj.nivel_supervisao === 'ninguem') {
+            needSupervisor = false;
+            needGerente = false;
+        } else {
             needSupervisor = true;
-            needGerente = true;
-        } else if (selectedCargoObj.nivel_supervisao === 'gerente') {
             needGerente = true;
         }
     } else if (requiresLeader) {
@@ -664,7 +665,14 @@ const Login = () => {
               <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cargo *</label>
-                  <Select value={requestForm.cargo} onValueChange={(v) => setField('cargo', v)}>
+                  <Select value={requestForm.cargo} onValueChange={(v) => {
+                      setField('cargo', v);
+                      const selectedCargoObj = cargosData.find(c => c.nome === v);
+                      if (selectedCargoObj?.nivel_supervisao === 'ninguem') {
+                         setSelectedSupervisor('nenhum');
+                         setSelectedGerente('nenhum');
+                      }
+                  }}>
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecione um cargo..." /></SelectTrigger>
                     <SelectContent>
                       {cargosData.map(c => <SelectItem key={c.id} value={c.nome}>{c.nome}</SelectItem>)}
@@ -678,8 +686,7 @@ const Login = () => {
             {(() => {
                 const selectedObj = cargosData.find(c => c.nome === requestForm.cargo);
                 const requiresLeader = selectedObj ? selectedObj.requires_leader !== false : true;
-                const isManagerOrDirector = requestForm.cargo.toLowerCase().includes('gerente') || requestForm.cargo.toLowerCase().includes('diretor');
-                return requiresLeader && !isManagerOrDirector;
+                return requiresLeader;
             })() && (
               <div>
                 <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Líderes</h3>
@@ -690,6 +697,7 @@ const Login = () => {
                       <Select
                         value={selectedSupervisor}
                         onValueChange={setSelectedSupervisor}
+                        disabled={cargosData.find(c => c.nome === requestForm.cargo)?.nivel_supervisao === 'ninguem'}
                       >
                         <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                         <SelectContent>
@@ -704,9 +712,11 @@ const Login = () => {
                     <Select
                       value={selectedGerente}
                       onValueChange={setSelectedGerente}
+                      disabled={cargosData.find(c => c.nome === requestForm.cargo)?.nivel_supervisao === 'ninguem'}
                     >
                       <SelectTrigger className="h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="nenhum">Nenhum</SelectItem>
                         {gerentes.map(g => <SelectItem key={g.id} value={g.id}>{g.nome_completo}</SelectItem>)}
                       </SelectContent>
                     </Select>

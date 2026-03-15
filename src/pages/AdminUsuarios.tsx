@@ -31,7 +31,7 @@ import { maskCPF, maskRG, maskPhone } from '@/lib/masks';
 import {
   UserPlus, Users, Mail, Phone, CreditCard, FileText,
   MapPin, AlertTriangle, Shield, Building, Camera, Search, Info, Trash2,
-  Ban, CheckCircle2, Plus, KeyRound, Lock
+  Ban, CheckCircle2, Plus, KeyRound, Lock, ShieldAlert
 } from 'lucide-react';
 import { resetMfaFactors } from '@/hooks/useMfaResetRequests';
 import { directPasswordReset } from '@/hooks/usePasswordResetRequests';
@@ -525,6 +525,7 @@ const AdminUsuarios = () => {
                             {(p as any).protection_mfa_secret && (
                                 <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-500 border-blue-500/20 flex items-center gap-0.5"><Shield className="w-2.5 h-2.5" /> MFA</Badge>
                             )}
+                            <Badge variant="outline" className="text-[9px] bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5"><ShieldAlert className="w-2.5 h-2.5" /> Protegido</Badge>
                          </div>
                       )}
                     </div>
@@ -709,7 +710,14 @@ const AdminUsuarios = () => {
                   <Input value={form.codigo} disabled placeholder="Gerado automaticamente" className="h-10 bg-muted/50" />
                 </FieldWithTooltip>
                 <FieldWithTooltip label="Cargo" tooltip="Cargo oficial do colaborador na empresa." required>
-                  <Select value={form.cargo_id} onValueChange={(v) => setField('cargo_id', v)}>
+                  <Select value={form.cargo_id} onValueChange={(v) => {
+                      setField('cargo_id', v);
+                      const cargoObj = allCargos?.find(c => c.id === v);
+                      if (cargoObj && cargoObj.nivel_supervisao === 'ninguem') {
+                         setField('supervisor_id', 'none');
+                         setField('gerente_id', 'none');
+                      }
+                  }}>
                     <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {allCargos?.map(c => <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>)}
@@ -726,6 +734,7 @@ const AdminUsuarios = () => {
                     disabled={(() => {
                         const cargoObj = allCargos?.find(c => c.id === form.cargo_id);
                         if (cargoObj && cargoObj.requires_leader === false) return true;
+                        if (cargoObj && cargoObj.nivel_supervisao === 'ninguem') return true;
                         return form.cargo?.toLowerCase().includes('supervisor') || form.cargo?.toLowerCase().includes('gerente') || form.cargo?.toLowerCase().includes('diretor');
                     })()}
                   >
@@ -743,6 +752,7 @@ const AdminUsuarios = () => {
                     disabled={(() => {
                         const cargoObj = allCargos?.find(c => c.id === form.cargo_id);
                         if (cargoObj && cargoObj.requires_leader === false) return true;
+                        if (cargoObj && cargoObj.nivel_supervisao === 'ninguem') return true;
                         return form.cargo?.toLowerCase().includes('gerente') || form.cargo?.toLowerCase().includes('diretor');
                     })()}
                   >

@@ -2566,7 +2566,18 @@ const Aprovacoes = () => {
               <div className="grid grid-cols-1 sm:grid-cols-1 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cargo</label>
-                  <Select value={editAccessForm.cargo || '__none__'} onValueChange={v => setEditAccessForm(p => ({ ...p, cargo: v === '__none__' ? '' : v }))}>
+                  <Select value={editAccessForm.cargo || '__none__'} onValueChange={v => {
+                      const newCargoName = v === '__none__' ? '' : v;
+                      setEditAccessForm(p => {
+                          const updated = { ...p, cargo: newCargoName };
+                          const selectedCargoObj = cargos.find(c => c.nome === newCargoName);
+                          if (selectedCargoObj?.nivel_supervisao === 'ninguem') {
+                              updated.supervisor_id = null;
+                              updated.gerente_id = null;
+                          }
+                          return updated;
+                      });
+                  }}>
                     <SelectTrigger className="h-10"><SelectValue placeholder="Selecione um cargo..." /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">Nenhum</SelectItem>
@@ -2581,8 +2592,7 @@ const Aprovacoes = () => {
             {(() => {
                 const selectedObj = cargos.find(c => c.nome === editAccessForm.cargo);
                 const requiresLeader = selectedObj ? selectedObj.requires_leader !== false : true;
-                const isManagerOrDirector = (editAccessForm.cargo || '').toLowerCase().includes('gerente') || (editAccessForm.cargo || '').toLowerCase().includes('diretor');
-                return requiresLeader && !isManagerOrDirector;
+                return requiresLeader;
             })() && (
               <div>
                 <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.12em] mb-3">Líderes</h3>
@@ -2590,7 +2600,11 @@ const Aprovacoes = () => {
                   {!['Supervisor'].includes(editAccessForm.cargo || '') && (
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Supervisor</label>
-                      <Select value={editAccessForm.supervisor_id || '__none__'} onValueChange={v => setEditAccessForm(p => ({ ...p, supervisor_id: v === '__none__' ? null : v }))}>
+                      <Select 
+                        value={editAccessForm.supervisor_id || '__none__'} 
+                        onValueChange={v => setEditAccessForm(p => ({ ...p, supervisor_id: v === '__none__' ? null : v }))}
+                        disabled={cargos.find(c => c.nome === editAccessForm.cargo)?.nivel_supervisao === 'ninguem'}
+                      >
                         <SelectTrigger className="h-10"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="__none__">Nenhum (responde ao Gerente)</SelectItem>
@@ -2601,7 +2615,11 @@ const Aprovacoes = () => {
                   )}
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Gerente</label>
-                    <Select value={editAccessForm.gerente_id || '__none__'} onValueChange={v => setEditAccessForm(p => ({ ...p, gerente_id: v === '__none__' ? null : v }))}>
+                    <Select 
+                      value={editAccessForm.gerente_id || '__none__'} 
+                      onValueChange={v => setEditAccessForm(p => ({ ...p, gerente_id: v === '__none__' ? null : v }))}
+                      disabled={cargos.find(c => c.nome === editAccessForm.cargo)?.nivel_supervisao === 'ninguem'}
+                    >
                       <SelectTrigger className="h-10"><SelectValue placeholder="Nenhum" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__none__">Nenhum</SelectItem>

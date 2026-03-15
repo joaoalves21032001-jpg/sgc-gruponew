@@ -1206,6 +1206,11 @@ const Configuracoes = () => {
                                                         <Shield className="w-2.5 h-2.5" /> MFA
                                                     </Badge>
                                                 )}
+                                                {sp.is_protected && (
+                                                    <Badge variant="outline" className="text-[9px] bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5">
+                                                        <ShieldAlert className="w-2.5 h-2.5" /> Protegido
+                                                    </Badge>
+                                                )}
                                             </div>
                                         </div>
                                         <p className="text-[11px] text-muted-foreground line-clamp-2">{sp.description || 'Sem descrição'}</p>
@@ -1492,14 +1497,10 @@ const Configuracoes = () => {
                                                             {(cargo as any).protection_mfa_secret && (
                                                                 <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-500 border-blue-500/20 flex items-center gap-0.5"><Shield className="w-2.5 h-2.5" /> MFA</Badge>
                                                             )}
+                                                            <Badge variant="outline" className="text-[9px] bg-destructive/10 text-destructive border-destructive/20 flex items-center gap-0.5"><ShieldAlert className="w-2.5 h-2.5" /> Protegido</Badge>
                                                         </div>
                                                     )}
                                                 </div>
-                                                {cargo.is_protected && (
-                                                    <span title="Cargo protegido">
-                                                        <ShieldAlert className="w-3.5 h-3.5 text-destructive" />
-                                                    </span>
-                                                )}
                                             </div>
                                             <p className="text-[11px] text-muted-foreground line-clamp-2">{cargo.description || 'Sem descrição'}</p>
                                             <div className="flex items-center gap-1 mt-2">
@@ -1729,7 +1730,12 @@ const Configuracoes = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Período de Retenção</label>
-                                <Select value={retentionMonths} onValueChange={setRetentionMonths}>
+                                <Select value={retentionMonths} onValueChange={(v) => {
+                                    setAdminProtectionDialog({
+                                        open: true,
+                                        onUnlocked: () => setRetentionMonths(v)
+                                    });
+                                }}>
                                     <SelectTrigger className="h-10"><Clock className="w-3.5 h-3.5 mr-1 text-muted-foreground" /><SelectValue /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="3">3 meses</SelectItem>
@@ -1744,7 +1750,12 @@ const Configuracoes = () => {
                                 </Select>
                             </div>
                             <div className="space-y-1.5 flex items-end">
-                                <Button variant="destructive" size="sm" className="gap-1.5 font-semibold" onClick={() => setCleanupLogsOpen(true)}>
+                                <Button variant="destructive" size="sm" className="gap-1.5 font-semibold" onClick={() => {
+                                    setAdminProtectionDialog({
+                                        open: true,
+                                        onUnlocked: () => setCleanupLogsOpen(true)
+                                    });
+                                }}>
                                     <Trash2 className="w-3.5 h-3.5" /> Excluir Logs Agora
                                 </Button>
                             </div>
@@ -1759,7 +1770,12 @@ const Configuracoes = () => {
                         <p className="text-xs text-muted-foreground">Configure a limpeza automática de notificações lidas.</p>
                         <div className="space-y-4">
                             <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-lg border border-border/20">
-                                <Switch checked={autoDeleteReadNotifs} onCheckedChange={setAutoDeleteReadNotifs} />
+                                <Switch checked={autoDeleteReadNotifs} onCheckedChange={(v) => {
+                                    setAdminProtectionDialog({
+                                        open: true,
+                                        onUnlocked: () => setAutoDeleteReadNotifs(v)
+                                    });
+                                }} />
                                 <Label className="text-sm text-foreground">Excluir automaticamente notificações lidas</Label>
                                 <Badge variant="outline" className="text-[10px] ml-auto">{autoDeleteReadNotifs ? 'Ativo' : 'Inativo'}</Badge>
                             </div>
@@ -1767,7 +1783,12 @@ const Configuracoes = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fade-in-up">
                                     <div className="space-y-1.5">
                                         <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Excluir após (dias)</label>
-                                        <Select value={notifRetentionDays} onValueChange={setNotifRetentionDays}>
+                                        <Select value={notifRetentionDays} onValueChange={(v) => {
+                                            setAdminProtectionDialog({
+                                                open: true,
+                                                onUnlocked: () => setNotifRetentionDays(v)
+                                            });
+                                        }}>
                                             <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="7">7 dias</SelectItem>
@@ -1781,7 +1802,12 @@ const Configuracoes = () => {
                                         </Select>
                                     </div>
                                     <div className="space-y-1.5 flex items-end">
-                                        <Button variant="outline" size="sm" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/20" onClick={() => setCleanupNotifsOpen(true)}>
+                                        <Button variant="outline" size="sm" className="gap-1.5 font-semibold text-destructive hover:bg-destructive/10 border-destructive/20" onClick={() => {
+                                            setAdminProtectionDialog({
+                                                open: true,
+                                                onUnlocked: () => setCleanupNotifsOpen(true)
+                                            });
+                                        }}>
                                             <Trash2 className="w-3.5 h-3.5" /> Excluir Agora
                                         </Button>
                                     </div>
@@ -2438,7 +2464,7 @@ const Configuracoes = () => {
             </Dialog>
 
             <Dialog open={newCargoOpen} onOpenChange={setNewCargoOpen}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="font-display text-lg">Criar Novo Cargo</DialogTitle>
                         <DialogDescription>Crie um novo cargo que poderá ser associado aos perfis de usuários para determinar aprovações.</DialogDescription>
@@ -2465,9 +2491,7 @@ const Configuracoes = () => {
                                     onChange={(e) => setNewCargoNivelSupervisao(e.target.value as any)}
                                 >
                                     <option value="ninguem">Ninguém (Administração Mestra)</option>
-                                    <option value="diretor">Diretor</option>
-                                    <option value="gerente">Gerente</option>
-                                    <option value="supervisor">Supervisor</option>
+                                    {cargos.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                                 </select>
                                 <p className="text-[10px] mt-1 pt-1 border-t border-border/50">Esta configuração define quais campos de liderança o usuário deverá preencher no cadastro.</p>
                             </div>
@@ -2484,7 +2508,7 @@ const Configuracoes = () => {
             </Dialog>
 
             <Dialog open={!!editingCargo} onOpenChange={(open) => !open && setEditingCargo(null)}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="font-display text-lg">Editar Cargo</DialogTitle>
                         <DialogDescription>Altere as informações básicas deste cargo.</DialogDescription>
@@ -2509,13 +2533,11 @@ const Configuracoes = () => {
                                     <Label className="text-xs font-semibold">Reporta-se a:</Label>
                                     <select
                                         className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                                        value={editingCargo.nivel_supervisao || 'supervisor'}
+                                        value={editingCargo.nivel_supervisao || 'ninguem'}
                                         onChange={(e) => setEditingCargo({ ...editingCargo, nivel_supervisao: e.target.value as any })}
                                     >
                                         <option value="ninguem">Ninguém (Administração Mestra)</option>
-                                        <option value="diretor">Diretor</option>
-                                        <option value="gerente">Gerente</option>
-                                        <option value="supervisor">Supervisor</option>
+                                        {cargos.filter(c => c.id !== editingCargo.id).map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
                                     </select>
                                     <p className="text-[10px] mt-1 pt-1 border-t border-border/50">Esta configuração define quais campos de liderança o usuário deverá preencher no cadastro.</p>
                                 </div>
