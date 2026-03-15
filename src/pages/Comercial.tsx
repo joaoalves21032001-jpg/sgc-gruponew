@@ -83,8 +83,11 @@ interface AtividadesForm {
   cotacoes_enviadas: string;
   cotacoes_respondidas: string;
   cotacoes_nao_respondidas: string;
-  follow_up: string;
-  justificativa: string;
+  follow_up: string; // Agendado (readonly display)
+  follow_up_realizado: string; // Manual input
+  justificativa: string; // Cenários A + retroativo
+  justificativa_nao_resposta: string; // Cenário B
+  justificativa_atraso: string; // Cenário C
 }
 
 function calcRate(a: string, b: string): string {
@@ -109,7 +112,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   
   const followUpAgendado = useMemo(() => {
     if (!leads || !user) return 0;
-    return leads.filter((l: any) => l.user_id === user.id && ['Aguardando retorno', 'Declinado'].includes(l.status)).length;
+    return leads.filter((l: any) => l.created_by === user.id && ['Aguardando retorno', 'Declinado'].includes(l.status)).length;
   }, [leads, user]);
 
   const { data: myVendas } = useMyVendas();
@@ -119,16 +122,47 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const { data: myPermissions } = useMyPermissions();
   const { data: cargoPermissions } = useMyCargoPermissions();
   const canEdit = hasPermission(myPermissions, 'atividades', 'edit') && hasCargoPermission(cargoPermissions, 'atividades.atividades', 'edit');
-  const [dataLancamento, setDataLancamento] = useState<Date>(new Date());
   const submitCR = useSubmitCorrectionRequest();
   const [showConfirm, setShowConfirm] = useState(false);
   const [showChangeConfirm, setShowChangeConfirm] = useState(false);
   const [changeJustificativa, setChangeJustificativa] = useState('');
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<AtividadesForm>({
-    ligacoes: '', mensagens: '', cotacoes_realizadas: '', cotacoes_enviadas: '',
-    cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', justificativa: '',
+
+  // ── Session Storage key (per-user draft, not for edit mode) ──
+  const DRAFT_KEY = `atividades_draft_${user?.id ?? 'anon'}`;
+
+  const getInitialForm = (): AtividadesForm => {
+    if (!editAtividade) {
+      try {
+        const saved = sessionStorage.getItem(DRAFT_KEY);
+        if (saved) return JSON.parse(saved);
+      } catch { /* ignore */ }
+    }
+    return { ligacoes: '', mensagens: '', cotacoes_realizadas: '', cotacoes_enviadas: '',
+      cotacoes_respondidas: '', cotacoes_nao_respondidas: '', follow_up: '', follow_up_realizado: '', justificativa: '', justificativa_nao_resposta: '', justificativa_atraso: '' };
+  };
+
+  const [form, setForm] = useState<AtividadesForm>(getInitialForm);
+  const [dataLancamento, setDataLancamento] = useState<Date>(() => {
+    if (!editAtividade) {
+      try {
+        const saved = sessionStorage.getItem(`${DRAFT_KEY}_date`);
+        if (saved) return new Date(saved);
+      } catch { /* ignore */ }
+    }
+    return new Date();
   });
+
+  // Persist draft to sessionStorage whenever form changes (only for new registrations, not edits)
+  useEffect(() => {
+    if (editAtividade) return;
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(form));
+      sessionStorage.setItem(`${DRAFT_KEY}_date`, dataLancamento.toISOString());
+    } catch { /* ignore */ }
+  }, [form, dataLancamento, editAtividade]);
+
+
 
   // Pre-fill form when editing an existing activity
   useEffect(() => {
@@ -141,7 +175,10 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
         cotacoes_respondidas: String(editAtividade.cotacoes_fechadas ?? ''),
         cotacoes_nao_respondidas: String((editAtividade as any).cotacoes_nao_respondidas ?? 0),
         follow_up: String(editAtividade.follow_up ?? ''),
+        follow_up_realizado: String((editAtividade as any).follow_up_realizado ?? ''),
         justificativa: '',
+        justificativa_nao_resposta: '',
+        justificativa_atraso: '',
       });
       try {
         const d = parse(editAtividade.data, 'yyyy-MM-dd', new Date());
@@ -179,26 +216,59 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const metrics: { key: keyof AtividadesForm; label: string; icon: React.ElementType; tooltip: string }[] = [
     { key: 'ligacoes', label: 'Ligações Realizadas', icon: Phone, tooltip: 'Total de ligações de prospecção e follow-up realizadas no dia selecionado.' },
     { key: 'mensagens', label: 'Mensagens Enviadas', icon: MessageSquare, tooltip: 'WhatsApp, e-mails e mensagens enviadas a clientes e leads no dia.' },
-    { key: 'cotacoes_realizadas', label: 'Cotações Realizadas', icon: Calculator, tooltip: 'Quantidade de cotações precificadas.' },
+    { key: 'cotacoes_realizadas', label: 'Cotações Realizadas', icon: Calculator, tooltip: 'Quantidade de cotações precificadas no dia.' },
     { key: 'cotacoes_enviadas', label: 'Cotações Enviadas', icon: MessageCircle, tooltip: 'Propostas comerciais efetivamente enviadas ao cliente.' },
     { key: 'cotacoes_respondidas', label: 'Cotações Respondidas', icon: CheckCircle2, tooltip: 'Cotações que o cliente respondeu (positiva ou negativamente).' },
     { key: 'cotacoes_nao_respondidas', label: 'Cotações Não Respondidas', icon: XCircle, tooltip: 'Cotações enviadas que ainda não obtiveram retorno do cliente.' },
-    { key: 'follow_up', label: 'Follow-ups Realizados', icon: RotateCcw, tooltip: 'Retornos com clientes realizados hoje.' },
   ];
 
   const metricKeys = metrics.map(m => m.key);
-  const allFilled = metricKeys.every(k => form[k] !== '');
+  const allFilled = metricKeys.every(k => form[k] !== '') && form.follow_up_realizado !== '';
 
-  const requiresJustification = useMemo(() => {
-    if (isRetroativo) return true;
+  const validations = useMemo(() => {
     const lig = parseInt(form.ligacoes) || 0;
     const msg = parseInt(form.mensagens) || 0;
     const cotRealizadas = parseInt(form.cotacoes_realizadas) || 0;
-    if ((lig + msg) > 0 && cotRealizadas < Math.floor((lig + msg) * 0.1)) return true;
-    return false;
-  }, [isRetroativo, form.ligacoes, form.mensagens, form.cotacoes_realizadas]);
+    const cotEnviadas = parseInt(form.cotacoes_enviadas) || 0;
+    const cotRespondidas = parseInt(form.cotacoes_respondidas) || 0;
+    const cotNaoRespondidas = parseInt(form.cotacoes_nao_respondidas) || 0;
+    const followUpRealizado = parseInt(form.follow_up_realizado) || 0;
 
-  const canSave = allFilled && (!requiresJustification || form.justificativa.trim().length > 0);
+    // Cenário A: retroativo ou < 10% ou Enviadas < Realizadas
+    let cenarioA = false;
+    let cenarioAReason = '';
+    if (isRetroativo) {
+      cenarioA = true;
+      cenarioAReason = 'A justificativa é obrigatória para lançamentos fora da data atual e será enviada à diretoria.';
+    } else if ((lig + msg) > 0 && cotRealizadas < Math.floor((lig + msg) * 0.1)) {
+      cenarioA = true;
+      cenarioAReason = 'A taxa de cotações realizadas está abaixo da meta (10% dos contatos). Justifique o baixo rendimento.';
+    } else if (cotRealizadas > 0 && cotEnviadas < cotRealizadas) {
+      cenarioA = true;
+      cenarioAReason = 'Cotações Enviadas deve ser igual a Cotações Realizadas (meta 100%). Justifique o motivo de não ter enviado todas as cotações.';
+    }
+
+    // Cenário B: Cotações Não Respondidas > 0
+    const cenarioB = cotNaoRespondidas > 0;
+    const cenarioBReason = 'Há cotações não respondidas. Descreva o motivo para acompanhamento.';
+
+    // Cenário C: Follow-up Realizado < Follow-up Agendado
+    const cenarioC = followUpAgendado > 0 && followUpRealizado < followUpAgendado;
+    const cenarioCReason = `Você realizou ${followUpRealizado} follow-up(s), mas havia ${followUpAgendado} agendado(s). Justifique os atrasos.`;
+
+    // Visual Alert (não bloqueante): Respondidas < 50% das Enviadas
+    const showRespondidosAlert = cotEnviadas > 0 && cotRespondidas < Math.ceil(cotEnviadas * 0.5);
+
+    return { cenarioA, cenarioAReason, cenarioB, cenarioBReason, cenarioC, cenarioCReason, showRespondidosAlert };
+  }, [isRetroativo, form.ligacoes, form.mensagens, form.cotacoes_realizadas, form.cotacoes_enviadas, form.cotacoes_respondidas, form.cotacoes_nao_respondidas, form.follow_up_realizado, followUpAgendado]);
+
+  const canSave = useMemo(() => {
+    if (!allFilled) return false;
+    if (validations.cenarioA && !form.justificativa.trim()) return false;
+    if (validations.cenarioB && !form.justificativa_nao_resposta.trim()) return false;
+    if (validations.cenarioC && !form.justificativa_atraso.trim()) return false;
+    return true;
+  }, [allFilled, validations, form.justificativa, form.justificativa_nao_resposta, form.justificativa_atraso]);
 
   const conversionRates = [
     { label: 'Ligações → Cotações Enviadas', value: calcRate(form.ligacoes, form.cotacoes_enviadas) },
@@ -275,10 +345,22 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
         cotacoes_enviadas: parseInt(form.cotacoes_enviadas) || 0,
         cotacoes_fechadas: parseInt(form.cotacoes_respondidas) || 0,
         cotacoes_nao_respondidas: parseInt(form.cotacoes_nao_respondidas) || 0,
-        follow_up: parseInt(form.follow_up) || 0,
+        follow_up: parseInt(form.follow_up_realizado) || 0,
+        follow_up_realizado: parseInt(form.follow_up_realizado) || 0,
+        justificativa: form.justificativa || null,
+        justificativa_nao_resposta: form.justificativa_nao_resposta || null,
+        justificativa_atraso: form.justificativa_atraso || null,
       } as any);
+      
+      // Clear session draft after successful save
+      try {
+        sessionStorage.removeItem(DRAFT_KEY);
+        sessionStorage.removeItem(`${DRAFT_KEY}_date`);
+      } catch { /* ignore */ }
+      
       setShowConfirm(false);
       logAction('criar_atividade', 'atividade', undefined, { data: format(dataLancamento, 'yyyy-MM-dd') });
+
       
       const totalVolume = (parseInt(form.ligacoes) || 0) + (parseInt(form.mensagens) || 0);
       const frase = getDailyFraseMotivacional(totalVolume);
@@ -345,7 +427,8 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
           </PopoverContent>
         </Popover>
 
-        {requiresJustification && (
+        {/* Cenário A: Retroativo / 10% / Enviadas */}
+        {validations.cenarioA && (
           <div className="mt-4 p-4 bg-warning/8 border border-warning/20 rounded-lg space-y-3">
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-warning shrink-0" />
@@ -353,11 +436,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
                 {isRetroativo ? 'Lançamento retroativo detectado' : 'Atenção: Ações atípicas identificadas'}
               </p>
             </div>
-            <p className="text-xs text-muted-foreground">
-              {isRetroativo 
-                ? 'A justificativa é obrigatória para lançamentos fora da data atual e será enviada à diretoria.' 
-                : 'A taxa de cotações realizadas está abaixo da meta (10% dos contatos). Por favor, justifique o baixo rendimento.'}
-            </p>
+            <p className="text-xs text-muted-foreground">{validations.cenarioAReason}</p>
             <Textarea placeholder="Descreva o motivo..." value={form.justificativa} onChange={(e) => update('justificativa', e.target.value)} rows={3} disabled={!canEdit} className="border-warning/30 focus:border-warning disabled:opacity-60 disabled:cursor-not-allowed" />
           </div>
         )}
@@ -384,9 +463,57 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
                 <m.icon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/50" />
                 <Input type="number" min={0} placeholder="0" value={form[m.key]} onChange={(e) => update(m.key, e.target.value)} disabled={!canEdit} className={cn("pl-10 h-11 border-border/40 focus:border-primary bg-muted/30 focus:bg-card transition-all", !canEdit && "opacity-60 cursor-not-allowed")} />
               </div>
+              {/* Visual alert: Respondidas < 50% das Enviadas */}
+              {m.key === 'cotacoes_respondidas' && validations.showRespondidosAlert && form.cotacoes_respondidas !== '' && (
+                <p className="text-[11px] text-amber-500 font-medium mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3 shrink-0" />
+                  Taxa de resposta abaixo de 50% da meta ideal
+                </p>
+              )}
             </FieldWithTooltip>
           ))}
+
+          {/* Follow-up Agendado (read-only) */}
+          <FieldWithTooltip label="Follow-ups Agendados" tooltip="Follow-ups agendados para hoje com base nos leads com status 'Aguardando retorno' ou 'Declinado'." required={false}>
+            <div className="relative">
+              <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/50" />
+              <Input type="number" value={followUpAgendado} readOnly disabled className="pl-10 h-11 bg-muted/50 border-border/20 text-muted-foreground cursor-not-allowed opacity-70" />
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1">Calculado automaticamente</p>
+          </FieldWithTooltip>
+
+          {/* Follow-up Realizado (manual) */}
+          <FieldWithTooltip label="Follow-ups Realizados" tooltip="Quantidade de follow-ups que você efetivamente realizou hoje." required>
+            <div className="relative">
+              <RotateCcw className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/50" />
+              <Input type="number" min={0} placeholder="0" value={form.follow_up_realizado} onChange={(e) => update('follow_up_realizado', e.target.value)} disabled={!canEdit} className={cn("pl-10 h-11 border-border/40 focus:border-primary bg-muted/30 focus:bg-card transition-all", !canEdit && "opacity-60 cursor-not-allowed")} />
+            </div>
+          </FieldWithTooltip>
         </div>
+
+        {/* Cenário B: Cotações Não Respondidas */}
+        {allFilled && validations.cenarioB && (
+          <div className="mt-5 p-4 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-900/40 rounded-lg space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-orange-500 shrink-0" />
+              <p className="text-sm font-medium text-foreground">Justificativa de Não Resposta (obrigatória)</p>
+            </div>
+            <p className="text-xs text-muted-foreground">{validations.cenarioBReason}</p>
+            <Textarea placeholder="Explique por que essas cotações ainda não receberam resposta..." value={form.justificativa_nao_resposta} onChange={(e) => update('justificativa_nao_resposta', e.target.value)} rows={3} disabled={!canEdit} className="border-orange-200 focus:border-orange-400 disabled:opacity-60 disabled:cursor-not-allowed" />
+          </div>
+        )}
+
+        {/* Cenário C: Follow-up Realizado < Agendado */}
+        {allFilled && validations.cenarioC && (
+          <div className="mt-3 p-4 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 rounded-lg space-y-3">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-blue-500 shrink-0" />
+              <p className="text-sm font-medium text-foreground">Justificativa de Atraso de Follow-up (obrigatória)</p>
+            </div>
+            <p className="text-xs text-muted-foreground">{validations.cenarioCReason}</p>
+            <Textarea placeholder="Explique o motivo de não ter realizado todos os follow-ups agendados..." value={form.justificativa_atraso} onChange={(e) => update('justificativa_atraso', e.target.value)} rows={3} disabled={!canEdit} className="border-blue-200 focus:border-blue-400 disabled:opacity-60 disabled:cursor-not-allowed" />
+          </div>
+        )}
 
         {allFilled && (
           <>
