@@ -32,6 +32,8 @@ export type Database = {
           nome: string
           nome_emergencia_1: string | null
           nome_emergencia_2: string | null
+          vinculo_emergencia_1: string | null
+          vinculo_emergencia_2: string | null
           numero_emergencia_1: string | null
           numero_emergencia_2: string | null
           rg: string | null
@@ -56,6 +58,8 @@ export type Database = {
           nome: string
           nome_emergencia_1?: string | null
           nome_emergencia_2?: string | null
+          vinculo_emergencia_1?: string | null
+          vinculo_emergencia_2?: string | null
           numero_emergencia_1?: string | null
           numero_emergencia_2?: string | null
           rg?: string | null
@@ -80,6 +84,8 @@ export type Database = {
           nome?: string
           nome_emergencia_1?: string | null
           nome_emergencia_2?: string | null
+          vinculo_emergencia_1?: string | null
+          vinculo_emergencia_2?: string | null
           numero_emergencia_1?: string | null
           numero_emergencia_2?: string | null
           rg?: string | null
@@ -780,6 +786,8 @@ export type Database = {
           nome_completo: string
           nome_emergencia_1: string | null
           nome_emergencia_2: string | null
+          vinculo_emergencia_1: string | null
+          vinculo_emergencia_2: string | null
           numero_emergencia_1: string | null
           numero_emergencia_2: string | null
           progresso_desabilitado: boolean
@@ -810,6 +818,8 @@ export type Database = {
           nome_completo: string
           nome_emergencia_1?: string | null
           nome_emergencia_2?: string | null
+          vinculo_emergencia_1?: string | null
+          vinculo_emergencia_2?: string | null
           numero_emergencia_1?: string | null
           numero_emergencia_2?: string | null
           progresso_desabilitado?: boolean
@@ -840,6 +850,8 @@ export type Database = {
           nome_completo?: string
           nome_emergencia_1?: string | null
           nome_emergencia_2?: string | null
+          vinculo_emergencia_1?: string | null
+          vinculo_emergencia_2?: string | null
           numero_emergencia_1?: string | null
           numero_emergencia_2?: string | null
           progresso_desabilitado?: boolean
