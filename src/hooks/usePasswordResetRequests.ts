@@ -18,6 +18,28 @@ export interface PasswordResetRequest {
 }
 
 export function usePasswordResetRequests() {
+  const queryClient = useQueryClient();
+
+  // Set up real-time subscription for password_reset_requests
+  import('react').then(({ useEffect }) => {
+    useEffect(() => {
+      const channel = supabase
+        .channel('public:password_reset_requests:all')
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'password_reset_requests' },
+          (payload) => {
+            queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, [queryClient]);
+  });
+
   return useQuery({
     queryKey: ['password-reset-requests'],
     queryFn: async () => {

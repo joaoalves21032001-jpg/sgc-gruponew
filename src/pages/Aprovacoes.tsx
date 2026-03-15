@@ -396,6 +396,8 @@ const Aprovacoes = () => {
   const loadingPwdReset = pwdQuery?.isLoading ?? false;
   const [rejectPwdReq, setRejectPwdReq] = useState<PasswordResetRequest | null>(null);
   const [rejectPwdReason, setRejectPwdReason] = useState('');
+  const [devolverPwdReq, setDevolverPwdReq] = useState<PasswordResetRequest | null>(null);
+  const [devolverPwdReason, setDevolverPwdReason] = useState('');
   const [savingPwdReset, setSavingPwdReset] = useState(false);
   const [viewPwdReq, setViewPwdReq] = useState<PasswordResetRequest | null>(null);
 
@@ -1944,19 +1946,7 @@ const Aprovacoes = () => {
                           {canEditMaster && hasCargoPermission(myCargoPerms, 'aprovacao_admin_senha', 'aprovar') && (
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30"
                               disabled={savingPwdReset}
-                              onClick={async () => {
-                                setSavingPwdReset(true);
-                                try {
-                                  const { error } = await supabase.from('password_reset_requests' as any)
-                                    .update({ status: 'devolvido' } as any)
-                                    .eq('id', req.id);
-                                  if (error) throw error;
-                                  toast.success('Solicitação devolvida ao usuário.');
-                                  dispatchNotification('senha_devolvida', req.user_id, 'Solicitação Devolvida', 'Sua solicitação de reset de senha foi devolvida para revisão.', 'seguranca', '/');
-                                  queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
-                                } catch (err: any) { toast.error(err.message); }
-                                finally { setSavingPwdReset(false); }
-                              }}
+                              onClick={() => { setDevolverPwdReq(req); setDevolverPwdReason(''); }}
                             >
                              <Undo2 className="w-4 h-4" /> Devolver
                             </Button>
@@ -2692,6 +2682,79 @@ const Aprovacoes = () => {
         </DialogContent>
       </Dialog>
 
+      {/* ── Rejeitar Senha Dialog ── */}
+      <Dialog open={!!rejectPwdReq} onOpenChange={(v) => { if (!v) setRejectPwdReq(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg text-destructive">Rejeitar Senha</DialogTitle>
+            <DialogDescription>O usuário não poderá alterar a senha e ficará ciente desta rejeição irreversível.</DialogDescription>
+          </DialogHeader>
+          <Textarea value={rejectPwdReason} onChange={(e) => setRejectPwdReason(e.target.value)} placeholder="Motivo da recusa (obrigatório)..." rows={3} />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setRejectPwdReq(null)}>Cancelar</Button>
+            <Button
+              variant="destructive"
+              disabled={savingPwdReset || !rejectPwdReason.trim()}
+              className="gap-1.5"
+              onClick={async () => {
+                if (!rejectPwdReq || !rejectPwdReason.trim()) return;
+                setSavingPwdReset(true);
+                try {
+                  const { error } = await supabase.from('password_reset_requests' as any)
+                    .update({ status: 'rejeitado', admin_resposta: rejectPwdReason.trim() } as any)
+                    .eq('id', rejectPwdReq.id);
+                  if (error) throw error;
+                  toast.success('Solicitação de senha recusada.');
+                  dispatchNotification('senha_recusada', rejectPwdReq.user_id, 'Solicitação de Senha Recusada', `Sua solicitação de troca de senha foi recusada: ${rejectPwdReason.trim()}`, 'seguranca', '/');
+                  queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
+                  setRejectPwdReq(null);
+                  setRejectPwdReason('');
+                } catch (err: any) { toast.error(err.message); }
+                finally { setSavingPwdReset(false); }
+              }}
+            >
+              {savingPwdReset ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><XCircle className="w-4 h-4" /> Rejeitar</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Devolver Senha Dialog ── */}
+      <Dialog open={!!devolverPwdReq} onOpenChange={(v) => { if (!v) setDevolverPwdReq(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg text-primary">Devolver Senha</DialogTitle>
+            <DialogDescription>O usuário receberá em tempo real esta justificativa para corrigir o envio.</DialogDescription>
+          </DialogHeader>
+          <Textarea value={devolverPwdReason} onChange={(e) => setDevolverPwdReason(e.target.value)} placeholder="Motivo da devolução (obrigatório)..." rows={3} />
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDevolverPwdReq(null)}>Cancelar</Button>
+            <Button
+              disabled={savingPwdReset || !devolverPwdReason.trim()}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold gap-1.5"
+              onClick={async () => {
+                if (!devolverPwdReq || !devolverPwdReason.trim()) return;
+                setSavingPwdReset(true);
+                try {
+                  const { error } = await supabase.from('password_reset_requests' as any)
+                    .update({ status: 'devolvido', admin_resposta: devolverPwdReason.trim() } as any)
+                    .eq('id', devolverPwdReq.id);
+                  if (error) throw error;
+                  toast.success('Solicitação de senha devolvida.');
+                  dispatchNotification('senha_devolvida', devolverPwdReq.user_id, 'Solicitação de Senha Devolvida', `Sua solicitação precisa de ajustes: ${devolverPwdReason.trim()}`, 'seguranca', '/');
+                  queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
+                  setDevolverPwdReq(null);
+                  setDevolverPwdReason('');
+                } catch (err: any) { toast.error(err.message); }
+                finally { setSavingPwdReset(false); }
+              }}
+            >
+              {savingPwdReset ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Undo2 className="w-4 h-4" /> Devolver</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Devolver Atividade Dialog ── */}
       <Dialog open={!!devolverAtiv} onOpenChange={(v) => { if (!v) setDevolverAtiv(null); }}>
         <DialogContent className="sm:max-w-sm">
@@ -2941,18 +3004,7 @@ const Aprovacoes = () => {
                     }} disabled={savingPwdReset} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
                       <CheckCircle2 className="w-5 h-5" /> Aprovar e Aplicar
                     </Button>
-                    <Button onClick={async () => {
-                      setSavingPwdReset(true);
-                      try {
-                        const { error } = await supabase.from('password_reset_requests' as any).update({ status: 'devolvido' } as any).eq('id', viewPwdReq.id);
-                        if (error) throw error;
-                        toast.success('Solicitação devolvida ao usuário.');
-                        dispatchNotification('senha_devolvida', viewPwdReq.user_id, 'Solicitação Devolvida', 'Sua solicitação de reset de senha foi devolvida para revisão.', 'seguranca', '/');
-                        queryClient.invalidateQueries({ queryKey: ['password-reset-requests'] });
-                        setViewPwdReq(null);
-                      } catch (err: any) { toast.error(err.message); }
-                      finally { setSavingPwdReset(false); }
-                    }} disabled={savingPwdReset} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
+                    <Button onClick={() => { setDevolverPwdReq(viewPwdReq); setDevolverPwdReason(''); setViewPwdReq(null); }} disabled={savingPwdReset} variant="outline" className="flex-1 font-semibold gap-1.5 border-primary text-primary hover:bg-primary/10" size="lg">
                       <Undo2 className="w-5 h-5" /> Devolver
                     </Button>
                     <Button onClick={() => { setRejectPwdReq(viewPwdReq); setRejectPwdReason(''); setViewPwdReq(null); }} variant="outline" className="flex-1 font-semibold gap-1.5 border-orange-500 text-orange-500 hover:bg-orange-500/10" size="lg">

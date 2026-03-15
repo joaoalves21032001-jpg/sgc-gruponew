@@ -94,6 +94,7 @@ const Login = () => {
 
   useEffect(() => {
     if (!pendingReset?.id) return;
+    let isMounted = true;
 
     const fetchStatus = async () => {
       const { data, error } = await supabase
@@ -102,19 +103,32 @@ const Login = () => {
         .eq('id', pendingReset.id)
         .single();
       
-      if (!error && data) {
+      if (!error && data && isMounted) {
          setPendingReset(prev => prev ? ({ ...prev, status: data.status || 'pendente', admin_resposta: data.admin_resposta || undefined }) : null);
+         if (data.status === 'aprovado') {
+           toast.success('Senha redefinida com sucesso! Acesso liberado.');
+           setTimeout(() => handleClearPending(), 3000);
+         }
       }
     };
     fetchStatus();
 
+    // Polling fallback every 5 seconds to guarantee updates even if realtime fails
+    const pollInterval = setInterval(fetchStatus, 5000);
+
+    // Realtime channel WITHOUT row-level filter (to avoid REPLICA IDENTITY issues)
+    // We filter client-side instead.
     const channel = supabase
-      .channel(`public:password_reset_requests:id=eq.${pendingReset.id}`)
+      .channel(`pwd-reset-watch-${pendingReset.id}`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'password_reset_requests', filter: `id=eq.${pendingReset.id}` },
+        { event: 'UPDATE', schema: 'public', table: 'password_reset_requests' },
         (payload) => {
-          const { status, admin_resposta } = payload.new as any;
+          const updated = payload.new as any;
+          // Only care about our specific request
+          if (updated.id !== pendingReset.id) return;
+          const { status, admin_resposta } = updated;
+          if (!isMounted) return;
           setPendingReset(prev => prev ? { ...prev, status, admin_resposta } : null);
           
           if (status === 'aprovado') {
@@ -126,6 +140,8 @@ const Login = () => {
       .subscribe();
 
     return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
   }, [pendingReset?.id]);
