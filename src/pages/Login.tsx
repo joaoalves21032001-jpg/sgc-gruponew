@@ -651,6 +651,7 @@ const Login = () => {
                  </>
                )}
             </div>
+          )}
 
           {pendingAccess && (
             <div className="w-full max-w-md bg-card border border-border/50 rounded-2xl p-8 shadow-xl animate-fade-in relative overflow-hidden backdrop-blur-xl">
