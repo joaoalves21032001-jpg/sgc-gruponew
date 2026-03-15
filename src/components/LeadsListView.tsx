@@ -493,7 +493,7 @@ export function LeadsListView({ permissionNamespace = 'inventario.leads' }: Prop
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className={fieldLabel}>Contato</label>
-                                <Input value={editForm.contato} onChange={e => setEditForm(p => ({ ...p, contato: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                                <Input value={editForm.contato} onChange={e => setEditForm(p => ({ ...p, contato: maskPhone(e.target.value) }))} placeholder="(11) 9 9999-9999" className="h-10" />
                             </div>
                             <div>
                                 <label className={fieldLabel}>E-mail</label>
@@ -668,7 +668,7 @@ export function LeadsListView({ permissionNamespace = 'inventario.leads' }: Prop
                         <div className="grid grid-cols-2 gap-3">
                             <div>
                                 <label className={fieldLabel}>Contato</label>
-                                <Input value={newLeadForm.contato} onChange={e => setNewLeadForm(p => ({ ...p, contato: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                                <Input value={newLeadForm.contato} onChange={e => setNewLeadForm(p => ({ ...p, contato: maskPhone(e.target.value) }))} placeholder="(11) 9 9999-9999" className="h-10" />
                             </div>
                             <div>
                                 <label className={fieldLabel}>E-mail</label>

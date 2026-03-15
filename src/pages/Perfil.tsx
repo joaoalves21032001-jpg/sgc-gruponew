@@ -330,7 +330,7 @@ const Perfil = () => {
               </div>
               <div>
                 <Label className="text-xs font-semibold text-muted-foreground">Celular</Label>
-                <Input value={editForm.celular || ''} onChange={e => setEditForm(p => ({ ...p, celular: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                <Input value={editForm.celular || ''} onChange={e => setEditForm(p => ({ ...p, celular: maskPhone(e.target.value) }))} placeholder="(11) 9 9999-9999" className="h-10" />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -351,7 +351,7 @@ const Perfil = () => {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold text-muted-foreground block">Primário (Opcional)</Label>
-                  <Input value={editForm.numero_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                  <Input value={editForm.numero_emergencia_1 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="(11) 9 9999-9999" className="h-10" />
                 </div>
                 {(editForm.numero_emergencia_1 || '').replace(/\D/g, '').length > 0 && (
                   <div className="animate-fade-in-up grid grid-cols-2 gap-4">
@@ -369,7 +369,7 @@ const Perfil = () => {
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label className="text-xs font-semibold text-muted-foreground block">Secundário (Opcional)</Label>
-                  <Input value={editForm.numero_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                  <Input value={editForm.numero_emergencia_2 || ''} onChange={e => setEditForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="(11) 9 9999-9999" className="h-10" />
                 </div>
                 {(editForm.numero_emergencia_2 || '').replace(/\D/g, '').length > 0 && (
                   <div className="animate-fade-in-up grid grid-cols-2 gap-4">

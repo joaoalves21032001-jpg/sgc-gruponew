@@ -634,8 +634,8 @@ const AdminUsuarios = () => {
                 <FieldWithTooltip label="E-mail" tooltip="E-mail que será usado para login no sistema. Não pode ser alterado após o cadastro." required>
                   <Input type="email" value={form.email} onChange={(e) => setField('email', e.target.value)} disabled={!!editingId} className="h-10" />
                 </FieldWithTooltip>
-                <FieldWithTooltip label="Celular" tooltip="Número de celular pessoal com DDD. Formato: +55 (11) 90000-0000." required>
-                  <Input value={form.celular} onChange={(e) => setField('celular', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                <FieldWithTooltip label="Celular" tooltip="Número de celular pessoal com DDD. Formato: (11) 9 9999-9999." required>
+                  <Input value={form.celular} onChange={(e) => setField('celular', maskPhone(e.target.value))} placeholder="(11) 9 9999-9999" className="h-10" />
                 </FieldWithTooltip>
                 <FieldWithTooltip label="CPF" tooltip="Cadastro de Pessoa Física. Formato: 000.000.000-00." required>
                   <Input value={form.cpf} onChange={(e) => setField('cpf', maskCPF(e.target.value))} placeholder="000.000.000-00" className="h-10" />
@@ -666,7 +666,7 @@ const AdminUsuarios = () => {
                       <Input value={form.numero_emergencia_1} onChange={e => {
                         setForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }));
                         setFormUnsaved(true);
-                      }} placeholder="(11) 90000-0000" className="h-10 border-input bg-background/50 shadow-sm" />
+                      }} placeholder="(11) 9 9999-9999" className="h-10 border-input bg-background/50 shadow-sm" />
                     </FieldWithTooltip>
                     {form.numero_emergencia_1.replace(/\D/g, '').length > 0 && (
                       <div className="space-y-4 animate-fade-in-up">
@@ -684,7 +684,7 @@ const AdminUsuarios = () => {
                       <Input value={form.numero_emergencia_2} onChange={e => {
                         setForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }));
                         setFormUnsaved(true);
-                      }} placeholder="(11) 90000-0000" className="h-10 border-input bg-background/50 shadow-sm" />
+                      }} placeholder="(11) 9 9999-9999" className="h-10 border-input bg-background/50 shadow-sm" />
                     </FieldWithTooltip>
                     {form.numero_emergencia_2.replace(/\D/g, '').length > 0 && (
                       <div className="space-y-4 animate-fade-in-up">

@@ -357,7 +357,7 @@ export default function LandingPage() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
                       <Label className="text-sm font-semibold text-gray-700">Telefone *</Label>
-                      <Input value={contato} onChange={e => setContato(maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-12 rounded-xl border-gray-200" required />
+                      <Input value={contato} onChange={e => setContato(maskPhone(e.target.value))} placeholder="(11) 9 9999-9999" className="h-12 rounded-xl border-gray-200" required />
                     </div>
                     <div className="space-y-1.5">
                       <Label className="text-sm font-semibold text-gray-700">E-mail</Label>

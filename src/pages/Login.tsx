@@ -592,7 +592,7 @@ const Login = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Celular *</label>
-                  <Input value={requestForm.telefone} onChange={(e) => setField('telefone', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                  <Input value={requestForm.telefone} onChange={(e) => setField('telefone', maskPhone(e.target.value))} placeholder="(11) 9 9999-9999" className="h-10" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CPF *</label>
@@ -623,7 +623,7 @@ const Login = () => {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Primário (Opcional)</label>
-                    <Input value={requestForm.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                    <Input value={requestForm.numero_emergencia_1} onChange={(e) => setField('numero_emergencia_1', maskPhone(e.target.value))} placeholder="(11) 9 9999-9999" className="h-10" />
                   </div>
                   {requestForm.numero_emergencia_1.replace(/\D/g, '').length > 0 && (
                     <div className="space-y-4 animate-fade-in-up">
@@ -641,7 +641,7 @@ const Login = () => {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider block">Secundário (Opcional)</label>
-                    <Input value={requestForm.numero_emergencia_2} onChange={(e) => setField('numero_emergencia_2', maskPhone(e.target.value))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                    <Input value={requestForm.numero_emergencia_2} onChange={(e) => setField('numero_emergencia_2', maskPhone(e.target.value))} placeholder="(11) 9 9999-9999" className="h-10" />
                   </div>
                   {requestForm.numero_emergencia_2.replace(/\D/g, '').length > 0 && (
                     <div className="space-y-4 animate-fade-in-up">

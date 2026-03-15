@@ -2514,7 +2514,7 @@ const Aprovacoes = () => {
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Celular</label>
-                  <Input value={editAccessForm.telefone || ''} onChange={e => setEditAccessForm(p => ({ ...p, telefone: maskPhone(e.target.value) }))} placeholder="+55 (11) 90000-0000" className="h-10" />
+                  <Input value={editAccessForm.telefone || ''} onChange={e => setEditAccessForm(p => ({ ...p, telefone: maskPhone(e.target.value) }))} placeholder="(11) 9 9999-9999" className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CPF</label>
@@ -2548,13 +2548,13 @@ const Aprovacoes = () => {
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primário (Opcional)</label>
-                    <Input value={editAccessForm.numero_emergencia_1 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="(11) 90000-0000" className="h-10" />
+                    <Input value={editAccessForm.numero_emergencia_1 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_1: maskPhone(e.target.value) }))} placeholder="(11) 9 9999-9999" className="h-10" />
                   </div>
                 </div>
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Secundário (Opcional)</label>
-                    <Input value={editAccessForm.numero_emergencia_2 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="(11) 90000-0000" className="h-10" />
+                    <Input value={editAccessForm.numero_emergencia_2 || ''} onChange={e => setEditAccessForm(p => ({ ...p, numero_emergencia_2: maskPhone(e.target.value) }))} placeholder="(11) 9 9999-9999" className="h-10" />
                   </div>
                 </div>
               </div>
