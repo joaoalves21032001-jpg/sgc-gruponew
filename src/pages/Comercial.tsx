@@ -277,8 +277,14 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
 
   const handleSave = () => {
     if (!canSave) { 
-      toast.error(requiresJustification && form.justificativa.trim().length === 0 
-        ? 'A justificativa é obrigatória para cenários atípicos.' 
+      const needsJustification = validations.cenarioA || validations.cenarioB || validations.cenarioC;
+      const missingJustification = 
+        (validations.cenarioA && !form.justificativa.trim()) ||
+        (validations.cenarioB && !form.justificativa_nao_resposta.trim()) ||
+        (validations.cenarioC && !form.justificativa_atraso.trim());
+
+      toast.error(needsJustification && missingJustification 
+        ? 'A justificativa é obrigatória para os cenários atípicos.' 
         : 'Preencha todos os campos obrigatórios.');
       return; 
     }
