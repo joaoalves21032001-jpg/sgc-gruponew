@@ -169,12 +169,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           try {
             const { data: extraData } = await supabase
               .from('profiles')
-              .select('cargo, perfil')
+              .select('cargo')
               .eq('id', user!.id)
               .maybeSingle();
             if (extraData) {
               setCargo((extraData as any).cargo ?? null);
-              setPerfil((extraData as any).perfil ?? null);
             }
           } catch {
              // Ignore silently
