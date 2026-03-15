@@ -41,7 +41,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { email, nome_completo, celular, cpf, rg, endereco, cargo, cargo_id, role, supervisor_id, gerente_id, numero_emergencia_1, nome_emergencia_1, vinculo_emergencia_1, numero_emergencia_2, nome_emergencia_2, vinculo_emergencia_2, data_admissao, data_nascimento } = body;
+    const { email, nome_completo, celular, cpf, rg, endereco, cargo, cargo_id, role, supervisor_id, gerente_id, numero_emergencia_1, nome_emergencia_1, numero_emergencia_2, nome_emergencia_2, data_admissao, data_nascimento } = body;
 
     if (!email || !nome_completo) {
       return new Response(JSON.stringify({ error: "E-mail e nome completo são obrigatórios." }), {
@@ -122,10 +122,8 @@ serve(async (req) => {
       gerente_id: gerente_id || null,
       numero_emergencia_1: numero_emergencia_1 || null,
       nome_emergencia_1: nome_emergencia_1 || null,
-      vinculo_emergencia_1: vinculo_emergencia_1 || null,
       numero_emergencia_2: numero_emergencia_2 || null,
       nome_emergencia_2: nome_emergencia_2 || null,
-      vinculo_emergencia_2: vinculo_emergencia_2 || null,
       data_admissao: data_admissao || null,
       data_nascimento: data_nascimento || null,
       disabled: false,

@@ -31,7 +31,7 @@ const navItems: NavItem[] = [
   { to: '/crm', icon: Kanban, label: 'CRM' },
   { to: '/notificacoes', icon: Bell, label: 'Notificações' },
   { to: '/aprovacoes', icon: CheckSquare, label: 'Aprovações' },
-  { to: '/gestao', icon: BarChart3, label: 'Dashboard' },
+  { to: '/gestao', icon: BarChart3, label: 'Painel de Gestão' },
   { to: '/inventario', icon: Archive, label: 'Inventário' },
   { to: '/equipe', icon: Users, label: 'Equipe' },
   { to: '/admin/usuarios', icon: UserCog, label: 'Usuários' },

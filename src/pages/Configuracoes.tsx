@@ -58,7 +58,8 @@ import {
     useDeleteCargo,
     useToggleCargoPermission,
     useBulkSetCargoPermissions,
-    CARGO_MODULES_DEF
+    CARGO_MODULES_DEF,
+    hasCargoPermission
 } from '@/hooks/useCargos';
 import { MultiSelect } from '@/components/ui/multi-select';
 import {
@@ -2619,7 +2620,20 @@ const Configuracoes = () => {
                                                     setEditingProfile({ ...editingProfile, new_protection_mfa_secret: secret });
                                                 }}>Gerar</Button>
                                             </div>
-                                            <p className="text-[10px] text-muted-foreground">Insira este segredo no Google Authenticator se desejar proteção MFA.</p>
+                                            {(editingProfile.new_protection_mfa_secret || editingProfile.protection_mfa_secret) && (
+                                                <div className="mt-3 p-4 bg-white/5 rounded-lg flex flex-col items-center justify-center gap-2 border border-border/40">
+                                                    <div className="bg-white p-2 rounded">
+                                                        <QRCodeSVG 
+                                                            value={`otpauth://totp/SGC%20Protegido%20(Perfil):${encodeURIComponent(editingProfile.name)}?secret=${editingProfile.new_protection_mfa_secret || editingProfile.protection_mfa_secret}&issuer=SGC`} 
+                                                            size={120} 
+                                                        />
+                                                    </div>
+                                                    <p className="text-[10px] text-muted-foreground text-center">Escaneie o QR Code usando o Google Authenticator ou similar.</p>
+                                                </div>
+                                            )}
+                                            {!editingProfile.new_protection_mfa_secret && !editingProfile.protection_mfa_secret && (
+                                                <p className="text-[10px] text-muted-foreground pt-1">Insira este segredo no Google Authenticator se desejar proteção MFA.</p>
+                                            )}
                                         </div>
                                     </div>
                                 )}

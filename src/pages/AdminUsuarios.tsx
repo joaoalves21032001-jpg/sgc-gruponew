@@ -358,8 +358,6 @@ const AdminUsuarios = () => {
           numero_emergencia_2: form.numero_emergencia_2,
           nome_emergencia_1: form.nome_emergencia_1 || null,
           nome_emergencia_2: form.nome_emergencia_2 || null,
-          vinculo_emergencia_1: form.vinculo_emergencia_1 || null,
-          vinculo_emergencia_2: form.vinculo_emergencia_2 || null,
           supervisor_id: form.supervisor_id && form.supervisor_id !== 'none' ? form.supervisor_id : null,
           gerente_id: form.gerente_id && form.gerente_id !== 'none' ? form.gerente_id : null,
           meta_faturamento: form.meta_faturamento ? parseFloat(form.meta_faturamento) : null,
@@ -758,7 +756,7 @@ const AdminUsuarios = () => {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FieldWithTooltip label="Senha" tooltip="Senha inicial do usuário." required>
-                    <Input type="password" value={form.senha || ''} onChange={(e) => setField('senha', e.target.value)} placeholder="Mínimo 6 caracteres" className="h-10" />
+                    <Input type="password" value={form.senha || ''} onChange={(e) => setField('senha', e.target.value)} placeholder="Mínimo 12 caracteres (Aa#)" className="h-10" />
                   </FieldWithTooltip>
                   <FieldWithTooltip label="Confirme a Senha" tooltip="Repita a senha inicial." required>
                     <Input type="password" value={form.confirmacao_senha || ''} onChange={(e) => setField('confirmacao_senha', e.target.value)} placeholder="Confirme a senha" className="h-10" />

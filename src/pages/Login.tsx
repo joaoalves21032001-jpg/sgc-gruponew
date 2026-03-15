@@ -544,7 +544,7 @@ const Login = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Senha *</label>
-                  <Input type="password" value={requestForm.senha} onChange={(e) => setField('senha', e.target.value)} placeholder="Mínimo 6 caracteres" className="h-10" />
+                  <Input type="password" value={requestForm.senha} onChange={(e) => setField('senha', e.target.value)} placeholder="Mínimo 12 caracteres (Aa#)" className="h-10" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirme a Senha *</label>
@@ -586,7 +586,7 @@ const Login = () => {
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Nova Senha *</label>
-              <Input type="password" value={forgotForm.nova_senha} onChange={(e) => setForgotForm({ ...forgotForm, nova_senha: e.target.value })} placeholder="Digite a nova senha desejada" className="h-10" />
+              <Input type="password" value={forgotForm.nova_senha} onChange={(e) => setForgotForm({ ...forgotForm, nova_senha: e.target.value })} placeholder="Min 12 caracteres (Aa#)" className="h-10" />
             </div>
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Confirmar Nova Senha *</label>
