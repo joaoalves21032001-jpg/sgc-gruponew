@@ -2,9 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth, registerQueryClient } from "./contexts/AuthContext";
 import { AppLayout } from "./components/AppLayout";
+import { PATH_TO_RESOURCE, useMyPermissions, hasPermission } from "@/hooks/useSecurityProfiles";
+import { useMyCargoPermissions, hasCargoPermission } from "@/hooks/useCargos";
 import Index from "./pages/Index";
 import Comercial from "./pages/Comercial";
 import Gestao from "./pages/Gestao";
@@ -91,6 +93,37 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RbacGuard({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  const { data: myPermissions, isLoading: pLoad } = useMyPermissions();
+  const { data: cargoPermissions, isLoading: cLoad } = useMyCargoPermissions();
+
+  if (pLoad || cLoad) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs text-muted-foreground animate-pulse">Verificando segurança e acessos...</p>
+      </div>
+    );
+  }
+
+  const resourceKey = PATH_TO_RESOURCE[pathname];
+  
+  if (resourceKey) {
+     const spAllowed = hasPermission(myPermissions, resourceKey, 'view');
+     const cargoAllowed = hasCargoPermission(cargoPermissions, resourceKey, 'view');
+     
+     if (!spAllowed || !cargoAllowed) {
+        // Se já está na raiz e não tem acesso, mostra a tela de sem acesso
+        if (pathname === '/') return <NoAccessScreen />;
+        // Caso tente acessar outra página, joga pra home primeiro, e a home verifica o acesso
+        return <Navigate to="/" replace />;
+     }
+  }
+
+  return <>{children}</>;
+}
+
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, hasProfile } = useAuth();
   if (loading) return (
@@ -115,7 +148,7 @@ const App = () => (
               <Route path="/landing" element={<LandingPage />} />
               <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
               {/* Protected routes — AppLayout uses <Outlet /> internally */}
-              <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+              <Route element={<ProtectedRoute><RbacGuard><AppLayout /></RbacGuard></ProtectedRoute>}>
                 <Route path="/" element={<Index />} />
                 <Route path="/comercial" element={<Comercial />} />
                 <Route path="/minhas-acoes" element={<MinhasAcoes />} />

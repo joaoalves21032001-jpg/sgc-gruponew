@@ -414,7 +414,7 @@ const MinhasAcoes = () => {
             )}
           </div>
           <div className="flex gap-1.5 shrink-0">
-            {isDevolvido && (
+            {isDevolvido && hasEditPerm(v.status) && (
               <>
                 <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => openEditVenda(v)}>
                   <Pencil className="w-3.5 h-3.5" />
@@ -435,6 +435,8 @@ const MinhasAcoes = () => {
     );
   };
 
+  const canCreate = checkPerm('atividades', 'edit') || checkPerm('minhas_acoes', 'edit') || checkPerm('crm', 'edit');
+
   return (
     <div className="space-y-6 animate-fade-in-up">
       <div className="flex items-start justify-between flex-wrap gap-3">
@@ -442,9 +444,11 @@ const MinhasAcoes = () => {
           <h1 className="text-[28px] font-bold font-display text-foreground leading-none">Minhas Ações</h1>
           <p className="text-sm text-muted-foreground mt-1">Acompanhe seus registros de atividades e vendas</p>
         </div>
-        <Button onClick={() => navigate('/comercial')} className="gap-1.5 font-semibold shadow-brand">
-          <Plus className="w-4 h-4" /> Novo Registro
-        </Button>
+        {canCreate && (
+          <Button onClick={() => navigate('/comercial')} className="gap-1.5 font-semibold shadow-brand">
+            <Plus className="w-4 h-4" /> Novo Registro
+          </Button>
+        )}
       </div>
 
       <div className="bg-accent/50 rounded-xl p-3 border border-border/30 flex items-start gap-2">

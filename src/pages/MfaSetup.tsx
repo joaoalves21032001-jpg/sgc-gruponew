@@ -182,6 +182,7 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
   const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (code.length !== 6) { return toast.error('Insira o código de 6 dígitos.'); }
+    if (loading) return;
     setLoading(true);
     try {
       const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
@@ -198,6 +199,10 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
         setLoading(false);
         return;
       }
+
+      // Fix for Race Condition: Wait for the session to be refreshed with the new AAL2 claim
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) throw new Error('Erro ao sincronizar sessão após validação.');
 
       if (trustDevice) {
         const deviceHash = await generateDeviceHash();
@@ -231,8 +236,8 @@ const MfaSetup = ({ onVerified }: MfaSetupProps) => {
       const resetReqs = await supabase.from('mfa_reset_requests' as any)
            .select('id, status').eq('user_id', user.id).eq('status', 'pendente').order('created_at', { ascending: false }).limit(1);
       
-      if (resetReqs.data && resetReqs.data.length > 0) {
-         setPendingReset(resetReqs.data[0]);
+      if (!resetReqs.error && resetReqs.data && resetReqs.data.length > 0) {
+         setPendingReset(resetReqs.data[0] as any);
          sessionStorage.setItem('pending_mfa_reset', JSON.stringify(resetReqs.data[0]));
       }
       

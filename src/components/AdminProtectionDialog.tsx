@@ -163,6 +163,7 @@ export function AdminProtectionDialog({ open, onOpenChange, onUnlocked, targetNa
   const handleMfaVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     if (code.length !== 6) { toast.error('Código deve ter 6 dígitos.'); return; }
+    if (loading) return;
     setLoading(true);
     try {
       if (customProtection?.mfaSecret) {
@@ -177,6 +178,11 @@ export function AdminProtectionDialog({ open, onOpenChange, onUnlocked, targetNa
 
       const { error } = await supabase.auth.mfa.verify({ factorId, challengeId, code });
       if (error) throw new Error('Código MFA inválido.');
+      
+      // Fix for Race Condition: Wait for the session to be refreshed with the new AAL2 claim
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) throw new Error('Erro ao sincronizar sessão após MFA.');
+      
       toast.success('Identidade confirmada!');
       onUnlocked();
       onOpenChange(false);
