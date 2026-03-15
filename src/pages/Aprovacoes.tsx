@@ -2148,11 +2148,7 @@ const Aprovacoes = () => {
                   <Input value={viewAccess.cpf || ''} disabled className="h-10 bg-muted/50" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-semibold text-muted-foreground">RG</label>
-                  <Input value={viewAccess.rg || ''} disabled className="h-10 bg-muted/50" />
-                </div>
+              <div className="grid grid-cols-1 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground">Cargo Oficial</label>
                   <Input value={viewAccess.cargo || ''} disabled className="h-10 bg-muted/50" />
@@ -2520,9 +2516,7 @@ const Aprovacoes = () => {
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">CPF</label>
                   <Input value={editAccessForm.cpf || ''} onChange={e => setEditAccessForm(p => ({ ...p, cpf: e.target.value }))} placeholder="000.000.000-00" className="h-10" />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">RG</label>
-                  <Input value={editAccessForm.rg || ''} onChange={e => setEditAccessForm(p => ({ ...p, rg: e.target.value }))} placeholder="00.000.000-0" className="h-10" />
+                <div className="sm:col-span-1 space-y-1.5 align-bottom flex flex-col justify-end">
                 </div>
                 <div className="sm:col-span-2 space-y-1.5">
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Endereço</label>

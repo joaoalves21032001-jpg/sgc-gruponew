@@ -23,6 +23,13 @@ interface PendingResetState {
   email: string;
 }
 
+interface PendingAccessState {
+  id: string;
+  status: string;
+  motivo_recusa?: string;
+  email: string;
+}
+
 interface LeaderOption {
   id: string;
   nome_completo: string;
@@ -55,6 +62,7 @@ const Login = () => {
   const [forgotForm, setForgotForm] = useState({ email: '', nova_senha: '', confirmacao_senha: '', motivo: '' });
   const [submittingForgot, setSubmittingForgot] = useState(false);
   const [pendingReset, setPendingReset] = useState<PendingResetState | null>(null);
+  const [pendingAccess, setPendingAccess] = useState<PendingAccessState | null>(null);
 
   useEffect(() => {
     const savedEmail = localStorage.getItem('rememberedEmail');
@@ -71,6 +79,15 @@ const Login = () => {
         setPendingReset(JSON.parse(savedReset));
       } catch (e) {
         console.error("Failed to parse stored pending reset", e);
+      }
+    }
+    
+    const savedAccess = localStorage.getItem('pending_access');
+    if (savedAccess) {
+      try {
+        setPendingAccess(JSON.parse(savedAccess));
+      } catch (e) {
+        console.error("Failed to parse stored pending access", e);
       }
     }
   }, []);
@@ -131,6 +148,71 @@ const Login = () => {
     setForgotForm(prev => ({ ...prev, email: pendingReset?.email || '' }));
     handleClearPending();
     setShowForgotPassword(true);
+  };
+
+  useEffect(() => {
+    if (!pendingAccess?.id) return;
+
+    const fetchStatus = async () => {
+      const { data, error } = await supabase
+        .from('access_requests')
+        .select('status, motivo_recusa')
+        .eq('id', pendingAccess.id)
+        .single();
+      
+      if (!error && data) {
+         setPendingAccess(prev => prev ? ({ ...prev, status: data.status || 'pendente', motivo_recusa: data.motivo_recusa || undefined }) : null);
+      }
+    };
+    fetchStatus();
+
+    const channel = supabase
+      .channel(`public:access_requests:id=eq.${pendingAccess.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'access_requests', filter: `id=eq.${pendingAccess.id}` },
+        (payload) => {
+          const { status, motivo_recusa } = payload.new as any;
+          setPendingAccess(prev => prev ? { ...prev, status, motivo_recusa } : null);
+          
+          if (status === 'aprovado') {
+             toast.success('Acesso Liberado! O administrador aprovou o seu cadastro.');
+             setTimeout(() => handleClearPendingAccess(), 3000);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pendingAccess?.id]);
+
+  const handleClearPendingAccess = () => {
+    setPendingAccess(null);
+    localStorage.removeItem('pending_access');
+  };
+
+  const handleCorrigirAcesso = async () => {
+    if (!pendingAccess?.id) return;
+    try {
+      const { data, error } = await supabase.from('access_requests').select('*').eq('id', pendingAccess.id).single();
+      if (!error && data) {
+         setRequestForm({
+            nome: data.nome || '', email: data.email || '', telefone: data.telefone || '', mensagem: data.mensagem || '',
+            cpf: data.cpf || '', endereco: data.endereco || '', cargo: data.cargo || '',
+            nivel_acesso: data.nivel_acesso || '', numero_emergencia_1: data.numero_emergencia_1 || '', numero_emergencia_2: data.numero_emergencia_2 || '',
+            nome_emergencia_1: data.nome_emergencia_1 || '', vinculo_emergencia_1: data.vinculo_emergencia_1 || '', 
+            nome_emergencia_2: data.nome_emergencia_2 || '', vinculo_emergencia_2: data.vinculo_emergencia_2 || '',
+            data_admissao: data.data_admissao || '', data_nascimento: data.data_nascimento || '',
+            senha: '', confirmacao_senha: ''
+         });
+         setSelectedSupervisor(data.supervisor_id || 'nenhum');
+         setSelectedGerente(data.gerente_id || 'nenhum');
+      }
+    } catch {}
+    handleClearPendingAccess();
+    setShowRequest(true);
   };
 
   useEffect(() => {
@@ -301,7 +383,7 @@ const Login = () => {
           nome_emergencia_2: requestForm.nome_emergencia_2 || null,
           vinculo_emergencia_2: requestForm.vinculo_emergencia_2 || null,
           supervisor_id: selectedSupervisor === 'nenhum' ? null : selectedSupervisor || null,
-          gerente_id: selectedGerente || null,
+          gerente_id: selectedGerente === 'nenhum' ? null : selectedGerente || null,
           data_admissao: requestForm.data_admissao || null,
           data_nascimento: requestForm.data_nascimento || null,
           password: requestForm.senha
@@ -309,6 +391,14 @@ const Login = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
+      
+      const newId = data?.id;
+      if (newId) {
+         const accessState = { id: newId, status: 'pendente', email: requestForm.email };
+         setPendingAccess(accessState);
+         localStorage.setItem('pending_access', JSON.stringify(accessState));
+      }
+
       toast.success('Solicitação enviada! O administrador será notificado.');
       setShowRequest(false);
       setRequestForm({
@@ -399,7 +489,7 @@ const Login = () => {
             <img src={logo} alt="Grupo New" className="h-12 mx-auto" />
           </div>
 
-          {!pendingReset ? (
+          {!pendingReset && !pendingAccess ? (
             <>
               <div className="text-center space-y-2">
                 <div className="w-14 h-14 rounded-2xl gradient-hero flex items-center justify-center mx-auto mb-4 shadow-brand animate-[pulse_3s_ease-in-out_infinite]">
@@ -501,8 +591,8 @@ const Login = () => {
               </div>
             </>
           ) : (
-            <div className="space-y-6 text-center animate-in fade-in zoom-in duration-500">
-               {pendingReset.status === 'pendente' && (
+            <div className="space-y-6 text-center animate-in fade-in zoom-in duration-500 flex flex-col items-center w-full">
+               {pendingReset && pendingReset.status === 'pendente' && (
                  <>
                   <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-6">
                     <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -517,7 +607,7 @@ const Login = () => {
                   </Button>
                  </>
                )}
-               {pendingReset.status === 'aprovado' && (
+               {pendingReset && pendingReset.status === 'aprovado' && (
                  <>
                   <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center mx-auto mb-6">
                     <CheckCircle2 className="w-8 h-8 text-emerald-500" />
@@ -526,7 +616,7 @@ const Login = () => {
                   <p className="text-sm text-muted-foreground">Sua senha foi atualizada com sucesso. Redirecionando...</p>
                  </>
                )}
-               {pendingReset.status === 'devolvido' && (
+               {pendingReset && pendingReset.status === 'devolvido' && (
                  <>
                   <div className="w-16 h-16 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-6">
                     <AlertCircle className="w-8 h-8 text-amber-500" />
@@ -542,7 +632,7 @@ const Login = () => {
                   </Button>
                  </>
                )}
-               {pendingReset.status === 'rejeitado' && (
+               {pendingReset && pendingReset.status === 'rejeitado' && (
                  <>
                   <div className="w-16 h-16 rounded-full bg-red-500/10 flex items-center justify-center mx-auto mb-6">
                     <AlertCircle className="w-8 h-8 text-red-500" />
@@ -560,6 +650,63 @@ const Login = () => {
                   </Button>
                  </>
                )}
+            </div>
+
+          {pendingAccess && (
+            <div className="w-full max-w-md bg-card border border-border/50 rounded-2xl p-8 shadow-xl animate-fade-in relative overflow-hidden backdrop-blur-xl">
+              {pendingAccess.status === 'pendente' && (
+                <div className="text-center space-y-6 relative z-10">
+                  <div className="w-20 h-20 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto animate-pulse">
+                    <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-2xl font-bold font-display text-foreground">Solicitação em Análise</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      Sua solicitação de acesso foi enviada. O administrador, supervisor e gerente foram notificados. Aguarde a aprovação.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {pendingAccess.status === 'devolvido' && (
+                <div className="text-center space-y-6 relative z-10">
+                  <div className="w-20 h-20 bg-orange-500/10 rounded-full flex items-center justify-center mx-auto">
+                    <AlertCircle className="w-10 h-10 text-orange-500" />
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-2xl font-bold font-display text-foreground">Atenção Necessária</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      Sua solicitação de acesso foi devolvida com a seguinte observação:
+                    </p>
+                    <div className="bg-orange-500/10 text-orange-600 p-4 rounded-xl text-sm italic font-medium">
+                      "{pendingAccess.motivo_recusa || 'Nenhuma justificativa informada'}"
+                    </div>
+                  </div>
+                  <Button onClick={handleCorrigirAcesso} className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-semibold transition-all shadow-brand hover:shadow-brand-hover">
+                    Corrigir Dados
+                  </Button>
+                </div>
+              )}
+
+              {pendingAccess.status === 'rejeitado' && (
+                <div className="text-center space-y-6 relative z-10">
+                  <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto">
+                    <AlertCircle className="w-10 h-10 text-red-500" />
+                  </div>
+                  <div className="space-y-4">
+                    <h3 className="text-2xl font-bold font-display text-foreground">Acesso Negado</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      Lamentamos, mas sua solicitação de acesso foi rejeitada.
+                    </p>
+                    <div className="bg-red-500/10 text-red-600 p-4 rounded-xl text-sm italic font-medium">
+                      "{pendingAccess.motivo_recusa || 'Nenhuma justificativa informada'}"
+                    </div>
+                  </div>
+                  <Button onClick={handleClearPendingAccess} variant="outline" className="w-full h-12 border-red-200 text-red-600 hover:bg-red-50 transition-all">
+                    Voltar ao Início
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </div>

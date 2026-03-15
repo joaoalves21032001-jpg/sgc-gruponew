@@ -37,14 +37,14 @@ serve(async (req) => {
       encrypted_password = encode(password);
     }
 
-    const { error: insertError } = await supabaseAdmin.from('access_requests').insert({
+    const { data: insertedData, error: insertError } = await supabaseAdmin.from('access_requests').insert({
       ...requestData,
       encrypted_password
-    });
+    }).select('id').single();
 
     if (insertError) throw insertError;
 
-    return new Response(JSON.stringify({ success: true }), {
+    return new Response(JSON.stringify({ success: true, id: insertedData.id }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     });

@@ -71,7 +71,7 @@ export const MODULES_DEF: ResourceGroupDef[] = [
         resources: [
             { key: 'progresso',      label: 'Meu Progresso',      actions: VIEW_ONLY_ACTIONS },
             { key: 'notificacoes',   label: 'Notificações',        actions: VIEW_ONLY_ACTIONS },
-            { key: 'dashboard',      label: 'Dashboard',           actions: VIEW_ONLY_ACTIONS },
+            { key: 'dashboard',      label: 'Painel de Gestão',    actions: VIEW_ONLY_ACTIONS },
             { key: 'logs_auditoria', label: 'Logs de Auditoria',   actions: VIEW_ONLY_ACTIONS },
         ]
     },

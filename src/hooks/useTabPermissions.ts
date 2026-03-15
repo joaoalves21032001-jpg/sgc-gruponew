@@ -16,7 +16,7 @@ export const ALL_TABS = [
   { key: 'notificacoes', label: 'Notificações' },
   { key: 'inventario', label: 'Inventário' },
   { key: 'aprovacoes', label: 'Aprovações' },
-  { key: 'gestao', label: 'Dashboard (Gestão)' },
+  { key: 'gestao', label: 'Painel de Gestão' },
 ];
 
 // Hook: fetch own tab permissions
