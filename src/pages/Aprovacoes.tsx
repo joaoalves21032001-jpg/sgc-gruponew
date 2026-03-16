@@ -662,6 +662,10 @@ const Aprovacoes = () => {
       data_admissao: req.data_admissao || '', data_nascimento: req.data_nascimento || '',
       numero_emergencia_1: maskPhone(req.numero_emergencia_1 || ''),
       numero_emergencia_2: maskPhone(req.numero_emergencia_2 || ''),
+      nome_emergencia_1: req.nome_emergencia_1 || '',
+      nome_emergencia_2: req.nome_emergencia_2 || '',
+      vinculo_emergencia_1: req.vinculo_emergencia_1 || '',
+      vinculo_emergencia_2: req.vinculo_emergencia_2 || '',
       mensagem: req.mensagem || '',
     });
     setEditAccessReq(req);
@@ -687,6 +691,10 @@ const Aprovacoes = () => {
         data_nascimento: editAccessForm.data_nascimento || null,
         numero_emergencia_1: editAccessForm.numero_emergencia_1 || null,
         numero_emergencia_2: editAccessForm.numero_emergencia_2 || null,
+        nome_emergencia_1: editAccessForm.nome_emergencia_1 || null,
+        nome_emergencia_2: editAccessForm.nome_emergencia_2 || null,
+        vinculo_emergencia_1: editAccessForm.vinculo_emergencia_1 || null,
+        vinculo_emergencia_2: editAccessForm.vinculo_emergencia_2 || null,
         mensagem: editAccessForm.mensagem || null,
       } as any).eq('id', editAccessReq.id);
       if (error) throw error;

@@ -40,7 +40,7 @@ serve(async (req) => {
       }
     }
 
-    const { email, nome_completo, celular, cpf, endereco, cargo, cargo_id, role, supervisor_id, gerente_id, numero_emergencia_1, nome_emergencia_1, numero_emergencia_2, nome_emergencia_2, data_admissao, data_nascimento } = body;
+    const { email, nome_completo, celular, cpf, rg, endereco, cargo, cargo_id, role, supervisor_id, gerente_id, numero_emergencia_1, nome_emergencia_1, vinculo_emergencia_1, numero_emergencia_2, nome_emergencia_2, vinculo_emergencia_2, data_admissao, data_nascimento, encrypted_password } = body;
 
     if (!email || !nome_completo) {
       return new Response(JSON.stringify({ error: "E-mail e nome completo são obrigatórios." }), {
@@ -121,6 +121,7 @@ serve(async (req) => {
       apelido: nome_completo.split(" ")[0],
       celular: celular || null,
       cpf: cpf || null,
+      rg: rg || null,
       endereco: endereco || null,
       cargo: cargo || "Consultor de Vendas",
       cargo_id: cargo_id || null,
@@ -129,8 +130,10 @@ serve(async (req) => {
       gerente_id: gerente_id || null,
       numero_emergencia_1: numero_emergencia_1 || null,
       nome_emergencia_1: nome_emergencia_1 || null,
+      vinculo_emergencia_1: vinculo_emergencia_1 || null,
       numero_emergencia_2: numero_emergencia_2 || null,
       nome_emergencia_2: nome_emergencia_2 || null,
+      vinculo_emergencia_2: vinculo_emergencia_2 || null,
       data_admissao: data_admissao || null,
       data_nascimento: data_nascimento || null,
       disabled: false,
@@ -141,6 +144,15 @@ serve(async (req) => {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // If the request came with an already-hashed password, set it directly
+    if (encrypted_password) {
+      try {
+        await supabaseAdmin.auth.admin.updateUserById(userId, {
+          password: encrypted_password,
+        });
+      } catch { /* non-critical – user can reset later */ }
     }
 
     // Update role if not consultor

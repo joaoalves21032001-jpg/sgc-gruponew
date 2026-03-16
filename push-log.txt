@@ -1,0 +1,43 @@
+﻿git : remote: error: GH013: Repository rule violations found for refs/heads/fix/password-reset-and-auth-route.        
+No linha:1 caractere:1
++ git push origin HEAD --force 2>&1 | Out-String -Width 120 | Out-File  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo              : NotSpecified: (r    emote: error: ...-rou    te.        :String) [    ], 
+RemoteException
+    + FullyQualifiedError    Id : NativeCommandErr    or
+ 
+remote: 
+remote: - GITHUB PUSH PROTECTION        
+remote:   ÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇ
+öÔÇöÔÇöÔÇöÔÇö        
+remote:     Resolve the following violations before pushing again        
+remote: 
+remote:     - Push cannot contain secrets        
+remote: 
+remote:             
+remote:      (?) Learn how to resolve a blocked push        
+remote:      https://docs.github.com/code-security/secret-scanning/working-with-secret-scanning-and-push-protection/work
+ing-with-push-protection-from-the-command-line#resolving-a-blocked-push        
+remote:             
+remote:      (?) This repository does not have Secret Scanning enabled, but is eligible. Enable Secret Scanning to view 
+and manage detected secrets.        
+remote:      Visit the repository settings page, 
+https://github.com/joaoalves21032001-jpg/sgc-gruponew/settings/security_analysis        
+remote:             
+remote:             
+remote:       ÔÇöÔÇö Supabase Secret Key 
+ÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇö        
+remote:        locations:        
+remote:          - commit: 646235ff89ffd70a3b176913454dc7698e0b2ecb        
+remote:            path: fix_admin3.mjs:12        
+remote:             
+remote:        (?) To push, remove secret from commit(s) or follow this URL to allow the secret.        
+remote:        https://github.com/joaoalves21032001-jpg/sgc-gruponew/security/secret-scanning/unblock-secret/3Ay9vWOu0h5
+IYZ5SZMsmzN5qmre        
+remote:             
+remote: 
+remote: 
+To https://github.com/joaoalves21032001-jpg/sgc-gruponew.git
+ ! [remote rejected] HEAD -> fix/password-reset-and-auth-route (push declined due to repository rule violations)
+error: failed to push some refs to 'https://github.com/joaoalves21032001-jpg/sgc-gruponew.git'
+

@@ -191,7 +191,14 @@ const Login = () => {
         .single();
       
       if (!error && data) {
-         setPendingAccess(prev => prev ? ({ ...prev, status: data.status || 'pendente', motivo_recusa: data.motivo_recusa || undefined }) : null);
+        const newStatus = data.status || 'pendente';
+        // Se já está aprovado ao carregar, desbloquear imediatamente
+        if (newStatus === 'aprovado') {
+          toast.success('Acesso Liberado! O administrador aprovou o seu cadastro.');
+          handleClearPendingAccess();
+          return;
+        }
+        setPendingAccess(prev => prev ? ({ ...prev, status: newStatus, motivo_recusa: data.motivo_recusa || undefined }) : null);
       }
     };
     fetchStatus();

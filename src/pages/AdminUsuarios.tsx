@@ -544,6 +544,7 @@ const AdminUsuarios = () => {
                       className="h-8 w-8 text-primary hover:bg-primary/10"
                       onClick={(e) => { e.stopPropagation(); setPwdResetConfirm(p); setNewPassword(''); }}
                       title="Configurar Nova Senha"
+                      disabled={(p as any).is_protected}
                     >
                       <Shield className="w-3.5 h-3.5" />
                     </Button>
@@ -555,6 +556,7 @@ const AdminUsuarios = () => {
                       className="h-8 w-8 text-primary hover:bg-primary/10"
                       onClick={(e) => { e.stopPropagation(); setMfaResetConfirm(p); }}
                       title="Resetar MFA"
+                      disabled={(p as any).is_protected}
                     >
                       <KeyRound className="w-3.5 h-3.5" />
                     </Button>
@@ -566,6 +568,7 @@ const AdminUsuarios = () => {
                       className={`h-8 w-8 ${isDisabled ? 'text-success hover:bg-success/10' : 'text-warning hover:bg-warning/10'}`}
                       onClick={(e) => { e.stopPropagation(); setDisableConfirm(p); }}
                       title={isDisabled ? 'Reativar' : 'Desabilitar'}
+                      disabled={(p as any).is_protected}
                     >
                       {isDisabled ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Ban className="w-3.5 h-3.5" />}
                     </Button>
@@ -577,6 +580,7 @@ const AdminUsuarios = () => {
                       className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0"
                       onClick={(e) => { e.stopPropagation(); setDeleteConfirm(p); }}
                       title="Excluir"
+                      disabled={(p as any).is_protected}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>

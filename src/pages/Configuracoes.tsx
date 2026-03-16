@@ -251,6 +251,8 @@ const Configuracoes = () => {
     };
     const [confirmDeleteCargoId, setConfirmDeleteCargoId] = useState<string | null>(null);
     const [expandedCargoResources, setExpandedCargoResources] = useState<Set<string>>(new Set());
+    const [confirmTogglePermOpen, setConfirmTogglePermOpen] = useState(false);
+    const [pendingTogglePerm, setPendingTogglePerm] = useState<{ type: 'profile'|'cargo', id: string, resource: string, action: string, name: string } | null>(null);
 
     // Notification Rules
     const { data: notifRules = [], isLoading: nrLoading } = useNotificationRules();
@@ -657,24 +659,33 @@ const Configuracoes = () => {
         const existing = profilePerms.find(p => p.resource === resource && p.action === action);
         const newAllowed = !(existing?.allowed ?? false);
 
-        const performToggle = () => {
-            togglePerm.mutate({ profileId: selectedProfileId, resource, action, allowed: newAllowed });
+        const executeToggle = () => {
+            const performToggle = () => {
+                togglePerm.mutate({ profileId: selectedProfileId, resource, action, allowed: newAllowed });
+            };
+
+            if (sp?.is_protected) {
+                requireAdminAuth(
+                    sp.id,
+                    sp.name || '', 
+                    performToggle, 
+                    { 
+                        passwordHash: sp?.protection_password,
+                        mfaSecret: sp?.protection_mfa_secret
+                    }
+                );
+                return;
+            }
+            
+            performToggle();
         };
 
-        if (sp?.is_protected) {
-            requireAdminAuth(
-                sp.id,
-                sp.name || '', 
-                performToggle, 
-                { 
-                    passwordHash: sp?.protection_password,
-                    mfaSecret: sp?.protection_mfa_secret
-                }
-            );
-            return;
+        if (newAllowed === false) {
+            setPendingTogglePerm({ type: 'profile', id: selectedProfileId, resource, action, name: sp?.name || 'Perfil' });
+            setConfirmTogglePermOpen(true);
+        } else {
+            executeToggle();
         }
-        
-        performToggle();
     };
 
     const handleCreateCargo = async () => {
@@ -783,31 +794,41 @@ const Configuracoes = () => {
 
         const cargo = cargos.find((c: any) => c.id === selectedCargoId);
         
-        const performToggle = () => {
-            const existing = cargoPerms.find(p => p.resource === resource && p.action === action);
-            const newAllowed = !(existing?.allowed ?? false);
-            toggleCargoPerm.mutate(
-                { cargoId: selectedCargoId, resource, action, allowed: newAllowed },
-                {
-                    onError: (err: any) => {
-                        toast.error(`Erro ao salvar permissão: ${err.message || 'Falha na rede'}`);
+        const existing = cargoPerms.find(p => p.resource === resource && p.action === action);
+        const newAllowed = !(existing?.allowed ?? false);
+
+        const executeToggle = () => {
+            const performToggle = () => {
+                toggleCargoPerm.mutate(
+                    { cargoId: selectedCargoId, resource, action, allowed: newAllowed },
+                    {
+                        onError: (err: any) => {
+                            toast.error(`Erro ao salvar permissão: ${err.message || 'Falha na rede'}`);
+                        }
                     }
-                }
-            );
+                );
+            };
+
+            if (cargo?.is_protected) {
+                requireAdminAuth(
+                    cargo.id,
+                    cargo.nome,
+                    performToggle,
+                    {
+                        passwordHash: (cargo as any).protection_password,
+                        mfaSecret: (cargo as any).protection_mfa_secret
+                    }
+                );
+            } else {
+                performToggle();
+            }
         };
 
-        if (cargo?.is_protected) {
-            requireAdminAuth(
-                cargo.id,
-                cargo.nome,
-                performToggle,
-                {
-                    passwordHash: (cargo as any).protection_password,
-                    mfaSecret: (cargo as any).protection_mfa_secret
-                }
-            );
+        if (newAllowed === false) {
+            setPendingTogglePerm({ type: 'cargo', id: selectedCargoId, resource, action, name: cargo?.nome || 'Cargo' });
+            setConfirmTogglePermOpen(true);
         } else {
-            performToggle();
+            executeToggle();
         }
     };
 
