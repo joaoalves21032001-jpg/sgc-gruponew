@@ -182,45 +182,61 @@ const Login = () => {
 
   useEffect(() => {
     if (!pendingAccess?.id) return;
+    let isMounted = true;
 
     const fetchStatus = async () => {
-      const { data, error } = await supabase
-        .from('access_requests')
-        .select('status, motivo_recusa')
-        .eq('id', pendingAccess.id)
-        .single();
-      
-      if (!error && data) {
-        const newStatus = data.status || 'pendente';
-        // Se já está aprovado ao carregar, desbloquear imediatamente
-        if (newStatus === 'aprovado') {
-          toast.success('Acesso Liberado! O administrador aprovou o seu cadastro.');
-          handleClearPendingAccess();
-          return;
+      try {
+        const { data, error } = await supabase
+          .from('access_requests')
+          .select('status, motivo_recusa')
+          .eq('id', pendingAccess.id)
+          .single();
+
+        if (!isMounted) return;
+
+        if (!error && data) {
+          const newStatus = data.status || 'pendente';
+          if (newStatus === 'aprovado') {
+            toast.success('Acesso Liberado! O administrador aprovou o seu cadastro.');
+            setPendingAccess(null);
+            localStorage.removeItem('pending_access');
+            return;
+          }
+          setPendingAccess(prev => prev ? ({ ...prev, status: newStatus, motivo_recusa: data.motivo_recusa || undefined }) : null);
         }
-        setPendingAccess(prev => prev ? ({ ...prev, status: newStatus, motivo_recusa: data.motivo_recusa || undefined }) : null);
-      }
+        // Se error (ex: RLS bloqueia anon), silencioso — realtime e botão manual compensam
+      } catch { /* ignorar */ }
     };
+
     fetchStatus();
+    // Polling a cada 5s como fallback ao Realtime
+    const pollInterval = setInterval(fetchStatus, 5000);
 
     const channel = supabase
-      .channel(`public:access_requests:id=eq.${pendingAccess.id}`)
+      .channel(`access-req-watch-${pendingAccess.id}`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'access_requests', filter: `id=eq.${pendingAccess.id}` },
+        { event: 'UPDATE', schema: 'public', table: 'access_requests' },
         (payload) => {
-          const { status, motivo_recusa } = payload.new as any;
+          const updated = payload.new as any;
+          if (updated.id !== pendingAccess.id) return;
+          if (!isMounted) return;
+          const { status, motivo_recusa } = updated;
           setPendingAccess(prev => prev ? { ...prev, status, motivo_recusa } : null);
-          
           if (status === 'aprovado') {
-             toast.success('Acesso Liberado! O administrador aprovou o seu cadastro.');
-             setTimeout(() => handleClearPendingAccess(), 3000);
+            toast.success('Acesso Liberado! O administrador aprovou o seu cadastro.');
+            setTimeout(() => {
+              setPendingAccess(null);
+              localStorage.removeItem('pending_access');
+            }, 2500);
           }
         }
       )
       .subscribe();
 
     return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
       supabase.removeChannel(channel);
     };
   }, [pendingAccess?.id]);
@@ -702,6 +718,16 @@ const Login = () => {
                     <p className="text-sm text-muted-foreground leading-relaxed">
                       Sua solicitação de acesso foi enviada. O acesso está em análise e em breve você irá obter o retorno.
                     </p>
+                  </div>
+                  <div className="space-y-3 pt-2">
+                    <p className="text-xs text-muted-foreground">Já recebeu aprovação por outro canal?</p>
+                    <Button
+                      variant="outline"
+                      className="w-full h-11 font-semibold"
+                      onClick={handleClearPendingAccess}
+                    >
+                      Já tenho acesso — Ir para o Login
+                    </Button>
                   </div>
                 </div>
               )}
