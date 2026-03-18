@@ -102,6 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(newSession?.user ?? null);
       
       if (event === 'SIGNED_OUT' || !newSession) {
+        _queryClient?.clear();
         setHasProfile(false);
         setMfaChecked(true);
         setNeedsMfa(false);
@@ -112,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Only restart loading if the user actually changed or we didn't have one in state
         const isNewUser = currentUserRef.current !== newUserId;
         if (isNewUser) {
+          _queryClient?.clear();
           setHasProfile(null);
           setMfaChecked(false);
           setLoading(true); // Restart loading flow for profile + mfa

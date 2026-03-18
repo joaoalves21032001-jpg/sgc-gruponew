@@ -545,7 +545,7 @@ const Configuracoes = () => {
     const handleCreateProfile = async () => {
         const canEditProfiles =
             hasPermission(myPermissions, 'configuracoes', 'edit') ||
-            hasCargoPermission(myCargoPermissions, 'config.permissoes', 'edit');
+            hasPermission(myPermissions, '', '');
         if (!canEditProfiles) {
             toast.error('Você não tem permissão para criar perfis de segurança.');
             return;
@@ -571,7 +571,7 @@ const Configuracoes = () => {
     const handleUpdateProfile = async () => {
         const canEditProfiles =
             hasPermission(myPermissions, 'configuracoes', 'edit') ||
-            hasCargoPermission(myCargoPermissions, 'config.permissoes', 'edit');
+            hasPermission(myPermissions, '', '');
         if (!canEditProfiles) {
             toast.error('Você não tem permissão para editar perfis de segurança.');
             return;
@@ -612,7 +612,7 @@ const Configuracoes = () => {
     const handleDeleteProfile = async () => {
         const canEditProfiles =
             hasPermission(myPermissions, 'configuracoes', 'edit') ||
-            hasCargoPermission(myCargoPermissions, 'config.permissoes', 'edit');
+            hasPermission(myPermissions, '', '');
         if (!canEditProfiles) {
             toast.error('Você não tem permissão para excluir perfis de segurança.');
             return;
@@ -645,7 +645,7 @@ const Configuracoes = () => {
         if (!selectedProfileId) return;
         const canEdit =
             hasPermission(myPermissions, 'configuracoes', 'edit') ||
-            hasCargoPermission(myCargoPermissions, 'config.permissoes', 'edit');
+            hasPermission(myPermissions, '', '');
         if (!canEdit) {
             toast.error('Você não tem permissão para editar configurações.');
             return;
@@ -682,7 +682,7 @@ const Configuracoes = () => {
     const handleCreateCargo = async () => {
         const canEditCargos =
             hasPermission(myPermissions, 'configuracoes', 'edit') ||
-            hasCargoPermission(myCargoPermissions, 'config.cargos', 'edit');
+            hasPermission(myPermissions, '', '');
         if (!canEditCargos) {
             toast.error('Você não tem permissão para criar novos cargos.');
             return;
@@ -711,7 +711,7 @@ const Configuracoes = () => {
     const handleUpdateCargo = async () => {
         const canEditCargos =
             hasPermission(myPermissions, 'configuracoes', 'edit') ||
-            hasCargoPermission(myCargoPermissions, 'config.cargos', 'edit');
+            hasPermission(myPermissions, '', '');
         if (!canEditCargos) {
             toast.error('Você não tem permissão para editar cargos.');
             return;
@@ -754,7 +754,7 @@ const Configuracoes = () => {
     const handleDeleteCargo = async () => {
         const canEditCargos =
             hasPermission(myPermissions, 'configuracoes', 'edit') ||
-            hasCargoPermission(myCargoPermissions, 'config.cargos', 'edit');
+            hasPermission(myPermissions, '', '');
         if (!canEditCargos) {
             toast.error('Você não tem permissão para excluir cargos.');
             return;
@@ -773,7 +773,7 @@ const Configuracoes = () => {
         if (!selectedCargoId) return;
         const canEdit =
             hasPermission(myPermissions, 'configuracoes', 'edit') ||
-            hasCargoPermission(myCargoPermissions, 'config.cargos', 'edit');
+            hasPermission(myPermissions, '', '');
         if (!canEdit) {
             toast.error('Você não tem permissão para alterar permissões de cargos.');
             return;

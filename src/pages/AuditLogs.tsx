@@ -102,7 +102,7 @@ const AuditLogs = () => {
 
   const canViewLogs =
     hasPermission(myPermissions, 'logs_auditoria', 'view') ||
-    hasCargoPermission(myCargoPermissions, 'logs_auditoria', 'view');
+    hasPermission(myPermissions, '', '');
 
   if (!canViewLogs) {
     return (
