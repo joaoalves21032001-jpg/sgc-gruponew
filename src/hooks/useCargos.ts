@@ -296,7 +296,7 @@ export function hasCargoPermission(
     action: string
 ): boolean {
     // If permissions not loaded or empty, default to deny (safer)
-    if (!permissions || permissions.length === 0) return false;
+    if (!resource || !permissions || permissions.length === 0) return false;
 
     // Direct match: exact resource + action
     const direct = permissions.find(p => p.resource === resource && p.action === action);

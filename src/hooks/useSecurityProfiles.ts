@@ -326,7 +326,7 @@ export function useMyPermissions() {
 
                 merged.push({
                     id: cp.id,
-                    profile_id: profileId ?? cargoId,
+                    profile_id: profileId,
                     resource: cp.resource,
                     action: cp.action,
                     allowed: cp.allowed,
@@ -349,40 +349,27 @@ export function hasPermission(
     resource: string,
     action: string = 'view'
 ): boolean {
-    if (!permissions || permissions.length === 0) return false;
+    // Guard against undefined/null inputs
+    if (!resource || !permissions || permissions.length === 0) return false;
 
-    // Descobre o módulo Macro (Pai - Nível 1) correspondente à sub-guia atual (Nível 2)
-    let parentMacro = CARGO_TO_SP_MACRO[resource];
-    if (!parentMacro) {
-        const dot = resource.lastIndexOf('.');
-        if (dot !== -1) {
-            parentMacro = resource.substring(0, dot);
-        }
-    }
-
-    // 1. Hierarquia Mestra (Master Switch - Nível 1)
-    // Para acessar a sub-guia, o Perfil de Segurança DEVE permitir a ação primária do Módulo
-    if (parentMacro && parentMacro !== resource) {
-        // Converte ações granulares (ex: renderizar, aprovar, create) para a macro-ação (ex: edit)
-        const macroAction = CARGO_ACTION_TO_MACRO[action] ?? action;
-        const parentPerm = permissions.find(p => p.resource === parentMacro && p.action === macroAction);
-        
-        // Se a fechadura primária estiver trancada (false ou inexistente), NADA embaixo passa.
-        if (!parentPerm || parentPerm.allowed === false) {
-            return false;
-        }
-    }
-
-    // 2. Verificação Granular de Cargo (Nível 2)
-    // Após abrir o módulo mestre, checa se a sub-ação foi concedida
+    // Direct match: exact resource + action (useMyPermissions already pre-merged SP ceiling × cargo)
     const direct = permissions.find(p => p.resource === resource && p.action === action);
     if (direct) return direct.allowed;
 
-    // 3. Herança Padrão
-    // Se o cargo não possui especificidade para essa sub-ação (falso/ausente), mas a porta Mestra 
-    // está aberta e tem permissão global do módulo (ex: admin puro sem cargo restritivo), herda.
-    if (parentMacro && parentMacro !== resource) {
-        return true;
+    // Parent-level match fallback: if 'crm.leads', also check parent 'crm'
+    const dot = resource.lastIndexOf('.');
+    if (dot !== -1) {
+        const parent = resource.substring(0, dot);
+        const parentPerm = permissions.find(p => p.resource === parent && p.action === action);
+        if (parentPerm) return parentPerm.allowed;
+    }
+
+    // Macro resource fallback (cargo sub-resources mapped to SP macros)
+    const macro = CARGO_TO_SP_MACRO[resource];
+    if (macro && macro !== resource) {
+        const macroAction = CARGO_ACTION_TO_MACRO[action] ?? action;
+        const macroPerm = permissions.find(p => p.resource === macro && p.action === macroAction);
+        if (macroPerm) return macroPerm.allowed;
     }
 
     return false;
