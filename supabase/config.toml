@@ -1,0 +1,58 @@
+project_id = "kpnngvzswjgulmvgsbrn"
+
+[functions.send-notification]
+verify_jwt = false
+
+[functions.notify-access-request]
+verify_jwt = false
+
+[functions.admin-delete-user]
+verify_jwt = false
+
+[functions.admin-create-user]
+verify_jwt = false
+
+[functions.landing-lead]
+verify_jwt = false
+
+[functions.get-leaders]
+verify_jwt = false
+
+[functions.request-password-reset]
+verify_jwt = false
+
+[functions.resolve-password-reset]
+verify_jwt = false
+
+[functions.request-access]
+verify_jwt = false
+
+[functions.resolve-mfa-reset]
+verify_jwt = false
+
+[functions.resolve-access-request]
+verify_jwt = false
+
+[functions.cancel-password-reset]
+verify_jwt = false
+
+[functions.get-password-reset-status]
+verify_jwt = false
+
+[functions.copilot]
+enabled = true
+verify_jwt = false
+import_map = "./functions/copilot/deno.json"
+entrypoint = "./functions/copilot/index.ts"
+
+[functions.stark_watchdog]
+enabled = true
+verify_jwt = true
+import_map = "./functions/stark_watchdog/deno.json"
+entrypoint = "./functions/stark_watchdog/index.ts"
+
+[functions.reset-mfa-all]
+enabled = true
+verify_jwt = false
+import_map = "./functions/reset-mfa-all/deno.json"
+entrypoint = "./functions/reset-mfa-all/index.ts"

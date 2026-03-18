@@ -1,0 +1,138 @@
+﻿git : remote: error: 
+GH013: Repository 
+rule violations found 
+for refs/heads/main.  
+      
+No linha:1 caractere:1
++ git push origin 
+main --force 2> 
+push_error.txt ; cat 
+push_error.txt
++ ~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~
+~~~~
+    + CategoryInfo    
+          : NotSpeci  
+  fied: (remote: er   
+ ror: ...s/main.      
+      :String) []    
+, RemoteException
+    + FullyQualifiedE 
+   rrorId : NativeCo  
+  mmandError
+ 
+remote: 
+remote: - GITHUB PUSH 
+PROTECTION        
+remote:   ÔÇöÔÇöÔÇöÔÇö
+ÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔ
+ÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇ
+öÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇö
+ÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔ
+ÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇ
+ö        
+remote:     Resolve 
+the following 
+violations before 
+pushing again        
+remote: 
+remote:     - Push 
+cannot contain 
+secrets        
+remote: 
+remote:             
+remote:      (?) 
+Learn how to resolve 
+a blocked push        
+remote:      https://d
+ocs.github.com/code-se
+curity/secret-scanning
+/working-with-secret-s
+canning-and-push-prote
+ction/working-with-pus
+h-protection-from-the-
+command-line#resolving
+-a-blocked-push       
+ 
+remote:             
+remote:      (?) This 
+repository does not 
+have Secret Scanning 
+enabled, but is 
+eligible. Enable 
+Secret Scanning to 
+view and manage 
+detected secrets.     
+   
+remote:      Visit 
+the repository 
+settings page, https:/
+/github.com/joaoalves2
+1032001-jpg/sgc-grupon
+ew/settings/security_a
+nalysis        
+remote:             
+remote:             
+remote:       ÔÇöÔÇö 
+Supabase Secret Key ÔÇ
+öÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇö
+ÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔ
+ÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇ
+öÔÇöÔÇöÔÇöÔÇöÔÇöÔÇöÔÇö
+ÔÇö        
+remote:        
+locations:        
+remote:          - 
+commit: b0f02e143b6814
+5124b4f348339148ad3814
+580d        
+remote:            
+path: 
+admin_setup.cjs:5     
+   
+remote:          - 
+commit: b0f02e143b6814
+5124b4f348339148ad3814
+580d        
+remote:            
+path: 
+admin_setup.mjs:6     
+   
+remote:          - 
+commit: b0f02e143b6814
+5124b4f348339148ad3814
+580d        
+remote:            
+path: 
+debug_auth.ps1:2      
+  
+remote:             
+remote:        (?) To 
+push, remove secret 
+from commit(s) or 
+follow this URL to 
+allow the secret.     
+   
+remote:        https:/
+/github.com/joaoalves2
+1032001-jpg/sgc-grupon
+ew/security/secret-sca
+nning/unblock-secret/3
+Ap8ONHposTixlYrLaHKTDv
+WxAJ        
+remote:             
+remote: 
+remote: 
+To https://github.com/
+joaoalves21032001-jpg/
+sgc-gruponew.git
+ ! [remote rejected] 
+main -> main (push 
+declined due to 
+repository rule 
+violations)
+error: failed to push 
+some refs to 'https://
+github.com/joaoalves21
+032001-jpg/sgc-grupone
+w.git'

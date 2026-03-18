@@ -1,0 +1,2 @@
+[functions.copilot]
+verify_jwt = false

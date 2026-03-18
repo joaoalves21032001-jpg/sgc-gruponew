@@ -1,0 +1,1313 @@
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
+
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.1"
+  }
+  public: {
+    Tables: {
+      access_requests: {
+        Row: {
+          cargo: string | null
+          cpf: string | null
+          created_at: string
+          data_admissao: string | null
+          data_nascimento: string | null
+          email: string
+          encrypted_password: string | null
+          endereco: string | null
+          gerente_id: string | null
+          id: string
+          mensagem: string | null
+          motivo_recusa: string | null
+          nivel_acesso: string | null
+          nome: string
+          nome_emergencia_1: string | null
+          nome_emergencia_2: string | null
+          vinculo_emergencia_1: string | null
+          vinculo_emergencia_2: string | null
+          numero_emergencia_1: string | null
+          numero_emergencia_2: string | null
+          rg: string | null
+          status: string
+          supervisor_id: string | null
+          telefone: string | null
+        }
+        Insert: {
+          cargo?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          data_nascimento?: string | null
+          email: string
+          encrypted_password?: string | null
+          endereco?: string | null
+          gerente_id?: string | null
+          id?: string
+          mensagem?: string | null
+          motivo_recusa?: string | null
+          nivel_acesso?: string | null
+          nome: string
+          nome_emergencia_1?: string | null
+          nome_emergencia_2?: string | null
+          vinculo_emergencia_1?: string | null
+          vinculo_emergencia_2?: string | null
+          numero_emergencia_1?: string | null
+          numero_emergencia_2?: string | null
+          rg?: string | null
+          status?: string
+          supervisor_id?: string | null
+          telefone?: string | null
+        }
+        Update: {
+          cargo?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          data_nascimento?: string | null
+          email?: string
+          encrypted_password?: string | null
+          endereco?: string | null
+          gerente_id?: string | null
+          id?: string
+          mensagem?: string | null
+          motivo_recusa?: string | null
+          nivel_acesso?: string | null
+          nome?: string
+          nome_emergencia_1?: string | null
+          nome_emergencia_2?: string | null
+          vinculo_emergencia_1?: string | null
+          vinculo_emergencia_2?: string | null
+          numero_emergencia_1?: string | null
+          numero_emergencia_2?: string | null
+          rg?: string | null
+          status?: string
+          supervisor_id?: string | null
+          telefone?: string | null
+        }
+        Relationships: []
+      }
+      atividades: {
+        Row: {
+          cotacoes_enviadas: number
+          cotacoes_nao_respondidas: number | null
+          created_at: string
+          data: string
+          follow_up: number
+          id: string
+          ligacoes: number
+          mensagens: number
+          status: string
+          justificativa: string | null
+          justificativa_nao_resposta: string | null
+          justificativa_atraso: string | null
+          justificativa_baixa_resposta: string | null
+          follow_up_realizado: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cotacoes_enviadas?: number
+          cotacoes_fechadas?: number
+          cotacoes_nao_respondidas?: number | null
+          created_at?: string
+          data?: string
+          follow_up?: number
+          id?: string
+          ligacoes?: number
+          mensagens?: number
+          status?: string
+          justificativa?: string | null
+          justificativa_nao_resposta?: string | null
+          justificativa_atraso?: string | null
+          justificativa_baixa_resposta?: string | null
+          follow_up_realizado?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cotacoes_enviadas?: number
+          cotacoes_fechadas?: number
+          cotacoes_nao_respondidas?: number | null
+          created_at?: string
+          data?: string
+          follow_up?: number
+          id?: string
+          ligacoes?: number
+          mensagens?: number
+          status?: string
+          justificativa?: string | null
+          justificativa_nao_resposta?: string | null
+          justificativa_atraso?: string | null
+          justificativa_baixa_resposta?: string | null
+          follow_up_realizado?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      audit_log_config: {
+        Row: {
+          category: string
+          created_at: string | null
+          enabled: boolean
+          event_key: string
+          event_label: string
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string | null
+          enabled?: boolean
+          event_key: string
+          event_label: string
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          enabled?: boolean
+          event_key?: string
+          event_label?: string
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json | null
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          user_id: string
+          user_name: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id: string
+          user_name?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json | null
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          user_id?: string
+          user_name?: string | null
+        }
+        Relationships: []
+      }
+      cargos: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_system: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      cargo_permissions: {
+        Row: {
+          action: string
+          allowed: boolean | null
+          cargo_id: string
+          id: string
+          resource: string
+        }
+        Insert: {
+          action?: string
+          allowed?: boolean | null
+          cargo_id: string
+          id?: string
+          resource: string
+        }
+        Update: {
+          action?: string
+          allowed?: boolean | null
+          cargo_id?: string
+          id?: string
+          resource?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cargo_permissions_cargo_id_fkey"
+            columns: ["cargo_id"]
+            isOneToOne: false
+            referencedRelation: "cargos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      companhias: {
+        Row: {
+          created_at: string
+          id: string
+          logo_url: string | null
+          nome: string
+          meta_titulo: number | null
+          nome_titulo: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          nome: string
+          meta_titulo?: number | null
+          nome_titulo?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          nome?: string
+          meta_titulo?: number | null
+          nome_titulo?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      correction_requests: {
+        Row: {
+          admin_resposta: string | null
+          created_at: string
+          id: string
+          motivo: string
+          registro_id: string
+          status: string
+          tipo: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_resposta?: string | null
+          created_at?: string
+          id?: string
+          motivo: string
+          registro_id: string
+          status?: string
+          tipo: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_resposta?: string | null
+          created_at?: string
+          id?: string
+          motivo?: string
+          registro_id?: string
+          status?: string
+          tipo?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      cotacoes: {
+        Row: {
+          co_participacao: string | null
+          com_dental: boolean | null
+          companhia_nome: string | null
+          consultor_recomendado_id: string | null
+          contato: string
+          created_at: string
+          email: string | null
+          id: string
+          lead_id: string | null
+          modalidade: string | null
+          motivo_recusa: string | null
+          nome: string
+          produto_nome: string | null
+          quantidade_vidas: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          co_participacao?: string | null
+          com_dental?: boolean | null
+          companhia_nome?: string | null
+          consultor_recomendado_id?: string | null
+          contato: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          modalidade?: string | null
+          motivo_recusa?: string | null
+          nome: string
+          produto_nome?: string | null
+          quantidade_vidas?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          co_participacao?: string | null
+          com_dental?: boolean | null
+          companhia_nome?: string | null
+          consultor_recomendado_id?: string | null
+          contato?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          lead_id?: string | null
+          modalidade?: string | null
+          motivo_recusa?: string | null
+          nome?: string
+          produto_nome?: string | null
+          quantidade_vidas?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotacoes_consultor_recomendado_id_fkey"
+            columns: ["consultor_recomendado_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotacoes_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_stages: {
+        Row: {
+          cor: string
+          created_at: string
+          created_by: string | null
+          id: string
+          nome: string
+          ordem: number
+          updated_at: string
+        }
+        Insert: {
+          cor?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome: string
+          ordem?: number
+          updated_at?: string
+        }
+        Update: {
+          cor?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome?: string
+          ordem?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          boletos_path: string | null
+          cartao_cnpj_path: string | null
+          cnpj: string | null
+          comprovante_endereco_path: string | null
+          contato: string | null
+          cpf: string | null
+          created_at: string
+          created_by: string | null
+          doc_foto_path: string | null
+          email: string | null
+          endereco: string | null
+          id: string
+          idade: number | null
+          livre: boolean
+          nome: string
+          origem: string | null
+          stage_id: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          boletos_path?: string | null
+          cartao_cnpj_path?: string | null
+          cnpj?: string | null
+          comprovante_endereco_path?: string | null
+          contato?: string | null
+          cpf?: string | null
+          created_at?: string
+          created_by?: string | null
+          doc_foto_path?: string | null
+          email?: string | null
+          endereco?: string | null
+          id?: string
+          idade?: number | null
+          livre?: boolean
+          nome: string
+          origem?: string | null
+          stage_id?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          boletos_path?: string | null
+          cartao_cnpj_path?: string | null
+          cnpj?: string | null
+          comprovante_endereco_path?: string | null
+          contato?: string | null
+          cpf?: string | null
+          created_at?: string
+          created_by?: string | null
+          doc_foto_path?: string | null
+          email?: string | null
+          endereco?: string | null
+          id?: string
+          idade?: number | null
+          livre?: boolean
+          nome?: string
+          origem?: string | null
+          stage_id?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leads_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "lead_stages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mfa_reset_requests: {
+        Row: {
+          admin_id: string | null
+          admin_resposta: string | null
+          created_at: string | null
+          id: string
+          motivo: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          admin_id?: string | null
+          admin_resposta?: string | null
+          created_at?: string | null
+          id?: string
+          motivo: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          admin_id?: string | null
+          admin_resposta?: string | null
+          created_at?: string | null
+          id?: string
+          motivo?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      mfa_trusted_devices: {
+        Row: {
+          created_at: string
+          device_hash: string
+          id: string
+          trusted_until: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_hash: string
+          id?: string
+          trusted_until: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_hash?: string
+          id?: string
+          trusted_until?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      modalidades: {
+        Row: {
+          created_at: string
+          documentos_obrigatorios: string[]
+          documentos_opcionais: string[]
+          id: string
+          nome: string
+          quantidade_vidas: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          documentos_obrigatorios?: string[]
+          documentos_opcionais?: string[]
+          id?: string
+          nome: string
+          quantidade_vidas?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          documentos_obrigatorios?: string[]
+          documentos_opcionais?: string[]
+          id?: string
+          nome?: string
+          quantidade_vidas?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      notification_rules: {
+        Row: {
+          audience: string
+          audiences: string[] | null
+          created_at: string | null
+          enabled: boolean | null
+          event_key: string
+          event_label: string
+          id: string
+        }
+        Insert: {
+          audience: string
+          audiences?: string[] | null
+          created_at?: string | null
+          enabled?: boolean | null
+          event_key: string
+          event_label: string
+          id?: string
+        }
+        Update: {
+          audience?: string
+          audiences?: string[] | null
+          created_at?: string | null
+          enabled?: boolean | null
+          event_key?: string
+          event_label?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          lida: boolean
+          link: string | null
+          tipo: string
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          lida?: boolean
+          link?: string | null
+          tipo?: string
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          lida?: boolean
+          link?: string | null
+          tipo?: string
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      password_reset_requests: {
+        Row: {
+          encrypted_password: string
+          id: string
+          motivo: string
+          requested_at: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string | null
+          user_id: string
+          admin_resposta: string | null
+        }
+        Insert: {
+          encrypted_password: string
+          id?: string
+          motivo: string
+          requested_at?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+          user_id: string
+          admin_resposta?: string | null
+        }
+        Update: {
+          encrypted_password?: string
+          id?: string
+          motivo?: string
+          requested_at?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string | null
+          user_id?: string
+          admin_resposta?: string | null
+        }
+        Relationships: []
+      }
+      premiacoes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          descricao: string | null
+          id: string
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          descricao?: string | null
+          id?: string
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      produtos: {
+        Row: {
+          companhia_id: string
+          created_at: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          companhia_id: string
+          created_at?: string
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          companhia_id?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "produtos_companhia_id_fkey"
+            columns: ["companhia_id"]
+            isOneToOne: false
+            referencedRelation: "companhias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          acoes_desabilitadas: boolean
+          apelido: string | null
+          atividades_desabilitadas: boolean
+          avatar_url: string | null
+          cargo: string
+          cargo_id: string | null
+          celular: string | null
+          codigo: string | null
+          cpf: string | null
+          created_at: string
+          data_admissao: string | null
+          data_nascimento: string | null
+          disabled: boolean
+          email: string
+          endereco: string | null
+          gerente_id: string | null
+          id: string
+          meta_faturamento: number | null
+          nome_completo: string
+          nome_emergencia_1: string | null
+          nome_emergencia_2: string | null
+          vinculo_emergencia_1: string | null
+          vinculo_emergencia_2: string | null
+          numero_emergencia_1: string | null
+          numero_emergencia_2: string | null
+          progresso_desabilitado: boolean
+          rg: string | null
+          security_profile_id: string | null
+          supervisor_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          acoes_desabilitadas?: boolean
+          apelido?: string | null
+          atividades_desabilitadas?: boolean
+          avatar_url?: string | null
+          cargo?: string
+          cargo_id?: string | null
+          celular?: string | null
+          codigo?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          data_nascimento?: string | null
+          disabled?: boolean
+          email: string
+          endereco?: string | null
+          gerente_id?: string | null
+          id: string
+          meta_faturamento?: number | null
+          nome_completo: string
+          nome_emergencia_1?: string | null
+          nome_emergencia_2?: string | null
+          vinculo_emergencia_1?: string | null
+          vinculo_emergencia_2?: string | null
+          numero_emergencia_1?: string | null
+          numero_emergencia_2?: string | null
+          progresso_desabilitado?: boolean
+          rg?: string | null
+          security_profile_id?: string | null
+          supervisor_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          acoes_desabilitadas?: boolean
+          apelido?: string | null
+          atividades_desabilitadas?: boolean
+          avatar_url?: string | null
+          cargo?: string
+          cargo_id?: string | null
+          celular?: string | null
+          codigo?: string | null
+          cpf?: string | null
+          created_at?: string
+          data_admissao?: string | null
+          data_nascimento?: string | null
+          disabled?: boolean
+          email?: string
+          endereco?: string | null
+          gerente_id?: string | null
+          id?: string
+          meta_faturamento?: number | null
+          nome_completo?: string
+          nome_emergencia_1?: string | null
+          nome_emergencia_2?: string | null
+          vinculo_emergencia_1?: string | null
+          vinculo_emergencia_2?: string | null
+          numero_emergencia_1?: string | null
+          numero_emergencia_2?: string | null
+          progresso_desabilitado?: boolean
+          rg?: string | null
+          security_profile_id?: string | null
+          supervisor_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_gerente_id_fkey"
+            columns: ["gerente_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_security_profile_id_fkey"
+            columns: ["security_profile_id"]
+            isOneToOne: false
+            referencedRelation: "security_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_supervisor_id_fkey"
+            columns: ["supervisor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profiles_cargo_id_fkey"
+            columns: ["cargo_id"]
+            isOneToOne: false
+            referencedRelation: "cargos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      security_profile_permissions: {
+        Row: {
+          action: string
+          allowed: boolean | null
+          id: string
+          profile_id: string
+          resource: string
+        }
+        Insert: {
+          action?: string
+          allowed?: boolean | null
+          id?: string
+          profile_id: string
+          resource: string
+        }
+        Update: {
+          action?: string
+          allowed?: boolean | null
+          id?: string
+          profile_id?: string
+          resource?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_profile_permissions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "security_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      security_profiles: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          is_system: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_system?: boolean | null
+          name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      system_config: {
+        Row: {
+          key: string
+          updated_at: string
+          updated_by: string | null
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          updated_by?: string | null
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: string
+        }
+        Relationships: []
+      }
+      system_settings: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_tab_permissions: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          tab_key: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          tab_key: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          tab_key?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      venda_documentos: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size: number | null
+          id: string
+          nome: string
+          tipo: string
+          venda_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          nome: string
+          tipo: string
+          venda_id: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          nome?: string
+          tipo?: string
+          venda_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venda_documentos_venda_id_fkey"
+            columns: ["venda_id"]
+            isOneToOne: false
+            referencedRelation: "vendas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vendas: {
+        Row: {
+          created_at: string
+          dados_completos: string | null
+          data_lancamento: string | null
+          id: string
+          justificativa_retroativo: string | null
+          modalidade: Database["public"]["Enums"]["venda_modalidade"]
+          nome_titular: string
+          observacoes: string | null
+          status: Database["public"]["Enums"]["venda_status"]
+          updated_at: string
+          user_id: string
+          valor: number | null
+          vidas: number
+        }
+        Insert: {
+          created_at?: string
+          dados_completos?: string | null
+          data_lancamento?: string | null
+          id?: string
+          justificativa_retroativo?: string | null
+          modalidade: Database["public"]["Enums"]["venda_modalidade"]
+          nome_titular: string
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["venda_status"]
+          updated_at?: string
+          user_id: string
+          valor?: number | null
+          vidas?: number
+        }
+        Update: {
+          created_at?: string
+          dados_completos?: string | null
+          data_lancamento?: string | null
+          id?: string
+          justificativa_retroativo?: string | null
+          modalidade?: Database["public"]["Enums"]["venda_modalidade"]
+          nome_titular?: string
+          observacoes?: string | null
+          status?: Database["public"]["Enums"]["venda_status"]
+          updated_at?: string
+          user_id?: string
+          valor?: number | null
+          vidas?: number
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      can_access_user_data: {
+        Args: { _target_user_id: string }
+        Returns: boolean
+      }
+      check_reusable_email: { Args: { _email: string }; Returns: boolean }
+      cleanup_old_audit_logs: { Args: never; Returns: undefined }
+      cleanup_read_notifications: { Args: never; Returns: undefined }
+      has_permission: {
+        Args: { p_action: string; p_resource: string; p_user_id: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: { Args: never; Returns: boolean }
+      is_consultor_under_me: {
+        Args: { _target_user_id: string }
+        Returns: boolean
+      }
+      is_gerente: { Args: never; Returns: boolean }
+      is_supervisor: { Args: never; Returns: boolean }
+      reset_user_mfa: { Args: { target_user_id: string }; Returns: Json }
+    }
+    Enums: {
+      app_role: "consultor" | "supervisor" | "gerente" | "administrador"
+      venda_modalidade:
+        | "PF"
+        | "Familiar"
+        | "PME Multi"
+        | "Empresarial"
+        | "Adesão"
+      venda_status:
+        | "analise"
+        | "pendente"
+        | "aprovado"
+        | "recusado"
+        | "devolvido"
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+}
+
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
+
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
+
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
+
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
+
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
+
+export const Constants = {
+  public: {
+    Enums: {
+      app_role: ["consultor", "supervisor", "gerente", "administrador"],
+      venda_modalidade: [
+        "PF",
+        "Familiar",
+        "PME Multi",
+        "Empresarial",
+        "Adesão",
+      ],
+      venda_status: [
+        "analise",
+        "pendente",
+        "aprovado",
+        "recusado",
+        "devolvido",
+      ],
+    },
+  },
+} as const
