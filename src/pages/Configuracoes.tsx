@@ -676,12 +676,7 @@ const Configuracoes = () => {
             performToggle();
         };
 
-        if (newAllowed === false) {
-            setPendingTogglePerm({ type: 'profile', id: selectedProfileId, resource, action, name: sp?.name || 'Perfil' });
-            setConfirmTogglePermOpen(true);
-        } else {
-            executeToggle();
-        }
+        executeToggle();
     };
 
     const handleCreateCargo = async () => {
@@ -816,12 +811,7 @@ const Configuracoes = () => {
             }
         };
 
-        if (newAllowed === false) {
-            setPendingTogglePerm({ type: 'cargo', id: selectedCargoId, resource, action, name: cargo?.nome || 'Cargo' });
-            setConfirmTogglePermOpen(true);
-        } else {
-            executeToggle();
-        }
+        executeToggle();
     };
 
     const isCargoPermAllowed = (resource: string, action: string): boolean => {
