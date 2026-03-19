@@ -293,7 +293,7 @@ const Aprovacoes = () => {
   const { user } = useAuth(); // Import user for hierarchy matching
 
   // Helper flags
-   // Or check a specific admin flag
+  const isSuperAdmin = role === 'administrador'; // Or check a specific admin flag
 
   const { data: vendas = [], isLoading: loadingVendas } = useTeamVendas();
   const { data: atividades = [], isLoading: loadingAtiv } = useTeamAtividades();
@@ -429,7 +429,8 @@ const Aprovacoes = () => {
     hasPermission(myPermissions, 'aprovacoes.cotacoes', 'analyze') ||
     hasPermission(myPermissions, 'aprovacoes.alteracoes', 'analyze') ||
     hasPermission(myPermissions, 'aprovacoes.mfa', 'approve') ||
-    hasPermission(myPermissions, '', '');
+    hasCargoPermission(myCargoPerms, 'aprovacao_admin_senha', 'aprovar') ||
+    isSuperAdmin;
 
   if (!canViewAnyAprovacao) {
     return (
@@ -1327,7 +1328,7 @@ const Aprovacoes = () => {
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
               <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
               <div className="flex items-center gap-2 flex-wrap">
-                {(hasPermission(myPermissions, 'aprovacoes', 'edit')) && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && (
                   <>
                     <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
                       <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
@@ -1340,7 +1341,7 @@ const Aprovacoes = () => {
                     </Button>
                   </>
                 )}
-                {hasPermission(myPermissions, '', '') && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_atividades', 'aprovar') && (
                   <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
                     <Trash2 className="w-4 h-4" /> Excluir
                   </Button>
@@ -1398,7 +1399,7 @@ const Aprovacoes = () => {
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedAtiv(a); setAtivJustificativa(''); }}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
-                        { (hasPermission(myPermissions, 'aprovacoes', 'edit')) && (
+                        { (hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && (
                           <>
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" disabled={ativStatus !== 'pendente'} onClick={() => handleAtivAction(a, 'aprovado')}>
                               <CheckCircle2 className="w-4 h-4" /> Aprovar
@@ -1432,7 +1433,7 @@ const Aprovacoes = () => {
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
               <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
               <div className="flex items-center gap-2 flex-wrap">
-                {(hasPermission(myPermissions, 'aprovacoes', 'edit')) && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && (
                   <>
                     <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
                       <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
@@ -1445,7 +1446,7 @@ const Aprovacoes = () => {
                     </Button>
                   </>
                 )}
-                {hasPermission(myPermissions, '', '') && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_vendas', 'excluir') && (
 <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
                     <Trash2 className="w-4 h-4" /> Excluir
                   </Button>
@@ -1501,7 +1502,7 @@ const Aprovacoes = () => {
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => { setSelectedVenda(v); setObs(v.observacoes || ''); setJustificativa(''); }}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
-                        { (hasPermission(myPermissions, 'aprovacoes', 'edit')) && (
+                        { (hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && (
                           <>
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" disabled={!isPending} onClick={() => handleVendaAction(v, 'aprovado')}>
                               <CheckCircle2 className="w-4 h-4" /> Aprovar
@@ -1541,7 +1542,7 @@ const Aprovacoes = () => {
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
               <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
               <div className="flex items-center gap-2 flex-wrap">
-                {(hasPermission(myPermissions, 'aprovacoes', 'edit')) && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && (
                   <>
                     <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
                       <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
@@ -1551,7 +1552,7 @@ const Aprovacoes = () => {
                     </Button>
                   </>
                 )}
-                {hasPermission(myPermissions, '', '') && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_cotacoes', 'excluir') && (
 <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
                     <Trash2 className="w-4 h-4" /> Excluir
                   </Button>
@@ -1608,7 +1609,7 @@ const Aprovacoes = () => {
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => setViewCotacao(c)}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
-                        {c.status === 'pendente' && hasPermission(myPermissions, '', '') && (
+                        {c.status === 'pendente' && (hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_cotacoes', 'aprovar') && (
                           <>
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleApproveCotacao(c)} disabled={savingCotacao}>
                               <CheckCircle2 className="w-4 h-4" /> Aprovar
@@ -1621,7 +1622,7 @@ const Aprovacoes = () => {
                             </Button>
                           </>
                         )}
-                        {hasPermission(myPermissions, '', '') && (
+                        {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_cotacoes', 'excluir') && (
 <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteCotacao(c)}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
@@ -1648,7 +1649,7 @@ const Aprovacoes = () => {
             {selectedItems.size > 0 && bulkActionTab === 'acesso' && (
               <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
                 <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
-                {(hasPermission(myPermissions, 'aprovacoes', 'edit')) && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && (
                   <div className="flex items-center gap-2 flex-wrap">
                     <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
                       <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
@@ -1704,7 +1705,7 @@ const Aprovacoes = () => {
                           <Button variant="outline" size="sm" className="gap-1.5 font-semibold" onClick={() => setViewAccess(req)}>
                             <Eye className="w-4 h-4" /> Analisar
                           </Button>
-                          {req.status === 'pendente' && hasPermission(myPermissions, '', '') && (
+                          {req.status === 'pendente' && (hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_admin_acesso', 'aprovar') && (
                             <>
                               <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30" onClick={() => handleApproveAccess(req)} disabled={savingAccess}>
                                 <CheckCircle2 className="w-4 h-4" /> Aprovar
@@ -1717,7 +1718,7 @@ const Aprovacoes = () => {
                               </Button>
                             </>
                           )}
-                          {hasPermission(myPermissions, '', '') && (
+                          {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_admin_acesso', 'excluir') && (
 <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10" onClick={() => setDeleteAccess(req)}>
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
@@ -1750,7 +1751,7 @@ const Aprovacoes = () => {
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
               <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
               <div className="flex items-center gap-2 flex-wrap">
-                {(hasPermission(myPermissions, 'aprovacoes', 'edit')) && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && (
                   <>
                     <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
                       <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
@@ -1760,7 +1761,7 @@ const Aprovacoes = () => {
                     </Button>
                   </>
                 )}
-                {hasPermission(myPermissions, '', '') && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_admin_mfa', 'excluir') && (
                   <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
                     <Trash2 className="w-4 h-4" /> Excluir
                   </Button>
@@ -1817,7 +1818,7 @@ const Aprovacoes = () => {
                       <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => setViewMfaReq(req)}>
                         <Eye className="w-4 h-4" /> Analisar
                       </Button>
-                      {req.status === 'pendente' && hasPermission(myPermissions, '', '') && (
+                      {req.status === 'pendente' && (hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_admin_mfa', 'aprovar') && (
                         <>
                           <Button
                             size="sm"
@@ -1848,7 +1849,7 @@ const Aprovacoes = () => {
                           </Button>
                         </>
                       )}
-                      {hasPermission(myPermissions, '', '') && (
+                      {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_admin_mfa', 'excluir') && (
 <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
                           if (!confirm('Excluir esta solicitação?')) return;
                           try {
@@ -1875,7 +1876,7 @@ const Aprovacoes = () => {
             <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 mb-4 flex items-center justify-between animate-fade-in gap-3 flex-wrap shadow-sm">
               <span className="text-sm font-semibold text-primary">{selectedItems.size} selecionado(s)</span>
               <div className="flex items-center gap-2 flex-wrap">
-                {(hasPermission(myPermissions, 'aprovacoes', 'edit')) && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && (
                   <>
                     <Button size="sm" variant="outline" className="gap-1.5 text-success hover:bg-success/10 border-success/30" onClick={() => {setBulkActionType('aprovar'); setBulkMotivo('');}}>
                       <CheckCircle2 className="w-4 h-4" /> Aprovar Selecionados
@@ -1888,7 +1889,7 @@ const Aprovacoes = () => {
                     </Button>
                   </>
                 )}
-                {hasPermission(myPermissions, '', '') && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_admin_senha', 'excluir') && (
                   <Button size="sm" variant="outline" className="gap-1.5 text-destructive hover:bg-destructive/10 border-destructive/30" onClick={() => {setBulkActionType('excluir'); setBulkMotivo('');}}>
                     <Trash2 className="w-4 h-4" /> Excluir
                   </Button>
@@ -1915,7 +1916,7 @@ const Aprovacoes = () => {
               filteredPwd.map((req) => {
                 const sc = req.status === 'pendente' ? statusColors.pendente : req.status === 'aprovado' ? statusColors.aprovado : statusColors.devolvido;
                 const reqName = req.profiles?.nome_completo || getConsultorName(req.user_id);
-                const canEditMaster = hasPermission(myPermissions, 'aprovacoes', 'edit');
+                const canEditMaster = hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin;
                 return (
                   <div key={req.id} className="bg-card rounded-2xl border border-border/40 shadow-elevated hover-lift p-4 space-y-3 relative">
                     <div className="absolute top-4 left-4 z-10">
@@ -1945,7 +1946,7 @@ const Aprovacoes = () => {
                     </div>
                     
                     <div className="flex gap-1.5 shrink-0 flex-wrap justify-end mt-2">
-                      {canEditMaster && hasPermission(myPermissions, '', '') && (
+                      {canEditMaster && hasCargoPermission(myCargoPerms, 'aprovacao_admin_senha', 'aprovar') && (
                         <Button size="sm" variant="outline" className="gap-1.5 font-semibold" onClick={() => setViewPwdReq(req)}>
                           <Eye className="w-4 h-4" /> Analisar
                         </Button>
@@ -1953,7 +1954,7 @@ const Aprovacoes = () => {
                       
                       {req.status === 'pendente' && (
                         <>
-                          {canEditMaster && hasPermission(myPermissions, '', '') && (
+                          {canEditMaster && hasCargoPermission(myCargoPerms, 'aprovacao_admin_senha', 'aprovar') && (
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-success hover:bg-success/10 border-success/30"
                               disabled={savingPwdReset}
                               onClick={async () => {
@@ -1971,7 +1972,7 @@ const Aprovacoes = () => {
                             </Button>
                           )}
                           
-                          {canEditMaster && hasPermission(myPermissions, '', '') && (
+                          {canEditMaster && hasCargoPermission(myCargoPerms, 'aprovacao_admin_senha', 'aprovar') && (
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-primary hover:bg-primary/10 border-primary/30"
                               disabled={savingPwdReset}
                               onClick={() => { setDevolverPwdReq(req); setDevolverPwdReason(''); }}
@@ -1980,7 +1981,7 @@ const Aprovacoes = () => {
                             </Button>
                           )}
 
-                          {canEditMaster && hasPermission(myPermissions, '', '') && (
+                          {canEditMaster && hasCargoPermission(myCargoPerms, 'aprovacao_admin_senha', 'aprovar') && (
                             <Button size="sm" variant="outline" className="gap-1.5 font-semibold text-orange-500 hover:bg-orange-500/10 border-orange-500/30"
                               onClick={() => { setRejectPwdReq(req); setRejectPwdReason(''); }}
                             >
@@ -1989,7 +1990,7 @@ const Aprovacoes = () => {
                           )}
                         </>
                       )}
-                      {canEditMaster && hasPermission(myPermissions, '', '') && (
+                      {canEditMaster && hasCargoPermission(myCargoPerms, 'aprovacao_admin_senha', 'excluir') && (
                         <Button size="icon" variant="outline" className="h-8 w-8 text-destructive hover:bg-destructive/10 shrink-0" onClick={async () => {
                           if (!confirm('Excluir esta solicitação de senha?')) return;
                           try {
@@ -2021,8 +2022,8 @@ const Aprovacoes = () => {
         setJustificativa={setJustificativa}
         onAction={handleVendaAction}
         onReject={(v: Venda) => { setSelectedVenda(null); setIsRejectingVenda(true); setDevolverVenda(v); setDevolverVendaMotivo(justificativa); }}
-        canEdit={hasPermission(myPermissions, '', '')}
-        canDelete={hasPermission(myPermissions, '', '')}
+        canEdit={(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_vendas', 'aprovar')}
+        canDelete={(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_vendas', 'excluir')}
         onDelete={async (v: Venda) => {
           if (!confirm('Excluir esta venda?')) return;
           try {
@@ -2061,7 +2062,7 @@ const Aprovacoes = () => {
                 <Textarea value={ativJustificativa} onChange={(e) => setAtivJustificativa(e.target.value)} placeholder="Obrigatório para devolver. Explique o motivo..." rows={3} className="border-border/40" />
               </div>
               <div className="flex gap-2 flex-wrap">
-                {hasPermission(myPermissions, '', '') && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_atividades', 'aprovar') && (
                   <>
                     <Button onClick={() => handleAtivAction(selectedAtiv, 'aprovado')} disabled={savingAtiv} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
                       <CheckCircle2 className="w-5 h-5" /> Aprovar
@@ -2087,7 +2088,7 @@ const Aprovacoes = () => {
                     </Button>
                   </>
                 )}
-                {hasPermission(myPermissions, '', '') && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_atividades', 'excluir') && (
                   <Button variant="destructive" className="flex-1 font-semibold gap-1.5" size="lg" onClick={async () => {
                     if (!confirm('Excluir esta atividade?')) return;
                     try {
@@ -2237,7 +2238,7 @@ const Aprovacoes = () => {
                 </div>
               )}
               <div className="flex gap-2 flex-wrap pt-4">
-                {(hasPermission(myPermissions, 'aprovacoes', 'edit')) && viewAccess.status === 'pendente' && hasPermission(myPermissions, '', '') && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && viewAccess.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin_acesso', 'aprovar') && (
                   <>
                     <Button onClick={() => { handleApproveAccess(viewAccess); setViewAccess(null); }} disabled={savingAccess} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
                       <CheckCircle2 className="w-5 h-5" /> Aprovar
@@ -2250,7 +2251,7 @@ const Aprovacoes = () => {
                     </Button>
                   </>
                 )}
-                {hasPermission(myPermissions, '', '') && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_admin_acesso', 'excluir') && (
 <Button variant="destructive" className="flex-1 font-semibold gap-1.5" size="lg" onClick={() => { setDeleteAccess(viewAccess); setViewAccess(null); }}>
                     <Trash2 className="w-5 h-5" /> Excluir
                   </Button>
@@ -2466,7 +2467,7 @@ const Aprovacoes = () => {
                 </div>
               )}
               <div className="flex gap-2 flex-wrap pt-4">
-                {hasPermission(myPermissions, '', '') && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_cotacoes', 'aprovar') && (
                   <>
                     <Button onClick={() => { handleApproveCotacao(viewCotacao); setViewCotacao(null); }} disabled={savingCotacao} className="flex-1 bg-success hover:bg-success/90 text-success-foreground font-semibold gap-1.5" size="lg">
                       <CheckCircle2 className="w-5 h-5" /> Aprovar
@@ -2479,7 +2480,7 @@ const Aprovacoes = () => {
                     </Button>
                   </>
                 )}
-                {hasPermission(myPermissions, '', '') && (
+                {(hasPermission(myPermissions, 'aprovacoes', 'edit') || isSuperAdmin) && hasCargoPermission(myCargoPerms, 'aprovacao_cotacoes', 'aprovar') && (
                   <Button variant="destructive" className="flex-1 font-semibold gap-1.5" size="lg" onClick={() => { setDeleteCotacao(viewCotacao); setViewCotacao(null); }}>
                     <Trash2 className="w-5 h-5" /> Excluir
                   </Button>
@@ -2968,7 +2969,7 @@ const Aprovacoes = () => {
                 </div>
               )}
               <div className="flex gap-2 flex-wrap pt-2">
-                {viewMfaReq.status === 'pendente' && hasPermission(myPermissions, '', '') && (
+                {viewMfaReq.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin_mfa', 'aprovar') && (
                   <>
                     <Button onClick={async () => {
                       setSavingMfaReset(true);
@@ -3021,7 +3022,7 @@ const Aprovacoes = () => {
                 </div>
               </div>
               <div className="flex gap-2 flex-wrap pt-2">
-                {viewPwdReq.status === 'pendente' && hasPermission(myPermissions, '', '') && (
+                {viewPwdReq.status === 'pendente' && hasCargoPermission(myCargoPerms, 'aprovacao_admin_senha', 'aprovar') && (
                   <>
                     <Button onClick={async () => {
                       setSavingPwdReset(true);

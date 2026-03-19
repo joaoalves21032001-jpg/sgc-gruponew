@@ -197,7 +197,7 @@ export default function SalesWizard() {
   const navigate = useNavigate();
   const { data: myPermissions } = useMyPermissions();
   const { data: cargoPermissions } = useMyCargoPermissions();
-  const canEditVenda = hasPermission);
+  const canEditVenda = hasPermission(myPermissions, 'atividades', 'edit') && hasCargoPermission(cargoPermissions, 'atividades.vendas', 'edit');
 
   // Edit mode: editing an existing venda from Minhas Ações
   const [editVendaId, setEditVendaId] = useState<string | null>(null);

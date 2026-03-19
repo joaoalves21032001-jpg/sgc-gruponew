@@ -133,7 +133,7 @@ function AtividadesTab({ editAtividade }: { editAtividade?: any }) {
   const navigate = useNavigate();
   const { data: myPermissions } = useMyPermissions();
   const { data: cargoPermissions } = useMyCargoPermissions();
-  const canEdit = hasPermission);
+  const canEdit = hasPermission(myPermissions, 'atividades', 'edit') && hasCargoPermission(cargoPermissions, 'atividades.atividades', 'edit');
   const submitCR = useSubmitCorrectionRequest();
   const [showConfirm, setShowConfirm] = useState(false);
   const [showChangeConfirm, setShowChangeConfirm] = useState(false);
@@ -781,10 +781,10 @@ const Comercial = () => {
   const { data: myPermissions } = useMyPermissions();
   const { data: cargoPermissions } = useMyCargoPermissions();
 
-  const canViewAtividades = hasPermission);
-  const canViewNovaVenda = hasPermission);
+  const canViewAtividades = hasPermission(myPermissions, 'atividades', 'view') && hasCargoPermission(cargoPermissions, 'atividades.atividades', 'view');
+  const canViewNovaVenda = hasPermission(myPermissions, 'atividades', 'view') && hasCargoPermission(cargoPermissions, 'atividades.vendas', 'view');
   
-  const canEditAtividades = hasPermission);
+  const canEditAtividades = hasPermission(myPermissions, 'atividades', 'edit') && hasCargoPermission(cargoPermissions, 'atividades.atividades', 'edit');
 
 
   return (
