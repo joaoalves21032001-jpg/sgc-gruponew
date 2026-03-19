@@ -103,6 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       if (event === 'SIGNED_OUT' || !newSession) {
         _queryClient?.clear();
+        // Clear session-level MFA approval on logout
+        sessionStorage.removeItem('mfa_verified_uid');
         setHasProfile(false);
         setMfaChecked(true);
         setNeedsMfa(false);
@@ -110,15 +112,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         currentUserRef.current = null;
       } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        // Only restart loading if the user actually changed or we didn't have one in state
         const isNewUser = currentUserRef.current !== newUserId;
         if (isNewUser) {
           _queryClient?.clear();
+          // Clear session-level MFA approval only when user actually changes
+          sessionStorage.removeItem('mfa_verified_uid');
           setHasProfile(null);
           setMfaChecked(false);
-          setLoading(true); // Restart loading flow for profile + mfa
+          setLoading(true);
           currentUserRef.current = newUserId;
         }
+        // TOKEN_REFRESHED for SAME user: do NOT restart MFA check
+        // The session-level MFA approval (sessionStorage) covers this case
       }
     });
 
@@ -211,6 +216,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function performMfaCheck() {
       try {
+        // ── Fast path: MFA already verified in this tab session ──────────────
+        const sessionVerifiedUid = sessionStorage.getItem('mfa_verified_uid');
+        if (sessionVerifiedUid && sessionVerifiedUid === user!.id) {
+          setMfaVerified(true);
+          setNeedsMfa(false);
+          setMfaChecked(true);
+          setLoading(false);
+          mfaCheckInProgress.current = false;
+          return;
+        }
+
         const { data: aalData, error } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
         if (error || !aalData) {
           setNeedsMfa(false);
@@ -223,6 +239,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // User already authenticated at aal2 — fully verified
         if (currentLevel === 'aal2') {
+          // Save to session so we don't re-check on token refresh
+          sessionStorage.setItem('mfa_verified_uid', user!.id);
           setMfaVerified(true);
           setNeedsMfa(false);
           setMfaChecked(true);
@@ -243,6 +261,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               .maybeSingle();
 
             if (trusted) {
+              // Device is trusted — save to session to avoid future calls
+              sessionStorage.setItem('mfa_verified_uid', user!.id);
               setMfaVerified(true);
               setNeedsMfa(false);
               setMfaChecked(true);
@@ -258,8 +278,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // nextLevel === 'aal1' — no MFA enrolled, user is fine with password only
-        setNeedsMfa(true); // Prompt to enroll MFA (policy: all users must enroll)
+        // nextLevel === 'aal1' — no MFA enrolled, prompt to enroll
+        setNeedsMfa(true);
         setMfaVerified(false);
         setMfaChecked(true);
         setLoading(false);
