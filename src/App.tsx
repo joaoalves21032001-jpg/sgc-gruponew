@@ -97,9 +97,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function RbacGuard({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const { data: myPermissions, isLoading: pLoad } = useMyPermissions();
-  const { data: cargoPermissions, isLoading: cLoad } = useMyCargoPermissions();
 
-  if (pLoad || cLoad) {
+  if (pLoad) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
         <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -110,17 +109,11 @@ function RbacGuard({ children }: { children: React.ReactNode }) {
 
   const resourceKey = PATH_TO_RESOURCE[pathname];
   
-  if (resourceKey) {
-     const spAllowed = hasPermission(myPermissions, resourceKey, 'view');
-     const cargoAllowed = hasCargoPermission(cargoPermissions, resourceKey, 'view');
-     
-     // Block only if NEITHER security profile NOR cargo grants access
-     if (!spAllowed && !cargoAllowed) {
-        // Se já está na raiz e não tem acesso, mostra a tela de sem acesso
-        if (pathname === '/') return <NoAccessScreen />;
-        // Caso tente acessar outra página, joga pra home primeiro, e a home verifica o acesso
-        return <Navigate to="/" replace />;
-     }
+  // useMyPermissions already returns the merged result of (SP ceiling AND cargo).
+  // So we only need to check hasPermission here — no need for || hasCargoPermission.
+  if (resourceKey && !hasPermission(myPermissions, resourceKey, 'view')) {
+    if (pathname === '/') return <NoAccessScreen />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;

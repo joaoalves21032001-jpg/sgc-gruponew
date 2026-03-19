@@ -236,24 +236,33 @@ export function useMyPermissions() {
     const { data: profile } = useProfile();
 
     return useQuery({
-        queryKey: ['my-permissions', user?.id, profile?.cargo_id],
+        queryKey: ['my-permissions', user?.id, (profile as any)?.cargo_id, (profile as any)?.security_profile_id],
         queryFn: async () => {
-            const cargoId = profile?.cargo_id;
-            if (!cargoId) {
+            const cargoId = (profile as any)?.cargo_id as string | undefined;
+            // Security profile can come from the profile directly OR the linked cargo
+            const profileSpId = (profile as any)?.security_profile_id as string | undefined;
+
+            if (!cargoId && !profileSpId) {
                 return null;
             }
-            
-            // Fetch cargo to find security_profile_id (used as ceiling / fallback)
-            const result = await supabase
-                .from('cargos' as any)
-                .select('security_profile_id')
-                .eq('id', cargoId)
-                .maybeSingle();
-            const cargoData = result.data as any;
-            const cargoError = result.error;
-                
-            if (cargoError) throw cargoError;
-            const profileId = cargoData?.security_profile_id;
+
+            let profileId: string | null = null;
+
+            if (cargoId) {
+                // Fetch cargo to find security_profile_id (used as ceiling)
+                const result = await supabase
+                    .from('cargos' as any)
+                    .select('security_profile_id')
+                    .eq('id', cargoId)
+                    .maybeSingle();
+                const cargoData = result.data as any;
+                const cargoError = result.error;
+                if (cargoError) throw cargoError;
+                // Prefer cargo's SP; fall back to user's own SP
+                profileId = cargoData?.security_profile_id ?? profileSpId ?? null;
+            } else {
+                profileId = profileSpId ?? null;
+            }
 
             // Fetch linked SP permissions (ceiling)
             let spPerms: SecurityProfilePermission[] = [];
@@ -267,26 +276,22 @@ export function useMyPermissions() {
             }
 
             // Fetch cargo direct permissions (authority)
-            const { data: cpData, error: cpError } = await supabase
-                .from('cargo_permissions' as any)
-                .select('*')
-                .eq('cargo_id', cargoId);
-
-            if (cpError && cpError.code !== '42P01') throw cpError;
-
-            const cpPerms = (cpData ?? []) as any[];
+            let cpPerms: any[] = [];
+            if (cargoId) {
+                const { data: cpData, error: cpError } = await supabase
+                    .from('cargo_permissions' as any)
+                    .select('*')
+                    .eq('cargo_id', cargoId);
+                if (cpError && cpError.code !== '42P01') throw cpError;
+                cpPerms = (cpData ?? []) as any[];
+            }
 
             // ── If cargo has NO direct permissions → use SP as fallback ─────────────────
-            // The granular cargo authority only kicks in when cargo has explicit permissions.
-            // When cargo has none configured, SP defines the full access scope.
-            // To restrict a user, either: (a) configure cargo_permissions, or (b) link the
-            // cargo to a more restrictive SP.
             if (cpPerms.length === 0) {
                 return spPerms;
             }
 
             // ── Cargo has direct permissions → derive macro-level permissions from cargo ──
-            // Build: macroResource x action → allowed (OR of any child resource allowing it)
             const macroMatrix: Record<string, Record<string, boolean>> = {};
 
             for (const cp of cpPerms) {
@@ -294,7 +299,6 @@ export function useMyPermissions() {
                 const macroAction = CARGO_ACTION_TO_MACRO[cp.action] ?? 'view';
 
                 if (!macroMatrix[macro]) macroMatrix[macro] = {};
-                // OR semantics: if any child resource grants this macro action, allow it
                 if (cp.allowed) {
                     macroMatrix[macro][macroAction] = true;
                 } else if (macroMatrix[macro][macroAction] === undefined) {
@@ -303,21 +307,13 @@ export function useMyPermissions() {
             }
 
             // ── Apply SP as CEILING: cargo can only RESTRICT, never expand beyond SP ──────
-            // cargoAllowed logic:
-            //   true     → cargo explicitly allows this macro resource
-            //   false    → cargo explicitly denies (no child resource allows it)
-            //   undefined → cargo has no entry for this macro → SP decides
             const merged: SecurityProfilePermission[] = spPerms.map(sp => {
                 const cargoAllowed = macroMatrix[sp.resource]?.[sp.action];
-                // Only block if cargo explicitly says false; undefined defers to SP
                 return {
                     ...sp,
                     allowed: sp.allowed && (cargoAllowed !== false),
                 };
             });
-
-            // ── Add SP entries not in the matrix yet (with cargo denial) ──
-            // These were already processed above via spPerms.map
 
             // ── Append granular cargo permissions (micro layer) for in-module checks ──
             for (const cp of cpPerms) {
@@ -326,7 +322,7 @@ export function useMyPermissions() {
 
                 merged.push({
                     id: cp.id,
-                    profile_id: profileId,
+                    profile_id: profileId ?? cargoId,
                     resource: cp.resource,
                     action: cp.action,
                     allowed: cp.allowed,
